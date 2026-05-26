@@ -1,0 +1,1 @@
+﻿export default function ProgressBar({value=0}){ return <div><div style={{background:"#e5e7eb",height:8,borderRadius:8}}><div style={{width:`${value}%`,height:8,background:"#0f7a5d",borderRadius:8}} /></div><small>{value}%</small></div>; }
