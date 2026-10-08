@@ -1,0 +1,50 @@
+{
+  "name": "Finkison Education AI Operating System",
+  "short_name": "Finkison (ፈንክሶን)",
+  "description": "National University Entrance Examination & Curriculum AI Operating System for Ethiopian Students (Grades 9–12)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#040914",
+  "theme_color": "#F2B705",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "128x128 192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/finkison-logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "am-ET",
+  "shortcuts": [
+    {
+      "name": "Today's Study Plan",
+      "short_name": "Plan",
+      "url": "/student/study-plan",
+      "description": "AI-generated daily study plan based on your weak areas and EUEE topics"
+    },
+    {
+      "name": "Spaced Review",
+      "short_name": "Review",
+      "url": "/student/spaced-review",
+      "description": "Review concepts before you forget them — powered by FSRS algorithm"
+    },
+    {
+      "name": "Practice Exam",
+      "short_name": "Exam",
+      "url": "/student/exams",
+      "description": "Take national mock exams and EUEE past papers"
+    }
+  ]
+}

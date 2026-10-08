@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+  <defs>
+    <linearGradient id="wordmarkGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="50%" stop-color="#EA580C" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+  </defs>
+
+  <!-- Phoenix Emblem -->
+  <g transform="translate(10, 8) scale(2)">
+    <rect x="0" y="0" width="32" height="32" rx="8" fill="#070B18" stroke="#F59E0B" stroke-width="1.5" />
+    <!-- Center Head -->
+    <path d="M16 4L18 9L16 13L14 9L16 4Z" fill="url(#goldGrad)" />
+    <!-- Left Wing -->
+    <path d="M14 11C11 9 6 10 3 14C5 14 8 14.5 10 16C7 17 4 20 3 24C7 22 11 21 13 19L14 11Z" fill="url(#goldGrad)" />
+    <!-- Right Wing -->
+    <path d="M18 11C21 9 26 10 29 14C27 14 24 14.5 22 16C25 17 28 20 29 24C25 22 21 21 19 19L18 11Z" fill="url(#goldGrad)" />
+    <!-- Tail Flame -->
+    <path d="M16 14L18 21L16 30L14 21L16 14Z" fill="#06B6D4" />
+  </g>
+
+  <!-- Wordmark Text -->
+  <text x="85" y="44" font-family="system-ui, -apple-system, sans-serif" font-size="30" font-weight="900" fill="#FFFFFF" letter-spacing="-0.5">
+    Finkison
+  </text>
+  <!-- Amharic Subtitle -->
+  <text x="86" y="64" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#F59E0B" letter-spacing="1">
+    ፈንክሶን • ፊኒክስ
+  </text>
+</svg>

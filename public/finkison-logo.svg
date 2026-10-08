@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGrad512" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0B1528" />
+      <stop offset="100%" stop-color="#040814" />
+    </radialGradient>
+
+    <linearGradient id="borderGrad512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="50%" stop-color="#EA580C" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+
+    <linearGradient id="phoenixGold512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#EA580C" />
+    </linearGradient>
+
+    <linearGradient id="phoenixCyan512" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06B6D4" />
+      <stop offset="100%" stop-color="#10B981" />
+    </linearGradient>
+
+    <filter id="glow512" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#F59E0B" flood-opacity="0.45" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad512)" stroke="url(#borderGrad512)" stroke-width="8" />
+
+  <!-- Phoenix Vector Centered -->
+  <g transform="translate(64, 64) scale(12)" filter="url(#glow512)">
+    <path d="M16 3L18 8L16 12L14 8L16 3Z" fill="url(#phoenixGold512)" />
+    <circle cx="16" cy="7" r="1.5" fill="#FFFFFF" />
+    
+    <path d="M16 1L17.5 4.5H14.5L16 1Z" fill="#FDE047" />
+
+    <path d="M14 10C11 8 6 9 3 13C5 13 8 13.5 10 15C7 16 4 19 3 23C7 21 11 20 13 18L14 10Z" fill="url(#phoenixGold512)" />
+    <path d="M11 16C9 17 6 19 4 24C8 23 11 21 13 19L11 16Z" fill="url(#phoenixCyan512)" opacity="0.9" />
+
+    <path d="M18 10C21 8 26 9 29 13C27 13 24 13.5 22 15C25 16 28 19 29 23C25 21 21 20 19 18L18 10Z" fill="url(#phoenixGold512)" />
+    <path d="M21 16C23 17 26 19 28 24C24 23 21 21 19 19L21 16Z" fill="url(#phoenixCyan512)" opacity="0.9" />
+
+    <path d="M16 13L18 20L16 29L14 20L16 13Z" fill="url(#phoenixGold512)" />
+    <path d="M16 18L17.2 24L16 28L14.8 24L16 18Z" fill="url(#phoenixCyan512)" />
+  </g>
+</svg>
