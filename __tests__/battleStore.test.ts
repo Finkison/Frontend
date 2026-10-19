@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import useBattleStore from "../store/battleStore";
-import { BattleRoom } from "../types/battle";
+import useChallengeStore, { useBattleStore } from "../store/challengeStore";
+import { ChallengeRoom, BattleRoom } from "../types/challenge";
 
 describe("BattleStore Real-Time State Management", () => {
   beforeEach(() => {

@@ -1,73 +1,182 @@
-# 🇪🇹 Finkison Frontend — Academic Operating System (PWA)
+# Finkison Frontend
 
-Enterprise React 18 + TypeScript Progressive Web App (PWA) for **Finkison**, Ethiopia's premier learning engine designed to prepare Grade 9–12 students to score **500+ out of 600** on the Ethiopian University Entrance Examination (EUEE).
+Enterprise-grade frontend for Ethiopian University Entrance Exam (EUEE) preparation platform.
 
----
+## Tech Stack
 
-## 🌟 Key Up Learn-Grade Capabilities
-- **🧠 Spaced Repetition (SRS)**: Active recall cards scheduled dynamically via the FSRS algorithm (`/student/spaced-review`).
-- **📅 AI Daily Study Planner**: Personalized daily review agenda with real-time countdown to the EUEE exam (`/student/study-plan`).
-- **🕸️ Curriculum Knowledge Graph**: Interactive prerequisite tree visualizer mapping foundational Grade 9–10 concepts to high-yield Grade 12 units (`/student/knowledge-map`).
-- **📊 10-Year EUEE Past Paper Intelligence**: Historical topic frequency heatmap, speed-per-question target benchmarks, and university cutoff calibration (`/student/past-papers`).
-- **📶 Offline-First Architecture**: Intermittent internet resilience with IndexedDB local caching, Service Worker asset caching (`/sw.js`), and automatic background sync.
-- **🌐 Trilingual Localization**: Full UI and explanation support in English, Amharic (አማርኛ), and Afaan Oromoo.
-- **⚔️ 1v1 Battle Arena**: Live multi-player quiz competitions with ELO rating progression.
-- **🤖 Socratic AI Tutor**: Chat with an AI mentor calibrated to the Ethiopian National Curriculum.
+- **Framework**: React 18.2 + TypeScript 5.3
+- **Build Tool**: Vite 5
+- **State Management**: Zustand
+- **Routing**: React Router v6
+- **Styling**: Tailwind CSS
+- **HTTP Client**: Axios
+- **Icons**: Lucide React
+- **Charts**: Chart.js + React-ChartJS-2
+- **Animations**: Framer Motion
 
----
+## Quick Start
 
-## 🚀 Quick Start (Local Development)
+### Prerequisites
 
-### 1. Install Dependencies
+- Node.js >= 18.0.0
+- npm >= 9.0.0
+
+### Installation
+
 ```bash
+# Install dependencies
 npm install
-```
 
-### 2. Run Local Development Server
-```bash
+# Copy environment variables
+cp .env.example .env.development
+
+# Start development server
 npm run dev
 ```
-The application runs at `http://localhost:5173`. API requests to `/api/*` are automatically proxied to the Django backend at `http://127.0.0.1:8000`.
 
-### 3. Run Test Suite
+The app will be available at `http://localhost:3000`
+
+## Available Scripts
+
 ```bash
-npm test -- --run
+# Development
+npm run dev              # Start dev server
+npm run build            # Production build
+npm run preview          # Preview production build
+
+# Code Quality
+npm run lint             # Run ESLint
+npm run lint:fix         # Fix ESLint issues
+npm run type-check       # TypeScript type checking
+npm run format           # Format with Prettier
+npm run format:check     # Check formatting
+
+# Testing
+npm run test             # Run unit tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # Coverage report
+npm run test:e2e         # E2E tests with Playwright
+
+# Analysis
+npm run analyze          # Bundle size analysis
 ```
 
-### 4. Build for Production
-```bash
-npm run build
-```
-Generates an optimized bundle with automatic code splitting in `dist/`.
+## Project Structure
 
----
-
-## 📂 Project Structure
 ```text
 Frontend/
-├── components/
-│   ├── auth/            # Phone + OTP & Multi-tenant Login/Register
-│   ├── layouts/         # StudentLayout, ParentLayout, SchoolLayout
-│   ├── parent/          # ParentDashboard, ChildDetailView, AlertsPanel
-│   ├── school/          # SchoolDashboard, StudentTable, ClassView
-│   ├── shared/          # ErrorBoundary, MainNav, SideNav, TopNav, Toast
-│   └── student/         # StudyPlanner, SpacedReview, KnowledgeMap, PastPaperAnalyzer, etc.
-├── docs/                # Architecture specifications & runbooks
+├── components/          # Domain-partitioned UI components
+│   ├── auth/            # Authentication & onboarding components
+│   ├── landing/         # Public landing page sections & interactive hero
+│   ├── layouts/         # Layout shells (StudentLayout, TeacherLayout, SchoolLayout, ParentLayout)
+│   ├── navigation/      # Navigation bars, sidebar, and app shells
+│   ├── parent/          # Parent portal views
+│   ├── school/          # School administration views
+│   ├── science/         # Interactive STEM virtual labs
+│   ├── shared/          # Shared components (PageHeader, ErrorBoundary, MathText)
+│   ├── student/         # Candidate examination & learning views
+│   ├── teacher/         # Educator studio & assessment views
+│   ├── typography/      # Text primitives (SectionHeader, CardText, Meta)
+│   └── ui/              # Design system primitives (Button, Card, Input, Modal, Table, Toast)
+├── docs/                # Canonical documentation
+│   ├── architecture.md  # Client architecture, state management & routing
+│   ├── design_system.md # Color tokens, typography, accessibility & layout
+│   └── deployment.md    # Production builds, Docker & Nginx edge configuration
 ├── hooks/               # Custom React hooks
-├── i18n/                # Localization resources (en.json, am.json, om.json)
-├── pages/               # Route pages (Lazy loaded for optimal performance)
-├── public/              # manifest.json, sw.js, offline.html, icons
-├── services/            # Axios API services & offlineSync
-├── store/               # Zustand stores (learningStore, authStore, battleStore)
-├── utils/               # offlineDB (IndexedDB), localization, score calculators
-└── __tests__/           # Vitest unit test suites
+├── pages/               # Top-level route pages (Academics, AiFeatures, Schools, etc.)
+├── routes/              # Role-isolated route trees (StudentRoutes, TeacherRoutes, etc.)
+├── services/            # Typed REST API service bindings
+├── store/               # Zustand state stores (authStore, challengeStore, sessionStore, etc.)
+├── styles/              # Global styles & Tailwind configuration
+├── types/               # TypeScript domain type definitions
+└── utils/               # Pure utility helpers
 ```
 
----
+## Documentation
 
-## 🐳 Docker Deployment
+* [Frontend Architecture Specification](docs/architecture.md)
+* [Design System & Accessibility Standards (WCAG 2.2 AA)](docs/design_system.md)
+* [Frontend Deployment Runbook](docs/deployment.md)
+
+
+## Features
+
+### Student Portal
+- Dashboard with progress tracking
+- Exam taking interface with anti-cheat
+- Practice questions
+- Performance analytics
+
+### School Portal
+- Student management
+- Class & exam assignment
+- Analytics dashboard
+- Bulk operations
+
+### Parent Portal
+- Child monitoring
+- Progress reports
+- Communication with school
+
+### Core Features
+- JWT authentication with refresh tokens
+- Responsive design (mobile-first)
+- Dark mode ready
+- Internationalization ready
+
+## Environment Variables
+
+See `.env.example` for all available variables.
+
+Key variables:
+- `VITE_API_BASE_URL` - Backend API URL
+- `VITE_WS_URL` - WebSocket URL
+- `VITE_ENABLE_ANALYTICS` - Enable analytics
+
+## Build for Production
+
 ```bash
-docker build -t finkison-frontend .
-docker run -p 80:80 finkison-frontend
+# Build
+npm run build
+
+# Preview build locally
+npm run preview
+
+# Deploy dist/ folder to your hosting
 ```
-Nginx serves the production single-page application with caching headers and proxy pass support.
+
+## Performance
+
+- Initial bundle size: < 200KB gzipped
+- Code splitting by route
+- Lazy loading of heavy components
+- Image optimization
+- API response caching
+- Service worker caching
+
+## Browser Support
+
+- Chrome/Edge >= 90
+- Firefox >= 88
+- Safari >= 14
+- Mobile browsers (iOS Safari, Chrome Mobile)
+
+## Contributing
+
+1. Follow TypeScript strict mode (no `any` types)
+2. Use ESLint + Prettier for code style
+3. Write unit tests for utilities and hooks
+4. Test on mobile devices
+5. Ensure accessibility (WCAG 2.1 AA)
+
+## Architecture Decisions
+
+- **Zustand over Redux**: Simpler API, less boilerplate, better TypeScript support
+- **Vite over Webpack**: Faster builds, better DX, modern defaults
+- **Tailwind over CSS-in-JS**: Utility-first, smaller bundle, better performance
+- **Axios over Fetch**: Interceptors, better error handling, request cancellation
+- **IndexedDB over LocalStorage**: More storage, structured data, async API
+
+## License
+
+Proprietary - Finkison EdTech Platform
