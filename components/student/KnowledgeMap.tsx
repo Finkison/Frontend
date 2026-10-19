@@ -263,25 +263,25 @@ export default function KnowledgeMap(): React.ReactElement {
       case "mastered":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <CheckCircle2 className="w-3 h-3" /> Mastered (90%+)
+            <CheckCircle2 className="w-3 h-3" /> Mastered
           </span>
         );
       case "in_progress":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-            <Brain className="w-3 h-3" /> In Progress
+            <Brain className="w-3 h-3" /> In progress
           </span>
         );
       case "needs_review":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
-            <AlertTriangle className="w-3 h-3" /> Forgetting Risk
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+            <AlertTriangle className="w-3 h-3" /> Review due
           </span>
         );
       case "locked":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-            <Lock className="w-3 h-3" /> Prerequisite Required
+            <Lock className="w-3 h-3" /> Prerequisites pending
           </span>
         );
     }
@@ -290,34 +290,33 @@ export default function KnowledgeMap(): React.ReactElement {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-[#0B1B3A] rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-blue-950">
+        <div className="absolute right-0 top-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold backdrop-blur-md border border-indigo-500/30">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-200 text-xs font-semibold backdrop-blur-md border border-blue-400/30">
               <Network className="w-3.5 h-3.5" />
-              <span>Cognitive Architecture & Prerequisite Dependency Engine</span>
+              <span>Curriculum prerequisites</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Curriculum Knowledge Graph
+              Curriculum knowledge graph
             </h1>
             <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-              Why students fail EUEE questions: they attempt Grade 12 concepts without Grade 9-10 mastery.
-              Our knowledge graph maps every prerequisite link so you eliminate foundational gaps and lock in 500+ out of 600.
+              Explore prerequisite topic dependencies and curriculum progression across Grades 9–12.
             </p>
           </div>
 
           <div className="flex sm:flex-col items-center sm:items-end gap-3 shrink-0">
             <div className="bg-white/10 backdrop-blur-md border border-white/15 px-4 py-2.5 rounded-2xl text-center">
               <div className="text-2xl font-black text-amber-400">{subjectStats.avgMastery}%</div>
-              <div className="text-[11px] text-slate-300 font-medium">Subject Mastery</div>
+              <div className="text-[11px] text-slate-300 font-medium">Subject mastery</div>
             </div>
             <button
               onClick={() => navigate("/student/spaced-review")}
               className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all cursor-pointer"
             >
               <Zap className="w-4 h-4 fill-slate-950" />
-              <span>Review Due Concepts</span>
+              <span>Review due concepts</span>
             </button>
           </div>
         </div>
@@ -370,7 +369,7 @@ export default function KnowledgeMap(): React.ReactElement {
               placeholder="Search concepts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#1D4ED8]"
             />
           </div>
         </div>
@@ -380,8 +379,8 @@ export default function KnowledgeMap(): React.ReactElement {
         
         <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between text-xs text-slate-500 font-semibold px-1">
-            <span>Prerequisite Learning Progression (Foundations → EUEE Mastery)</span>
-            <span>{filteredConcepts.length} Concepts Mapped</span>
+            <span>Topic progression</span>
+            <span>{filteredConcepts.length} concepts</span>
           </div>
 
           <div className="space-y-3">
@@ -395,13 +394,13 @@ export default function KnowledgeMap(): React.ReactElement {
                   onClick={() => setActiveConcept(concept)}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer relative group ${
                     isSelected
-                      ? "bg-white border-indigo-600 shadow-md ring-2 ring-indigo-500/20"
+                      ? "bg-white border-[#1D4ED8] shadow-md ring-2 ring-[#1D4ED8]/20"
                       : "bg-white border-slate-200/80 hover:border-slate-300 hover:shadow-xs"
                   }`}
                 >
                   
                   {hasPrereqs && (
-                    <div className="absolute -top-3 left-8 w-0.5 h-3 bg-indigo-300" />
+                    <div className="absolute -top-3 left-8 w-0.5 h-3 bg-blue-400" />
                   )}
 
                   <div className="flex items-start justify-between gap-4">
@@ -420,7 +419,7 @@ export default function KnowledgeMap(): React.ReactElement {
 
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-bold text-sm text-slate-900 group-hover:text-indigo-600 transition-colors">
+                          <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
                             {concept.name}
                           </h3>
                           {getStatusBadge(concept.status)}
@@ -446,7 +445,7 @@ export default function KnowledgeMap(): React.ReactElement {
                         />
                       </div>
                       <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">
-                        ~{concept.avgEueeMarks} EUEE Marks
+                        ~{concept.avgEueeMarks} exam marks
                       </span>
                     </div>
                   </div>
@@ -461,7 +460,7 @@ export default function KnowledgeMap(): React.ReactElement {
             <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
                     Grade {activeConcept.grade} • Unit {activeConcept.unit}
                   </span>
                   {getStatusBadge(activeConcept.status)}
@@ -481,7 +480,7 @@ export default function KnowledgeMap(): React.ReactElement {
                   <div className="text-lg font-black text-slate-900 mt-0.5">
                     {activeConcept.stabilityDays} Days
                   </div>
-                  <div className="text-[10px] text-slate-400">FSRS Retention Window</div>
+                  <div className="text-[10px] text-slate-400">Retention Window</div>
                 </div>
 
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
@@ -496,13 +495,13 @@ export default function KnowledgeMap(): React.ReactElement {
               {/* Prerequisite Chain Analysis */}
               <div className="space-y-2 pt-2 border-t border-slate-100">
                 <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <GraduationCap className="w-4 h-4 text-indigo-600" />
-                  <span>Prerequisite Dependency Check</span>
+                  <GraduationCap className="w-4 h-4 text-blue-600" />
+                  <span>Prerequisites</span>
                 </div>
 
                 {activeConcept.prerequisites.length === 0 ? (
                   <p className="text-xs text-emerald-700 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
-                    ✅ Foundation Concept: No prior prerequisites required. Start directly!
+                    Foundation concept without prerequisites.
                   </p>
                 ) : (
                   <div className="space-y-1.5">
@@ -537,21 +536,21 @@ export default function KnowledgeMap(): React.ReactElement {
                   className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4 text-amber-400" />
-                  <span>Practice Adaptive Questions for this Concept</span>
+                  <span>Practice topic</span>
                 </button>
 
                 <button
                   onClick={() => navigate("/student/ai-tutor")}
-                  className="w-full py-2.5 px-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl border border-indigo-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full py-2.5 px-4 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl border border-blue-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <Brain className="w-4 h-4" />
-                  <span>Socratic Tutor: Explain Why This Matters for EUEE</span>
+                  <span>Ask AI tutor</span>
                 </button>
               </div>
             </div>
           ) : (
             <div className="bg-white rounded-3xl border border-dashed border-slate-200 p-8 text-center text-slate-400 text-xs">
-              Select any concept node on the left to inspect prerequisite dependencies and mastery telemetry.
+              Select a concept from the list to view prerequisites and mastery details.
             </div>
           )}
         </div>

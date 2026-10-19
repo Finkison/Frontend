@@ -46,9 +46,9 @@ export default function SessionResults() {
     <div className="container" style={{ maxWidth: 800 }}>
       <div className="card" style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 24, padding: 30, marginBottom: 20 }}>
         <div>
-          <h2 style={{ color: "var(--navy)", marginBottom: 10 }}>Session Completed!</h2>
-          <p className="muted" style={{ marginBottom: 20 }}>
-            Great effort! Here is a breakdown of your accuracy, speed, and conceptual weak points identified in this session.
+          <h2 style={{ color: "var(--navy)", marginBottom: 8 }}>Session Completed</h2>
+          <p className="muted" style={{ marginBottom: 16 }}>
+            Accuracy, speed, and topic performance summary.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div style={{ padding: 12, background: "rgba(15, 39, 68, 0.02)", borderRadius: 8 }}>

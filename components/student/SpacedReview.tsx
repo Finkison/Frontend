@@ -62,7 +62,7 @@ export default function SpacedReview() {
         }
       }, 1500);
     } catch {
-      setFeedback("❌ Error submitting review. Please try again.");
+      setFeedback("Could not submit review. Check connection and retry.");
     }
   }, [currentReview, currentQuestion, currentIndex, dueReviews.length, handleReviewSubmit, fetchDueReviews, selectedAnswer, startTime]);
 
@@ -71,7 +71,7 @@ export default function SpacedReview() {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-3">
-          <Brain className="w-12 h-12 text-purple-500 animate-pulse mx-auto" />
+          <Brain className="w-12 h-12 text-blue-600 mx-auto" />
           <p className="text-slate-600">Loading your review queue...</p>
         </div>
       </div>
@@ -86,10 +86,10 @@ export default function SpacedReview() {
             <CheckCircle className="w-8 h-8 text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-emerald-900 mb-2">
-            🎉 All Reviews Complete!
+            Reviews Complete
           </h2>
           <p className="text-emerald-700 mb-1">
-            You've reviewed everything due today. Your memory is getting stronger!
+            You have reviewed all concepts scheduled for today.
           </p>
           {reviewedCount > 0 && (
             <p className="text-sm text-emerald-600 mt-3">
@@ -97,7 +97,7 @@ export default function SpacedReview() {
             </p>
           )}
           <p className="text-xs text-emerald-500 mt-4">
-            New reviews will appear as your spaced repetition schedule progresses.
+            New reviews will appear according to your spaced repetition schedule.
           </p>
         </div>
       </div>
@@ -109,11 +109,11 @@ export default function SpacedReview() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-            <Brain className="w-5 h-5 text-purple-600" />
+          <div className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center">
+            <Brain className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-900">Spaced Review</h1>
+            <h1 className="text-lg font-bold text-slate-900">Spaced review</h1>
             <p className="text-xs text-slate-500">
               {dueCount} concepts due · {reviewedCount} reviewed
             </p>
@@ -128,7 +128,7 @@ export default function SpacedReview() {
       {/* Progress bar */}
       <div className="w-full bg-slate-200 rounded-full h-2">
         <div
-          className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-500"
+          className="bg-[#1D4ED8] h-2 rounded-full transition-all duration-500"
           style={{ width: `${Math.min(100, (reviewedCount / Math.max(1, dueCount)) * 100)}%` }}
         />
       </div>
@@ -139,7 +139,7 @@ export default function SpacedReview() {
           <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
             {currentReview.subject}
           </span>
-          <span className="px-2.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+          <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-100">
             Mastery: {Math.round(currentReview.mastery_level * 100)}%
           </span>
           <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">
@@ -241,7 +241,7 @@ export default function SpacedReview() {
             </button>
           </div>
           {feedback && (
-            <p className="text-center text-sm text-slate-600 mt-2 animate-fade-in">
+            <p className="text-center text-sm text-slate-600 mt-2">
               {feedback}
             </p>
           )}

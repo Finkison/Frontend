@@ -45,20 +45,20 @@ export default function PracticeSetup() {
   return (
     <div className="container" style={{ maxWidth: 640 }}>
       <div className="card" style={{ padding: 24 }}>
-        <h2 style={{ marginBottom: 8, color: "var(--navy)" }}>Practice Setup</h2>
-        <p className="muted" style={{ marginBottom: 20 }}>
-          Configure your mock session. Choose topics to practice adaptive learning paths or standard mock tests.
+        <h2 style={{ marginBottom: 6, color: "var(--navy)" }}>Practice Setup</h2>
+        <p className="muted" style={{ marginBottom: 18 }}>
+          Select practice mode, subject, and topic.
         </p>
 
         {scope.isJuniorSecondary && (
-          <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46", fontSize: 12, marginBottom: 16 }}>
-            🎓 <strong>Grade {scope.gradeLevel} Unified Curriculum:</strong> You have full access to both Natural Science (Physics, Chemistry, Biology) and Social Science (History, Geography, Economics, Civics) courses.
+          <div style={{ padding: "8px 12px", borderRadius: 8, background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46", fontSize: 12, marginBottom: 16 }}>
+            <strong>Grade {scope.gradeLevel}:</strong> Access to all foundational natural and social science courses.
           </div>
         )}
 
         {!isAuthenticated && (
           <div className="alert-card info" style={{ marginBottom: 18 }}>
-            <p>Preview mode: Please sign in to save test history and unlock national rankings.</p>
+            <p>Sign in to record your test history and ranking.</p>
             <button className="btn secondary" onClick={() => navigate("/login")}>Sign In</button>
           </div>
         )}
@@ -67,15 +67,15 @@ export default function PracticeSetup() {
 
         <div style={{ display: "grid", gap: 16, marginBottom: 24 }}>
           <div className="form-group">
-            <label htmlFor="mode">Practice Mode</label>
+            <label htmlFor="mode">Mode</label>
             <select
               id="mode"
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value })}
             >
-              <option value="unit">Topic-focused Unit Practice</option>
-              <option value="semester">Cumulative Semester Assessment</option>
-              <option value="national">Full National Mock Exam</option>
+              <option value="unit">Unit Practice</option>
+              <option value="semester">Semester Exam</option>
+              <option value="national">National Mock Exam</option>
             </select>
           </div>
 

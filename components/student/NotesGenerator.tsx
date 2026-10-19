@@ -34,7 +34,7 @@ import {
   updateStudentNote, 
   StudentNoteItem 
 } from "../../services/curriculumService";
-import { useToast } from "../shared/Toast";
+import { useToast } from "../ui/Toast";
 
 interface GeneratedNote {
   title: string;
@@ -49,113 +49,6 @@ interface GeneratedNote {
   mnemonics: string[];
   examTips: string[];
   language: string;
-}
-
-function generateLocalNote(subject: string, topic: string, language: string): GeneratedNote {
-  const notes: Record<string, GeneratedNote> = {
-    "Mathematics": {
-      title: `${topic || "Quadratic Equations"} — Study Notes`,
-      summary: "Comprehensive review of quadratic equations, their properties, solution methods, and applications in the Ethiopian national curriculum.",
-      sections: [
-        {
-          heading: "1. Definition & Standard Form",
-          content: "A quadratic equation is a second-degree polynomial equation of the form ax² + bx + c = 0, where a ≠ 0. The coefficient 'a' determines the parabola's direction (opens up if a > 0, down if a < 0).",
-          keyPoints: [
-            "Standard form: ax² + bx + c = 0",
-            "The discriminant Δ = b² - 4ac determines the nature of roots",
-            "If Δ > 0: two distinct real roots",
-            "If Δ = 0: one repeated real root",
-            "If Δ < 0: two complex conjugate roots"
-          ],
-          formula: "x = (-b ± √(b² - 4ac)) / 2a"
-        },
-        {
-          heading: "2. Solution Methods",
-          content: "There are four primary methods for solving quadratic equations, each suited to different problem types.",
-          keyPoints: [
-            "Factoring: Best when factors are obvious integers",
-            "Completing the square: Always works, useful for deriving vertex form",
-            "Quadratic formula: Universal method, works for all quadratics",
-            "Graphical method: Roots are x-intercepts of the parabola"
-          ],
-          example: "Solve: x² - 5x + 6 = 0\n→ Factor: (x - 2)(x - 3) = 0\n→ x = 2 or x = 3"
-        },
-        {
-          heading: "3. EUEE Application Patterns",
-          content: "In the Ethiopian national exam, quadratic problems typically appear in 3 formats: direct solve, word problems (projectile/area), and discriminant analysis.",
-          keyPoints: [
-            "Always check if factoring works first (saves time)",
-            "For word problems: define variables, set up equation, solve, verify units",
-            "Common trap: forgetting to check if a = 0 (which makes it linear, not quadratic)"
-          ]
-        }
-      ],
-      mnemonics: [
-        "\"Negative boy couldn't decide to go to the radical party...\" → Quadratic formula mnemonic",
-        "\"FACT-or first\" → Always try factoring before the formula",
-        "\"D > 0 = 2 roots, D = 0 = 1 root, D < 0 = 0 real roots\" → Discriminant rules"
-      ],
-      examTips: [
-        "EUEE typically has 2-3 quadratic questions worth 4-6 marks total",
-        "If the equation looks messy, use the quadratic formula directly",
-        "Always verify your answer by substituting back into the original equation",
-        "Time allocation: spend no more than 2 minutes per quadratic question"
-      ],
-      language: "en"
-    },
-    "Physics": {
-      title: `${topic || "Newton's Laws of Motion"} — Study Notes`,
-      summary: "Detailed review of Newton's three laws of motion with applications, free body diagrams, and EUEE problem-solving strategies.",
-      sections: [
-        {
-          heading: "1. Newton's First Law (Law of Inertia)",
-          content: "An object at rest stays at rest, and an object in motion stays in motion with constant velocity, unless acted upon by an unbalanced external force.",
-          keyPoints: [
-            "Inertia = resistance to change in motion",
-            "Mass is the measure of inertia",
-            "No net force → no acceleration (not necessarily no motion!)",
-            "Common misconception: objects need force to keep moving (wrong!)"
-          ]
-        },
-        {
-          heading: "2. Newton's Second Law (F = ma)",
-          content: "The acceleration of an object is directly proportional to the net force acting on it and inversely proportional to its mass.",
-          keyPoints: [
-            "F = ma (vector equation: direction matters!)",
-            "Net force = sum of all forces (use free body diagrams)",
-            "Units: Force in Newtons (N = kg⋅m/s²)",
-            "Weight ≠ Mass: W = mg where g ≈ 9.8 m/s²"
-          ],
-          formula: "ΣF = ma → a = ΣF/m",
-          example: "A 5 kg box on a frictionless surface has a 20 N force applied.\na = F/m = 20/5 = 4 m/s²"
-        },
-        {
-          heading: "3. Newton's Third Law (Action-Reaction)",
-          content: "For every action force, there is an equal and opposite reaction force. These forces act on DIFFERENT objects.",
-          keyPoints: [
-            "Action and reaction forces are equal in magnitude, opposite in direction",
-            "They act on DIFFERENT objects (never cancel each other)",
-            "Example: You push wall → wall pushes you back",
-            "EUEE trap: asking which forces cancel (only forces on SAME object cancel)"
-          ]
-        }
-      ],
-      mnemonics: [
-        "\"I'm a (F=ma)\" → Second law formula",
-        "\"For every push, there's a push back\" → Third law simplified",
-        "\"REST or CONSTANT → no net force\" → First law summary"
-      ],
-      examTips: [
-        "Always draw a Free Body Diagram (FBD) before solving",
-        "Resolve forces into x and y components on inclined planes",
-        "In EUEE, the most common errors are sign mistakes in vector addition",
-        "Newton's laws appear in 3-4 questions, often combined with kinematics"
-      ],
-      language: "en"
-    }
-  };
-
-  return notes[subject] || notes["Mathematics"]!;
 }
 
 export default function NotesGenerator(): React.ReactElement {
@@ -275,17 +168,23 @@ export default function NotesGenerator(): React.ReactElement {
     setLoading(true);
     try {
       const res = await api.post("/ai/generate-notes/", {
-        subject, topic: topic || undefined,
-        language, grade: scope.gradeDisplay,
+        subject,
+        topic: topic || undefined,
+        language,
+        grade: scope.gradeDisplay,
         stream: scope.stream,
       });
       if (res.data?.note) {
         setNote(res.data.note);
       } else {
-        setNote(generateLocalNote(subject, topic, language));
+        throw new Error(res.data?.message || "No notes generated for this topic.");
       }
-    } catch {
-      setNote(generateLocalNote(subject, topic, language));
+    } catch (err: any) {
+      showToast({
+        type: "error",
+        title: "Generation Failed",
+        message: err?.response?.data?.message || err?.message || "Failed to generate AI study note. Please try again."
+      });
     } finally {
       setLoading(false);
     }
@@ -315,28 +214,28 @@ export default function NotesGenerator(): React.ReactElement {
       {/* Header and Mode Switcher */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-serif text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <FileText className="w-6 h-6 text-blue-600" />
-            AI Study Notes & Personal Notebook
+          <h1 className="font-sans text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-blue-600" />
+            Study notes
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Generate exam-ready notes or organize notes captured during textbook lessons.
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Generate topic summaries and access saved revision material.
           </p>
         </div>
 
         {/* Tab Controls */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl shrink-0">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab("generator")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === "generator"
-                ? "bg-white text-slate-900 shadow-xs"
+                ? "bg-white text-slate-900 shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>AI Generator</span>
+            <span>Generate</span>
           </button>
           <button
             type="button"
@@ -344,16 +243,16 @@ export default function NotesGenerator(): React.ReactElement {
               setActiveTab("vault");
               fetchSavedNotes();
             }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === "vault"
-                ? "bg-white text-slate-900 shadow-xs"
+                ? "bg-white text-slate-900 shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <BookMarked className="w-3.5 h-3.5 text-blue-500" />
-            <span>My Notebook</span>
+            <span>Notebook</span>
             {savedNotes.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-100 text-blue-800 font-extrabold">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-100 text-blue-800 font-bold">
                 {savedNotes.length}
               </span>
             )}
@@ -387,7 +286,7 @@ export default function NotesGenerator(): React.ReactElement {
 
               {/* Topic */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Topic (optional)</label>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Topic</label>
                 <input
                   type="text"
                   value={topic}
@@ -402,7 +301,7 @@ export default function NotesGenerator(): React.ReactElement {
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Language</label>
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-800">
                   <Languages className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>English (National Standard)</span>
+                  <span>English</span>
                 </div>
               </div>
             </div>
@@ -428,11 +327,11 @@ export default function NotesGenerator(): React.ReactElement {
 
           {/* Generated Notes Display */}
           {note && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500" ref={notesRef}>
+            <div className="space-y-4" ref={notesRef}>
               
               <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-200 p-4">
                 <div>
-                  <h2 className="font-serif text-lg font-bold text-slate-900">{note.title}</h2>
+                  <h2 className="font-sans text-lg font-bold text-slate-900">{note.title}</h2>
                   <p className="text-xs text-slate-500 mt-0.5">{scope.gradeDisplay} • {scope.stream} • {subject}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -443,7 +342,7 @@ export default function NotesGenerator(): React.ReactElement {
                     title="Save to My Personal Notebook"
                   >
                     <Bookmark className="w-3.5 h-3.5 text-amber-600" />
-                    <span>{savedVault ? "Saved in Notebook!" : "Save to Notebook"}</span>
+                    <span>{savedVault ? "Saved in notebook" : "Save to notebook"}</span>
                   </button>
                   <button onClick={handleCopy} className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer" title="Copy notes">
                     {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
@@ -504,15 +403,15 @@ export default function NotesGenerator(): React.ReactElement {
 
               {/* Mnemonics */}
               {note.mnemonics.length > 0 && (
-                <div className="bg-purple-50 border border-purple-100 rounded-2xl p-5 space-y-3">
-                  <h3 className="font-bold text-purple-900 flex items-center gap-2">
-                    <Lightbulb className="w-4 h-4 text-purple-500" />
+                <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-5 space-y-3">
+                  <h3 className="font-bold text-blue-950 flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-blue-600" />
                     Memory Aids & Mnemonics
                   </h3>
                   <ul className="space-y-2">
                     {note.mnemonics.map((m, i) => (
-                      <li key={i} className="text-sm text-purple-800 flex items-start gap-2">
-                        <span className="text-purple-400 font-bold shrink-0">💡</span>
+                      <li key={i} className="text-sm text-slate-800 flex items-start gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-2 shrink-0" />
                         <span>{m}</span>
                       </li>
                     ))}
@@ -522,15 +421,15 @@ export default function NotesGenerator(): React.ReactElement {
 
               {/* Exam Tips */}
               {note.examTips.length > 0 && (
-                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 space-y-3">
-                  <h3 className="font-bold text-emerald-900 flex items-center gap-2">
-                    <GraduationCap className="w-4 h-4 text-emerald-600" />
-                    EUEE Exam Tips
+                <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-5 space-y-3">
+                  <h3 className="font-semibold text-emerald-900 flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 text-emerald-700" />
+                    Examination guidelines
                   </h3>
                   <ul className="space-y-2">
                     {note.examTips.map((tip, i) => (
-                      <li key={i} className="text-sm text-emerald-800 flex items-start gap-2">
-                        <span className="text-emerald-400 font-bold shrink-0">🎯</span>
+                      <li key={i} className="text-sm text-emerald-900 flex items-start gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 mt-2 shrink-0" />
                         <span>{tip}</span>
                       </li>
                     ))}
@@ -596,7 +495,7 @@ export default function NotesGenerator(): React.ReactElement {
               <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
                 <BookMarked className="w-7 h-7" />
               </div>
-              <h3 className="font-serif text-lg font-bold text-slate-900">Your Notebook is Empty</h3>
+              <h3 className="font-sans text-lg font-bold text-slate-900">Your Notebook is Empty</h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
                 Save high-yield summaries from the AI Generator or take real-time notes while reading lessons in the textbook reader.
               </p>
@@ -635,13 +534,13 @@ export default function NotesGenerator(): React.ReactElement {
                       </div>
                     </div>
 
-                    <h3 className="font-serif font-bold text-base text-slate-900 line-clamp-2">
+                    <h3 className="font-sans font-bold text-base text-slate-900 line-clamp-2">
                       {n.title}
                     </h3>
 
                     {n.topic && (
                       <p className="text-[11px] font-medium text-slate-400">
-                        Topic: {n.topic}
+                        {n.topic}
                       </p>
                     )}
 
@@ -675,7 +574,7 @@ export default function NotesGenerator(): React.ReactElement {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">
                       {viewingNote.subject} &bull; {viewingNote.topic || "Study Note"}
                     </span>
-                    <h3 className="font-serif text-xl font-bold text-slate-900 mt-0.5">
+                    <h3 className="font-sans text-xl font-bold text-slate-900 mt-0.5">
                       {viewingNote.title}
                     </h3>
                   </div>

@@ -47,31 +47,30 @@ export default function StudyPlanner() {
   if (!todayPlan && !planLoading) {
     return (
       <div className="p-4 md:p-6 max-w-lg mx-auto">
-        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-3xl p-8 border border-indigo-200 text-center space-y-5">
-          <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto">
-            <Sparkles className="w-8 h-8 text-indigo-600" />
+        <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm text-center space-y-5">
+          <div className="w-16 h-16 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-center mx-auto">
+            <Sparkles className="w-8 h-8 text-blue-600" />
           </div>
-          <h2 className="text-2xl font-bold text-indigo-900">
-            Generate Today's Study Plan
+          <h2 className="text-2xl font-bold text-slate-900">
+            Daily study plan
           </h2>
-          <p className="text-indigo-700 text-sm">
-            Our AI analyzes your weak areas, forgetting curve, and EUEE topic weights
-            to create the most effective study plan for today.
+          <p className="text-slate-600 text-sm">
+            Custom study plan tailored to your weak areas and national exam schedule.
           </p>
 
           <div className="space-y-3">
-            <label className="text-sm font-medium text-indigo-800 block">
-              How many minutes can you study today?
+            <label className="text-sm font-medium text-slate-700 block">
+              Available study time
             </label>
             <div className="flex gap-2 justify-center flex-wrap">
               {[60, 90, 120, 150, 180].map((min) => (
                 <button
                   key={min}
                   onClick={() => setStudyMinutes(min)}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
                     studyMinutes === min
-                      ? "bg-indigo-600 text-white shadow-lg"
-                      : "bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50"
+                      ? "bg-[#1D4ED8] text-white shadow-sm"
+                      : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   {min < 60 ? `${min}m` : `${min / 60}h${min % 60 ? ` ${min % 60}m` : ""}`}
@@ -83,17 +82,17 @@ export default function StudyPlanner() {
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+            className="w-full py-3.5 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
           >
             {generating ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Generating your plan...
+                Generating plan...
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                Generate My Study Plan
+                Generate plan
               </>
             )}
           </button>
@@ -106,7 +105,7 @@ export default function StudyPlanner() {
     return (
       <div className="p-6 flex items-center justify-center min-h-[300px]">
         <div className="text-center space-y-3">
-          <Calendar className="w-10 h-10 text-indigo-500 animate-pulse mx-auto" />
+          <Calendar className="w-10 h-10 text-blue-600 mx-auto" />
           <p className="text-slate-600 text-sm">Loading your study plan...</p>
         </div>
       </div>
@@ -122,18 +121,18 @@ export default function StudyPlanner() {
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white">
+      <div className="bg-[#0B1B3A] rounded-2xl p-5 text-white border border-blue-950">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <Calendar className="w-6 h-6" />
+            <Calendar className="w-6 h-6 text-blue-300" />
             <div>
-              <h1 className="text-lg font-bold">Today's Study Plan</h1>
-              <p className="text-indigo-200 text-xs">{todayPlan.date}</p>
+              <h1 className="text-lg font-bold">Today's study plan</h1>
+              <p className="text-blue-200 text-xs">{todayPlan.date}</p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-2xl font-black">{todayPlan.days_until_euee}</p>
-            <p className="text-xs text-indigo-200">days to EUEE</p>
+            <p className="text-xs text-blue-200">days to EUEE</p>
           </div>
         </div>
 
@@ -141,15 +140,15 @@ export default function StudyPlanner() {
         <div className="grid grid-cols-3 gap-3 mt-4">
           <div className="bg-white/10 rounded-xl p-2.5 text-center">
             <p className="text-xl font-black">{completionPct}%</p>
-            <p className="text-[10px] text-indigo-200">Completed</p>
+            <p className="text-[10px] text-blue-200">Completed</p>
           </div>
           <div className="bg-white/10 rounded-xl p-2.5 text-center">
             <p className="text-xl font-black">{todayPlan.predicted_score}</p>
-            <p className="text-[10px] text-indigo-200">Predicted/600</p>
+            <p className="text-[10px] text-blue-200">Predicted</p>
           </div>
           <div className="bg-white/10 rounded-xl p-2.5 text-center">
             <p className="text-xl font-black">{todayPlan.target_score}</p>
-            <p className="text-[10px] text-indigo-200">Target/600</p>
+            <p className="text-[10px] text-blue-200">Target</p>
           </div>
         </div>
 
@@ -219,8 +218,8 @@ export default function StudyPlanner() {
               </div>
 
               {!task.completed && task.reason && (
-                <p className="text-[10px] text-slate-400 mt-2 ml-11">
-                  💡 {task.reason}
+                <p className="text-[10px] text-slate-500 mt-2 ml-11">
+                  {task.reason}
                 </p>
               )}
             </div>
@@ -228,13 +227,12 @@ export default function StudyPlanner() {
         })}
       </div>
 
-      {/* Session complete celebration */}
+      {/* Session completion banner */}
       {completionPct >= 100 && (
-        <div className="bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl p-5 text-center text-white">
-          <div className="text-4xl mb-2">🎉</div>
-          <h3 className="text-lg font-bold">Today's Plan Complete!</h3>
-          <p className="text-emerald-100 text-sm mt-1">
-            +{todayPlan.xp_earned} XP earned · {todayPlan.actual_minutes}m studied
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-center text-emerald-900">
+          <h3 className="text-sm font-semibold">Daily study schedule complete</h3>
+          <p className="text-emerald-700 text-xs mt-0.5">
+            {todayPlan.actual_minutes} minutes recorded across syllabus tasks.
           </p>
         </div>
       )}

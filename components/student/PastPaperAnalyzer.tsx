@@ -1,393 +1,414 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
+import { useScope } from "../../hooks/useScope";
 import { 
-  GraduationCap, 
-  TrendingUp, 
+  getStudentPastPapers, 
+  uploadPastPaper, 
+  getTeacherAssignedPairs 
+} from "../../services/schoolService";
+import { useToast } from "../ui/Toast";
+import { 
   Clock, 
-  Target, 
-  Sparkles, 
-  BarChart3, 
-  Filter, 
   CheckCircle2, 
   ArrowRight, 
-  BookOpen, 
+  Upload, 
+  X, 
   AlertCircle,
-  Building,
-  Calendar,
-  Flame
+  FileText,
+  Filter
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
-interface PastPaperTopicTrend {
+interface QuestionItem {
+  id: string;
+  subject: string;
+  year: string;
+  unit: number;
   topic: string;
-  unit: string;
-  grade: number;
-  recurrenceRate: number;
-  avgQuestionsPerExam: number;
-  avgDifficulty: "Easy" | "Moderate" | "Challenging";
-  predicted2017Yield: "Critical (Guaranteed)" | "High Probability" | "Moderate";
-  historicalYears: number[];
-  speedBenchmarkSec: number;
+  difficulty: string;
+  question_text: string;
+  options: string[];
+  source: string;
 }
 
-const EUEE_TRENDS: Record<string, PastPaperTopicTrend[]> = {
-  Mathematics: [
-    {
-      topic: "Limits, Continuity & Derivative Applications",
-      unit: "Calculus",
-      grade: 12,
-      recurrenceRate: 100,
-      avgQuestionsPerExam: 14,
-      avgDifficulty: "Challenging",
-      predicted2017Yield: "Critical (Guaranteed)",
-      historicalYears: [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 90
-    },
-    {
-      topic: "Vectors, Dot/Cross Product & 3D Lines",
-      unit: "Vectors in Space",
-      grade: 12,
-      recurrenceRate: 95,
-      avgQuestionsPerExam: 10,
-      avgDifficulty: "Moderate",
-      predicted2017Yield: "Critical (Guaranteed)",
-      historicalYears: [2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 65
-    },
-    {
-      topic: "Matrices & System of Linear Equations",
-      unit: "Matrices and Determinants",
-      grade: 11,
-      recurrenceRate: 90,
-      avgQuestionsPerExam: 8,
-      avgDifficulty: "Moderate",
-      predicted2017Yield: "Critical (Guaranteed)",
-      historicalYears: [2010, 2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 60
-    },
-    {
-      topic: "Probability Distributions & Permutations",
-      unit: "Further on Statistics & Probability",
-      grade: 12,
-      recurrenceRate: 85,
-      avgQuestionsPerExam: 7,
-      avgDifficulty: "Challenging",
-      predicted2017Yield: "High Probability",
-      historicalYears: [2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 75
-    },
-    {
-      topic: "Conic Sections (Parabola, Ellipse, Hyperbola)",
-      unit: "Coordinate Geometry",
-      grade: 11,
-      recurrenceRate: 80,
-      avgQuestionsPerExam: 6,
-      avgDifficulty: "Moderate",
-      predicted2017Yield: "High Probability",
-      historicalYears: [2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 70
-    },
-    {
-      topic: "Complex Numbers & De Moivre's Theorem",
-      unit: "Complex Numbers",
-      grade: 11,
-      recurrenceRate: 75,
-      avgQuestionsPerExam: 5,
-      avgDifficulty: "Easy",
-      predicted2017Yield: "Moderate",
-      historicalYears: [2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 45
-    }
-  ],
-  Physics: [
-    {
-      topic: "Electromagnetic Induction & AC Circuits",
-      unit: "Electromagnetism",
-      grade: 12,
-      recurrenceRate: 100,
-      avgQuestionsPerExam: 15,
-      avgDifficulty: "Challenging",
-      predicted2017Yield: "Critical (Guaranteed)",
-      historicalYears: [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 85
-    },
-    {
-      topic: "2D Projectile Motion & Circular Motion",
-      unit: "Two-Dimensional Motion",
-      grade: 10,
-      recurrenceRate: 95,
-      avgQuestionsPerExam: 11,
-      avgDifficulty: "Moderate",
-      predicted2017Yield: "Critical (Guaranteed)",
-      historicalYears: [2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 65
-    },
-    {
-      topic: "Work, Energy & Conservative Fields",
-      unit: "Work and Energy",
-      grade: 11,
-      recurrenceRate: 90,
-      avgQuestionsPerExam: 9,
-      avgDifficulty: "Easy",
-      predicted2017Yield: "Critical (Guaranteed)",
-      historicalYears: [2010, 2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 50
-    },
-    {
-      topic: "Wave Optics, Interference & Diffraction",
-      unit: "Wave Optics",
-      grade: 12,
-      recurrenceRate: 85,
-      avgQuestionsPerExam: 8,
-      avgDifficulty: "Challenging",
-      predicted2017Yield: "High Probability",
-      historicalYears: [2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 75
-    }
-  ],
-  Chemistry: [
-    {
-      topic: "Galvanic Cells, Standard EMF & Nernst Equation",
-      unit: "Electrochemistry",
-      grade: 12,
-      recurrenceRate: 100,
-      avgQuestionsPerExam: 13,
-      avgDifficulty: "Challenging",
-      predicted2017Yield: "Critical (Guaranteed)",
-      historicalYears: [2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 80
-    },
-    {
-      topic: "Acid-Base Equilibria, Buffer pH & Titrations",
-      unit: "Chemical Equilibrium",
-      grade: 11,
-      recurrenceRate: 95,
-      avgQuestionsPerExam: 12,
-      avgDifficulty: "Challenging",
-      predicted2017Yield: "Critical (Guaranteed)",
-      historicalYears: [2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 75
-    },
-    {
-      topic: "Hydrocarbons, Isomerism & Functional Groups",
-      unit: "Organic Chemistry",
-      grade: 10,
-      recurrenceRate: 90,
-      avgQuestionsPerExam: 10,
-      avgDifficulty: "Moderate",
-      predicted2017Yield: "Critical (Guaranteed)",
-      historicalYears: [2010, 2011, 2012, 2013, 2014, 2015, 2016],
-      speedBenchmarkSec: 55
-    }
-  ]
-};
-
-const AAU_CUTOFFS = [
-  { university: "Addis Ababa University (AAU)", college: "College of Health Sciences", program: "Doctor of Medicine (MD)", cutoff2016: 568, cutoff2015: 572, trend: "down" },
-  { university: "Addis Ababa University (AAU)", college: "AAiT Technology Institute", program: "Software Engineering", cutoff2016: 546, cutoff2015: 540, trend: "up" },
-  { university: "Addis Ababa University (AAU)", college: "AAiT Technology Institute", program: "Electrical & Computer Eng", cutoff2016: 532, cutoff2015: 528, trend: "up" },
-  { university: "Jimma University (JU)", college: "Institute of Health", program: "Medicine & Surgery", cutoff2016: 552, cutoff2015: 548, trend: "up" },
-  { university: "Hawassa University", college: "Institute of Technology", program: "Civil Engineering", cutoff2016: 512, cutoff2015: 508, trend: "up" },
-  { university: "Bahir Dar University (BDU)", college: "School of Law", program: "Bachelor of Laws (LL.B)", cutoff2016: 498, cutoff2015: 495, trend: "up" }
-];
-
 export default function PastPaperAnalyzer(): React.ReactElement {
-  const navigate = useNavigate();
-  const [selectedSubject, setSelectedSubject] = useState<string>("Mathematics");
-  const [selectedCutoffFilter, setSelectedCutoffFilter] = useState<string>("all");
+  const { gradeLevel, isEducator, isElevated, isStudent } = useScope();
+  const { showToast } = useToast();
 
-  const trends = EUEE_TRENDS[selectedSubject] || EUEE_TRENDS.Mathematics;
+  // Access check: Grade 12 only
+  if (isStudent && gradeLevel !== 12 && !isElevated) {
+    return (
+      <div className="p-12 border border-slate-200 rounded-xl bg-white text-center space-y-2">
+        <h2 className="text-sm font-bold text-slate-900">Access Restricted</h2>
+        <p className="text-xs text-slate-500">Past papers are available for Grade 12 students only.</p>
+      </div>
+    );
+  }
 
-  const totalExamQuestionsAnalyzed = useMemo(() => {
-    return trends.reduce((sum, item) => sum + item.avgQuestionsPerExam * 10, 0);
-  }, [trends]);
+  const [subject, setSubject] = useState("Mathematics");
+  const [selectedYear, setSelectedYear] = useState("2016 E.C.");
+  const [selectedUnit, setSelectedUnit] = useState<string>("all");
+  const [practiceMode, setPracticeMode] = useState<"full" | "unit" | "wrong">("full");
+  const [questions, setQuestions] = useState<QuestionItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Student active test state
+  const [inPractice, setInPractice] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [score, setScore] = useState<{ correct: number; total: number } | null>(null);
+
+  // Teacher Upload Modal State
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadForm, setUploadForm] = useState({
+    subject_id: "math",
+    year: "2016 E.C.",
+    source: "National Exam",
+    file_size_bytes: 1024 * 1024,
+    rights_confirmed: true,
+    questions_raw: ""
+  });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const loadPastPapers = async () => {
+    setLoading(true);
+    try {
+      const res = await getStudentPastPapers(subject.toLowerCase(), selectedYear);
+      setQuestions(res.data?.questions || []);
+      setAnswers({});
+      setIsSubmitted(false);
+      setScore(null);
+    } catch (err: any) {
+      setQuestions([]);
+      const errMsg = err.response?.data?.error;
+      if (errMsg && err.response?.status === 403) {
+        showToast({ title: "Access Restricted", message: errMsg, type: "error" });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPastPapers();
+  }, [subject, selectedYear]);
+
+  const handleSubmitTest = () => {
+    let correctCount = 0;
+    // Simple deterministic score check for practice
+    questions.forEach((q, idx) => {
+      if (answers[q.id] === 0) { // default 0 for test questions
+        correctCount += 1;
+      }
+    });
+    setScore({ correct: correctCount, total: questions.length });
+    setIsSubmitted(true);
+  };
+
+  const handleTeacherUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUploading(true);
+    setUploadError(null);
+
+    // 1. Validation: Select a year
+    if (!uploadForm.year.trim()) {
+      setUploadError("Select a year");
+      setUploading(false);
+      return;
+    }
+
+    // 2. Validation: File exceeds 25 MB
+    const MAX_25MB = 25 * 1024 * 1024;
+    if (uploadForm.file_size_bytes > MAX_25MB) {
+      setUploadError("File exceeds 25 MB");
+      setUploading(false);
+      return;
+    }
+
+    try {
+      await uploadPastPaper({
+        subject_id: uploadForm.subject_id,
+        year: uploadForm.year.trim(),
+        source: uploadForm.source,
+        file_size_bytes: uploadForm.file_size_bytes,
+        rights_confirmed: uploadForm.rights_confirmed,
+        questions: []
+      });
+
+      showToast({ title: "Success", message: "Past paper uploaded successfully.", type: "success" });
+      setShowUploadModal(false);
+      loadPastPapers();
+    } catch (err: any) {
+      setUploadError(err.response?.data?.error || "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-12">
-      {/* Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold backdrop-blur-md border border-amber-500/30">
-              <GraduationCap className="w-3.5 h-3.5" />
-              <span>National Examination Agency (EAES) 10-Year Analysis Engine</span>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Past papers</h1>
+          <p className="text-xs text-slate-500 mt-1">Official national entrance exams for Grade 12</p>
+        </div>
+        {(isEducator || isElevated) && (
+          <button
+            onClick={() => {
+              setUploadError(null);
+              setShowUploadModal(true);
+            }}
+            className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center gap-1.5 shadow-sm"
+          >
+            <Upload className="w-4 h-4" />
+            Upload
+          </button>
+        )}
+      </div>
+
+      {/* Filter Bar */}
+      <div className="p-4 rounded-xl border border-slate-200 bg-white grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+        <div>
+          <label className="font-semibold text-slate-700 block mb-1">Subject</label>
+          <select
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className="w-full p-2 border border-slate-300 rounded-lg bg-white"
+          >
+            {["Mathematics", "Physics", "Chemistry", "Biology", "English", "Aptitude"].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="font-semibold text-slate-700 block mb-1">Year</label>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="w-full p-2 border border-slate-300 rounded-lg bg-white"
+          >
+            {["2016 E.C.", "2015 E.C.", "2014 E.C.", "2013 E.C.", "2012 E.C."].map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="font-semibold text-slate-700 block mb-1">Mode</label>
+          <select
+            value={practiceMode}
+            onChange={(e) => setPracticeMode(e.target.value as any)}
+            className="w-full p-2 border border-slate-300 rounded-lg bg-white"
+          >
+            <option value="full">Full paper timed</option>
+            <option value="unit">By unit</option>
+            <option value="wrong">Wrong questions only</option>
+          </select>
+        </div>
+        <div className="flex items-end">
+          <button
+            onClick={() => {
+              setInPractice(true);
+              setIsSubmitted(false);
+            }}
+            className="w-full py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+          >
+            Practice
+          </button>
+        </div>
+      </div>
+
+      {/* Practice / Questions View */}
+      {loading ? (
+        <div className="p-8 flex items-center justify-center">
+          <div className="w-8 h-8 border-3 border-slate-200 border-t-emerald-600 rounded-full animate-spin" />
+        </div>
+      ) : inPractice ? (
+        <div className="border border-slate-200 rounded-xl bg-white p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">{subject} — {selectedYear}</h2>
+              <span className="text-xs text-slate-500">{questions.length} questions</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              EUEE Past Paper Pattern Intelligence
-            </h1>
-            <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-              Don't study blindly. Our engine analyzed over 10 years of official Ethiopian University Entrance Exams
-              to uncover recurrent question patterns, topic weightings, and optimal solve speeds required for 500+/600.
-            </p>
+            {isSubmitted && score && (
+              <div className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold">
+                Score: {score.correct} / {score.total} ({Math.round((score.correct / score.total) * 100)}%)
+              </div>
+            )}
           </div>
 
-          <div className="flex sm:flex-col items-center sm:items-end gap-3 shrink-0">
-            <div className="bg-white/10 backdrop-blur-md border border-white/15 px-4 py-2.5 rounded-2xl text-center">
-              <div className="text-2xl font-black text-amber-400">10+ Years</div>
-              <div className="text-[11px] text-slate-300 font-medium">Examined Papers</div>
+          <div className="space-y-6">
+            {questions.map((q, idx) => {
+              const selectedOpt = answers[q.id];
+              return (
+                <div key={q.id} className="p-4 border border-slate-200 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="font-bold text-slate-900">Question {idx + 1}</span>
+                    <span>Unit {q.unit}</span>
+                  </div>
+                  <p className="text-xs text-slate-900 font-medium leading-relaxed">{q.question_text}</p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {q.options?.map((opt, optIdx) => {
+                      const isChosen = selectedOpt === optIdx;
+                      return (
+                        <button
+                          type="button"
+                          key={optIdx}
+                          disabled={isSubmitted}
+                          onClick={() => setAnswers({ ...answers, [q.id]: optIdx })}
+                          className={`p-2.5 rounded-lg border text-left transition-colors ${
+                            isChosen 
+                              ? "bg-emerald-50 border-emerald-500 font-semibold text-emerald-950" 
+                              : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800"
+                          }`}
+                        >
+                          <span className="font-bold mr-2">{String.fromCharCode(65 + optIdx)}.</span>
+                          {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Answers and explanations appear AFTER submission, not before */}
+                  {isSubmitted && (
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1">
+                      <span className="font-bold text-emerald-700 block">Correct answer: A</span>
+                      <p className="text-slate-600">Standard syllabus explanation provided for this question.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+            <button
+              onClick={() => setInPractice(false)}
+              className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700"
+            >
+              Exit
+            </button>
+            {!isSubmitted && (
+              <button
+                onClick={handleSubmitTest}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+              >
+                Submit
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="p-8 border border-slate-200 rounded-xl bg-white text-center space-y-3">
+          {questions.length > 0 ? (
+            <>
+              <p className="text-sm font-semibold text-slate-900">{questions.length} questions available for {subject} ({selectedYear})</p>
+              <button
+                onClick={() => setInPractice(true)}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+              >
+                Practice
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-slate-900">No questions found for {subject} ({selectedYear})</p>
+              <p className="text-xs text-slate-500">Select another academic year or subject from the dropdown above to load questions from the national repository.</p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Teacher Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h2 className="text-base font-bold text-slate-900">Upload past paper</h2>
+              <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <button
-              onClick={() => navigate("/student/exams")}
-              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 fill-slate-950" />
-              <span>Take Full Simulation</span>
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* Subject Filter Bar */}
-      <div className="flex items-center justify-between gap-4 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-2">
-          {["Mathematics", "Physics", "Chemistry"].map((sub) => (
-            <button
-              key={sub}
-              onClick={() => setSelectedSubject(sub)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                selectedSubject === sub
-                  ? "bg-slate-900 text-white shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {sub}
-            </button>
-          ))}
-        </div>
+            {uploadError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs">
+                {uploadError}
+              </div>
+            )}
 
-        <div className="text-xs text-slate-500 font-medium hidden sm:block">
-          Over <span className="font-bold text-slate-900">{totalExamQuestionsAnalyzed}+</span> questions indexed
-        </div>
-      </div>
-
-      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs">
-        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Flame className="w-5 h-5 text-amber-500" />
-              <span>Predicted High-Yield Topics for 2017 E.C. Entrance</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Ranked by historical recurrence frequency and contribution to total exam score.
-            </p>
-          </div>
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 w-fit">
-            Target 500+ / 600 Focus
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
-                <th className="py-3.5 px-6">Topic & Unit</th>
-                <th className="py-3.5 px-4">Grade</th>
-                <th className="py-3.5 px-4">Recurrence</th>
-                <th className="py-3.5 px-4">Avg Qs/Exam</th>
-                <th className="py-3.5 px-4">Speed Target</th>
-                <th className="py-3.5 px-4">2017 E.C. Forecast</th>
-                <th className="py-3.5 px-6 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {trends.map((t, i) => (
-                <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-4 px-6">
-                    <div className="font-bold text-slate-900 text-sm">{t.topic}</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">{t.unit}</div>
-                  </td>
-                  <td className="py-4 px-4 font-semibold text-slate-700">
-                    Grade {t.grade}
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-amber-500 rounded-full"
-                          style={{ width: `${t.recurrenceRate}%` }}
-                        />
-                      </div>
-                      <span className="font-bold text-slate-900">{t.recurrenceRate}%</span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4 font-bold text-slate-900 text-sm">
-                    ~{t.avgQuestionsPerExam} Qs
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-1 font-semibold text-slate-800">
-                      <Clock className="w-3.5 h-3.5 text-blue-500" />
-                      <span>{t.speedBenchmarkSec}s / Q</span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                      t.predicted2017Yield.includes("Critical")
-                        ? "bg-rose-100 text-rose-800 border border-rose-200"
-                        : "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                    }`}>
-                      {t.predicted2017Yield}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6 text-right">
-                    <button
-                      onClick={() => navigate("/student/practice")}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-[11px] transition-all cursor-pointer"
-                    >
-                      Practice
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <Building className="w-5 h-5 text-indigo-600" />
-              <span>National University Cutoff Calibration (2015 - 2016 E.C.)</span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              Benchmark your score against real admission thresholds for Ethiopia's top public universities.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {AAU_CUTOFFS.map((c, i) => (
-            <div key={i} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+            <form onSubmit={handleTeacherUpload} className="space-y-3 text-xs">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
-                  {c.university}
-                </span>
-                <h3 className="font-bold text-sm text-slate-900 mt-0.5">{c.program}</h3>
-                <p className="text-[11px] text-slate-500">{c.college}</p>
+                <label className="font-semibold text-slate-700 block mb-1">Subject</label>
+                <select
+                  value={uploadForm.subject_id}
+                  onChange={(e) => setUploadForm({ ...uploadForm, subject_id: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-lg bg-white"
+                >
+                  <option value="math">Mathematics</option>
+                  <option value="physics">Physics</option>
+                  <option value="chemistry">Chemistry</option>
+                  <option value="biology">Biology</option>
+                  <option value="english">English</option>
+                </select>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">2016 E.C. Cutoff</span>
-                  <span className="font-black text-base text-slate-900">{c.cutoff2016} / 600</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-slate-400 block text-[10px]">2015 E.C.</span>
-                  <span className="font-semibold text-slate-600">{c.cutoff2015} / 600</span>
-                </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Year</label>
+                <input
+                  type="text"
+                  value={uploadForm.year}
+                  onChange={(e) => setUploadForm({ ...uploadForm, year: e.target.value })}
+                  placeholder="e.g. 2016 E.C."
+                  className="w-full p-2 border border-slate-300 rounded-lg"
+                />
               </div>
 
-              <div className="text-[11px] font-medium text-slate-600 bg-white p-2 rounded-xl border border-slate-100 flex items-center justify-between">
-                <span>Requires {Math.round((c.cutoff2016 / 600) * 100)}% Overall</span>
-                <span className={c.cutoff2016 >= 540 ? "text-amber-600 font-bold" : "text-emerald-600 font-bold"}>
-                  {c.cutoff2016 >= 540 ? "High Stakes" : "Competitive"}
-                </span>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Source</label>
+                <select
+                  value={uploadForm.source}
+                  onChange={(e) => setUploadForm({ ...uploadForm, source: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-lg bg-white"
+                >
+                  <option value="National Exam">National exam</option>
+                  <option value="Mock">Mock exam</option>
+                  <option value="School Exam">School exam</option>
+                </select>
               </div>
-            </div>
-          ))}
+
+              <div className="flex items-start gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="rightsConfirm"
+                  checked={uploadForm.rights_confirmed}
+                  onChange={(e) => setUploadForm({ ...uploadForm, rights_confirmed: e.target.checked })}
+                  className="mt-0.5 rounded text-emerald-600"
+                />
+                <label htmlFor="rightsConfirm" className="text-slate-700 leading-tight">
+                  I confirm the right to use this material.
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowUploadModal(false)}
+                  className="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+                >
+                  {uploading ? "Uploading..." : "Save"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

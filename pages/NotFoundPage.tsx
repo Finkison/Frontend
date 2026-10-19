@@ -1,23 +1,27 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { GraduationCap, Home, ArrowLeft, BookOpen, Sparkles } from "lucide-react";
+import { Home, BookOpen } from "lucide-react";
+import { FinkisonMark } from "../components/shared/FinkisonLogo";
 
 export default function NotFoundPage(): React.ReactElement {
+  useEffect(() => {
+    document.title = "Page not found — Finkison";
+  }, []);
+
   return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4">
-      <div className="text-center max-w-lg space-y-6">
-        {/* 404 Icon */}
-        <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700/50 flex items-center justify-center shadow-2xl">
-          <GraduationCap className="w-10 h-10 text-amber-400" />
+    <div className="min-h-[70vh] flex items-center justify-center px-4 bg-[#FAF8F5] text-[#1C1512] font-sans">
+      <div className="text-center max-w-lg space-y-6 p-8 sm:p-12 rounded-2xl bg-white border border-[#E8E2D9] shadow-xs">
+        {/* Logo */}
+        <div className="flex justify-center">
+          <FinkisonMark size={64} />
         </div>
 
-        {/* Error Code */}
+        {/* Error Code & Message */}
         <div>
-          <span className="font-serif text-7xl font-bold text-slate-200 tracking-tight">404</span>
-          <h1 className="text-xl font-bold text-slate-900 mt-2">Page Not Found</h1>
-          <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-            This page doesn't exist in the Ethiopian National Curriculum — or anywhere else on our platform.
-            Let's get you back on track to score 500+.
+          <span className="text-5xl font-mono font-bold text-[#881337] tracking-tight block">404</span>
+          <h1 className="text-2xl font-bold text-[#1C1512] mt-2 tracking-tight">Page not found</h1>
+          <p className="text-sm text-[#574C43] mt-2 leading-relaxed">
+            The requested page does not exist or has been moved. Use the links below to return to the platform.
           </p>
         </div>
 
@@ -25,24 +29,17 @@ export default function NotFoundPage(): React.ReactElement {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
           <Link
             to="/"
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-[6px] bg-[#881337] hover:bg-[#9F1239] active:bg-[#BE123C] text-white text-xs font-semibold transition-colors shadow-xs focus:outline-none focus:ring-2 focus:ring-[#881337]"
           >
-            <Home className="w-4 h-4" />
-            <span>Back to Home</span>
-          </Link>
-          <Link
-            to="/student/practice"
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-50 text-amber-800 text-sm font-semibold border border-amber-200 hover:bg-amber-100 transition-colors"
-          >
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <span>Start Practice</span>
+            <Home className="w-4 h-4 text-white" />
+            <span>Return to home</span>
           </Link>
           <Link
             to="/academics"
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white text-slate-700 text-sm font-semibold border border-slate-200 hover:bg-slate-50 transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-[6px] border border-[#E8E2D9] hover:bg-[#FAF8F5] text-[#1C1512] text-xs font-semibold transition-colors"
           >
-            <BookOpen className="w-4 h-4 text-blue-500" />
-            <span>Browse Curriculum</span>
+            <BookOpen className="w-4 h-4 text-[#574C43]" />
+            <span>Browse curriculum</span>
           </Link>
         </div>
       </div>

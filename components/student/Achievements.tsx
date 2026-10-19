@@ -16,21 +16,25 @@ import {
   CheckCircle2,
   ChevronRight,
   Sparkles,
+  Crown,
+  Globe,
+  Search,
+  LucideIcon
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 import { useScope } from "../../hooks/useScope";
 
-const LEVELS = [
-  { level: 1, title: "Freshman", xpRequired: 0, icon: "📚", color: "slate" },
-  { level: 2, title: "Curious Mind", xpRequired: 200, icon: "🔍", color: "blue" },
-  { level: 3, title: "Focused Learner", xpRequired: 500, icon: "🎯", color: "blue" },
-  { level: 4, title: "Rising Scholar", xpRequired: 1000, icon: "📈", color: "emerald" },
-  { level: 5, title: "Knowledge Seeker", xpRequired: 1800, icon: "🧠", color: "emerald" },
-  { level: 6, title: "Subject Expert", xpRequired: 3000, icon: "⭐", color: "amber" },
-  { level: 7, title: "Academic Elite", xpRequired: 5000, icon: "🏆", color: "amber" },
-  { level: 8, title: "National Champion", xpRequired: 8000, icon: "🥇", color: "purple" },
-  { level: 9, title: "Finkison Legend", xpRequired: 12000, icon: "👑", color: "purple" },
-  { level: 10, title: "EUEE Master", xpRequired: 20000, icon: "🎓", color: "amber" },
+const LEVELS: Array<{ level: number; title: string; xpRequired: number; icon: LucideIcon; color: string }> = [
+  { level: 1, title: "Freshman", xpRequired: 0, icon: BookOpen, color: "slate" },
+  { level: 2, title: "Curious Mind", xpRequired: 200, icon: Search, color: "blue" },
+  { level: 3, title: "Focused Learner", xpRequired: 500, icon: Target, color: "blue" },
+  { level: 4, title: "Rising Scholar", xpRequired: 1000, icon: TrendingUp, color: "emerald" },
+  { level: 5, title: "Knowledge Seeker", xpRequired: 1800, icon: Brain, color: "emerald" },
+  { level: 6, title: "Subject Expert", xpRequired: 3000, icon: Star, color: "amber" },
+  { level: 7, title: "Academic Elite", xpRequired: 5000, icon: Trophy, color: "amber" },
+  { level: 8, title: "National Champion", xpRequired: 8000, icon: Award, color: "blue" },
+  { level: 9, title: "Finkison Legend", xpRequired: 12000, icon: Crown, color: "blue" },
+  { level: 10, title: "EUEE Master", xpRequired: 20000, icon: GraduationCap, color: "amber" },
 ];
 
 function getCurrentLevel(xp: number) {
@@ -50,7 +54,7 @@ interface BadgeDef {
   id: string;
   name: string;
   description: string;
-  icon: string;
+  icon: LucideIcon;
   category: "streak" | "mastery" | "battle" | "practice" | "milestone";
   requirement: string;
   rarity: "common" | "rare" | "epic" | "legendary";
@@ -58,34 +62,34 @@ interface BadgeDef {
 }
 
 const BADGE_DEFINITIONS: BadgeDef[] = [
-  { id: "streak-3", name: "Getting Started", description: "Study for 3 consecutive days", icon: "🔥", category: "streak", requirement: "3-day streak", rarity: "common", predicate: (s) => s.streak >= 3 },
-  { id: "streak-7", name: "Week Warrior", description: "Study for 7 consecutive days", icon: "⚡", category: "streak", requirement: "7-day streak", rarity: "common", predicate: (s) => s.streak >= 7 },
-  { id: "streak-14", name: "Fortnight Force", description: "Study for 14 consecutive days", icon: "💪", category: "streak", requirement: "14-day streak", rarity: "rare", predicate: (s) => s.streak >= 14 },
-  { id: "streak-30", name: "Monthly Master", description: "Study for 30 consecutive days", icon: "🏅", category: "streak", requirement: "30-day streak", rarity: "epic", predicate: (s) => s.streak >= 30 },
-  { id: "streak-100", name: "Century Scholar", description: "Study for 100 consecutive days", icon: "👑", category: "streak", requirement: "100-day streak", rarity: "legendary", predicate: (s) => s.streak >= 100 },
-  { id: "mastery-first", name: "First Mastery", description: "Fully master your first concept", icon: "⭐", category: "mastery", requirement: "100+ XP earned", rarity: "common", predicate: (s) => s.xp >= 100 },
-  { id: "mastery-10", name: "Concept Collector", description: "Earn 1,000+ XP in subjects", icon: "🧠", category: "mastery", requirement: "1,000+ XP", rarity: "rare", predicate: (s) => s.xp >= 1000 },
-  { id: "mastery-50", name: "Knowledge Legend", description: "Master advanced syllabus concepts", icon: "🌐", category: "mastery", requirement: "5,000+ XP", rarity: "epic", predicate: (s) => s.xp >= 5000 },
-  { id: "battle-first", name: "First Blood", description: "Engage in competitive 1v1 quiz battles", icon: "⚔️", category: "battle", requirement: "Battle arena active", rarity: "common", predicate: (s) => s.xp >= 250 },
-  { id: "battle-5", name: "Arena Regular", description: "Reach experienced arena rank", icon: "🗡️", category: "battle", requirement: "800+ XP", rarity: "rare", predicate: (s) => s.xp >= 800 },
-  { id: "practice-100", name: "Question Solver", description: "Consistently practice questions", icon: "💯", category: "practice", requirement: "300+ XP", rarity: "common", predicate: (s) => s.xp >= 300 },
-  { id: "practice-500", name: "Question Machine", description: "Answer hundreds of mock drills", icon: "🎰", category: "practice", requirement: "1,800+ XP", rarity: "rare", predicate: (s) => s.xp >= 1800 },
-  { id: "score-400", name: "Foundation Built", description: "Predicted entrance score 400+", icon: "🏗️", category: "milestone", requirement: "400+ score", rarity: "common", predicate: (s) => s.score >= 400 },
-  { id: "score-500", name: "500 Club", description: "Predicted entrance score 500+", icon: "🎯", category: "milestone", requirement: "500+ score", rarity: "epic", predicate: (s) => s.score >= 500 },
-  { id: "score-600", name: "Elite Tier", description: "Predicted entrance score 600+", icon: "🏆", category: "milestone", requirement: "600+ score", rarity: "legendary", predicate: (s) => s.score >= 600 },
+  { id: "streak-3", name: "Getting Started", description: "Study for 3 consecutive days", icon: Flame, category: "streak", requirement: "3-day streak", rarity: "common", predicate: (s) => s.streak >= 3 },
+  { id: "streak-7", name: "Week Warrior", description: "Study for 7 consecutive days", icon: Zap, category: "streak", requirement: "7-day streak", rarity: "common", predicate: (s) => s.streak >= 7 },
+  { id: "streak-14", name: "Fortnight Force", description: "Study for 14 consecutive days", icon: Award, category: "streak", requirement: "14-day streak", rarity: "rare", predicate: (s) => s.streak >= 14 },
+  { id: "streak-30", name: "Monthly Master", description: "Study for 30 consecutive days", icon: Trophy, category: "streak", requirement: "30-day streak", rarity: "epic", predicate: (s) => s.streak >= 30 },
+  { id: "streak-100", name: "Century Scholar", description: "Study for 100 consecutive days", icon: Crown, category: "streak", requirement: "100-day streak", rarity: "legendary", predicate: (s) => s.streak >= 100 },
+  { id: "mastery-first", name: "First Mastery", description: "Fully master your first concept", icon: Star, category: "mastery", requirement: "100+ XP earned", rarity: "common", predicate: (s) => s.xp >= 100 },
+  { id: "mastery-10", name: "Concept Collector", description: "Earn 1,000+ XP in subjects", icon: Brain, category: "mastery", requirement: "1,000+ XP", rarity: "rare", predicate: (s) => s.xp >= 1000 },
+  { id: "mastery-50", name: "Knowledge Legend", description: "Master advanced syllabus concepts", icon: Globe, category: "mastery", requirement: "5,000+ XP", rarity: "epic", predicate: (s) => s.xp >= 5000 },
+  { id: "battle-first", name: "First Blood", description: "Engage in competitive 1v1 quiz battles", icon: Swords, category: "battle", requirement: "Battle arena active", rarity: "common", predicate: (s) => s.xp >= 250 },
+  { id: "battle-5", name: "Arena Regular", description: "Reach experienced arena rank", icon: Swords, category: "battle", requirement: "800+ XP", rarity: "rare", predicate: (s) => s.xp >= 800 },
+  { id: "practice-100", name: "Question Solver", description: "Consistently practice questions", icon: CheckCircle2, category: "practice", requirement: "300+ XP", rarity: "common", predicate: (s) => s.xp >= 300 },
+  { id: "practice-500", name: "Question Machine", description: "Answer hundreds of mock drills", icon: Zap, category: "practice", requirement: "1,800+ XP", rarity: "rare", predicate: (s) => s.xp >= 1800 },
+  { id: "score-400", name: "Foundation Built", description: "Predicted entrance score 400+", icon: Target, category: "milestone", requirement: "400+ score", rarity: "common", predicate: (s) => s.score >= 400 },
+  { id: "score-500", name: "500 Club", description: "Predicted entrance score 500+", icon: Target, category: "milestone", requirement: "500+ score", rarity: "epic", predicate: (s) => s.score >= 500 },
+  { id: "score-600", name: "Elite Tier", description: "Predicted entrance score 600+", icon: Trophy, category: "milestone", requirement: "600+ score", rarity: "legendary", predicate: (s) => s.score >= 600 },
 ];
 
 const RARITY_STYLES: Record<string, string> = {
   common: "border-slate-200 bg-slate-50",
   rare: "border-blue-200 bg-blue-50",
-  epic: "border-purple-200 bg-purple-50",
+  epic: "border-blue-300 bg-blue-50/80",
   legendary: "border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100",
 };
 
 const RARITY_LABELS: Record<string, { text: string; color: string }> = {
   common: { text: "Common", color: "text-slate-500" },
   rare: { text: "Rare", color: "text-blue-600" },
-  epic: { text: "Epic", color: "text-purple-600" },
+  epic: { text: "Epic", color: "text-blue-700" },
   legendary: { text: "Legendary", color: "text-amber-600" },
 };
 
@@ -93,9 +97,9 @@ export default function Achievements(): React.ReactElement {
   const user = useAuthStore((s) => s.user);
   const [badgeFilter, setBadgeFilter] = useState<string>("all");
 
-  const xp = user?.xpPoints ?? 1840;
-  const streak = user?.streakDays ?? 14;
-  const score = user?.currentPredictedScore ?? 498;
+  const xp = user?.xpPoints ?? 0;
+  const streak = user?.streakDays ?? 0;
+  const score = user?.currentPredictedScore ?? 0;
 
   const { current: levelInfo, nextLevel, progressToNext } = getCurrentLevel(xp);
 
@@ -129,12 +133,12 @@ export default function Achievements(): React.ReactElement {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0F2744] via-[#1a3a5c] to-[#0F2744] p-6 sm:p-8 text-white border border-slate-700/50 shadow-xl">
         <div className="absolute -top-20 -right-20 w-60 h-60 bg-amber-500/10 blur-3xl rounded-full pointer-events-none" />
-        <div className="absolute bottom-0 left-1/4 w-40 h-40 bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 w-40 h-40 bg-blue-500/10 blur-3xl rounded-full pointer-events-none" />
 
         <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
           <div className="relative">
             <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-amber-400/20 to-amber-500/10 border-2 border-amber-400/40 flex items-center justify-center text-4xl shadow-lg shadow-amber-500/10">
-              {levelInfo.icon}
+              <levelInfo.icon className="w-12 h-12 text-amber-300" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-amber-500 text-slate-950 text-xs font-black flex items-center justify-center shadow-md border-2 border-white/20">
               {levelInfo.level}
@@ -143,7 +147,7 @@ export default function Achievements(): React.ReactElement {
 
           <div className="flex-1 text-center sm:text-left space-y-2">
             <p className="text-xs text-amber-300 font-bold uppercase tracking-widest">Level {levelInfo.level}</p>
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-white">{levelInfo.title}</h2>
+            <h2 className="font-sans text-2xl sm:text-3xl font-bold text-white">{levelInfo.title}</h2>
             <div className="flex items-center gap-3 flex-wrap justify-center sm:justify-start">
               <span className="flex items-center gap-1.5 text-sm font-bold text-amber-400">
                 <Sparkles className="w-4 h-4" /> {xp.toLocaleString()} XP
@@ -171,17 +175,17 @@ export default function Achievements(): React.ReactElement {
             <div className="px-4 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs">
               <Flame className="w-4 h-4 text-amber-400 mx-auto mb-1" />
               <p className="font-bold text-lg text-white">{streak}</p>
-              <p className="text-[10px] text-slate-400 font-semibold">Day Streak</p>
+              <p className="text-[10px] text-slate-400 font-semibold">Day streak</p>
             </div>
             <div className="px-4 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs">
-              <Award className="w-4 h-4 text-purple-400 mx-auto mb-1" />
+              <Award className="w-4 h-4 text-blue-300 mx-auto mb-1" />
               <p className="font-bold text-lg text-white">{earnedBadges.length}</p>
               <p className="text-[10px] text-slate-400 font-semibold">Badges</p>
             </div>
             <div className="px-4 py-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs">
               <Trophy className="w-4 h-4 text-amber-400 mx-auto mb-1" />
               <p className="font-bold text-lg text-white">#{user?.nationalRank || 342}</p>
-              <p className="text-[10px] text-slate-400 font-semibold">Rank</p>
+              <p className="text-[10px] text-slate-400 font-semibold">National rank</p>
             </div>
           </div>
         </div>
@@ -191,7 +195,7 @@ export default function Achievements(): React.ReactElement {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-900 flex items-center gap-2">
             <Target className="w-5 h-5 text-amber-500" />
-            Daily XP Goals
+            Daily study goals
           </h3>
           <span className="text-sm font-bold text-amber-600">{dailyXpEarned}/{dailyXpTotal} XP</span>
         </div>
@@ -236,8 +240,8 @@ export default function Achievements(): React.ReactElement {
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-900 flex items-center gap-2">
-            <Award className="w-5 h-5 text-purple-500" />
-            Achievement Badges
+            <Award className="w-5 h-5 text-blue-600" />
+            Badges
             <span className="text-xs text-slate-400 font-normal">({earnedBadges.length}/{evaluatedBadges.length} earned)</span>
           </h3>
         </div>
@@ -270,8 +274,8 @@ export default function Achievements(): React.ReactElement {
                 {RARITY_LABELS[badge.rarity].text}
               </div>
 
-              <div className={`text-3xl mb-2 ${badge.earned ? "" : "grayscale"}`}>
-                {badge.earned ? badge.icon : <Lock className="w-7 h-7 text-slate-400 mx-auto" />}
+              <div className="flex items-center justify-center h-10 mb-2">
+                {badge.earned ? <badge.icon className="w-7 h-7 text-amber-600" /> : <Lock className="w-7 h-7 text-slate-400" />}
               </div>
 
               <h4 className={`font-bold text-xs ${badge.earned ? "text-slate-900" : "text-slate-500"}`}>

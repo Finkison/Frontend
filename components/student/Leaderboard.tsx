@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { getLeaderboard } from "../../services/discoveryService";
+import { getLeaderboard } from "../../services/studentService";
 import useAuthStore from "../../store/authStore";
-import { CardSkeleton, TableRowSkeleton } from "../shared/SkeletonLoader";
+import { CardSkeleton, TableRowSkeleton } from "../ui/Skeleton";
 import { 
   Globe, 
   MapPin, 
@@ -91,13 +91,13 @@ export default function Leaderboard(): React.ReactElement {
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-800 text-xs font-semibold border border-amber-500/20 mb-2">
               <Crown className="w-3.5 h-3.5 text-amber-600" />
-              <span>National Academic Standings</span>
+              <span>Leaderboard</span>
             </div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-              Academic League & Leaderboard
+            <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+              Leaderboard
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-              Real-time standings calibrated across 200,000+ preparatory candidates. Benchmarked by adaptive mastery, diagnostic simulation scores, and daily study streaks.
+              Real-time rankings based on practice performance, mock exam scores, and study streaks.
             </p>
           </div>
 
@@ -132,7 +132,7 @@ export default function Leaderboard(): React.ReactElement {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <School className="w-3.5 h-3.5 text-purple-600" />
+              <School className="w-3.5 h-3.5 text-blue-600" />
               <span>School</span>
             </button>
           </div>
@@ -143,7 +143,7 @@ export default function Leaderboard(): React.ReactElement {
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search candidate name or school..."
+              placeholder="Search student or school..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:border-amber-500 outline-none transition-colors"
@@ -191,7 +191,7 @@ export default function Leaderboard(): React.ReactElement {
                   <span>2nd Place</span>
                 </div>
                 <div className="text-center pt-2">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-200 text-slate-700 font-serif text-xl font-bold flex items-center justify-center mx-auto shadow-inner mb-3">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-200 text-slate-700 font-sans text-xl font-bold flex items-center justify-center mx-auto shadow-inner mb-3">
                     {(topThree[1].student_name || topThree[1].name || "S")[0]}
                   </div>
                   <h3 className="font-bold text-slate-900 text-sm truncate">
@@ -203,12 +203,12 @@ export default function Leaderboard(): React.ReactElement {
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-4 text-xs">
                     <div>
                       <span className="text-[10px] text-slate-400 block">Diagnostic</span>
-                      <strong className="text-emerald-700 font-bold">{topThree[1].score || topThree[1].predicted_score} / 700</strong>
+                      <strong className="text-emerald-700 font-bold">{topThree[1].score || topThree[1].predicted_score} / 600</strong>
                     </div>
                     <div className="h-6 w-px bg-slate-100" />
                     <div>
                       <span className="text-[10px] text-slate-400 block">Mastery XP</span>
-                      <strong className="text-purple-700 font-bold">{topThree[1].xp_points || topThree[1].xpPoints} XP</strong>
+                      <strong className="text-blue-700 font-bold">{topThree[1].xp_points || topThree[1].xpPoints} XP</strong>
                     </div>
                   </div>
                 </div>
@@ -220,7 +220,7 @@ export default function Leaderboard(): React.ReactElement {
                   <span>National Champion</span>
                 </div>
                 <div className="text-center pt-2">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-serif text-2xl font-bold flex items-center justify-center mx-auto shadow-md mb-3 ring-4 ring-amber-100">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-sans text-2xl font-bold flex items-center justify-center mx-auto shadow-md mb-3 ring-4 ring-amber-100">
                     {(topThree[0].student_name || topThree[0].name || "N")[0]}
                   </div>
                   <h3 className="font-bold text-slate-950 text-base truncate">
@@ -232,12 +232,12 @@ export default function Leaderboard(): React.ReactElement {
                   <div className="mt-4 pt-3.5 border-t border-amber-200/50 flex items-center justify-center gap-5 text-xs">
                     <div>
                       <span className="text-[10px] font-semibold text-slate-500 block">Diagnostic Score</span>
-                      <strong className="text-emerald-700 text-sm font-bold">{topThree[0].score || topThree[0].predicted_score} / 700</strong>
+                      <strong className="text-emerald-700 text-sm font-bold">{topThree[0].score || topThree[0].predicted_score} / 600</strong>
                     </div>
                     <div className="h-7 w-px bg-amber-200/50" />
                     <div>
                       <span className="text-[10px] font-semibold text-slate-500 block">Mastery XP</span>
-                      <strong className="text-purple-700 text-sm font-bold">{topThree[0].xp_points || topThree[0].xpPoints} XP</strong>
+                      <strong className="text-blue-700 text-sm font-bold">{topThree[0].xp_points || topThree[0].xpPoints} XP</strong>
                     </div>
                   </div>
                 </div>
@@ -250,7 +250,7 @@ export default function Leaderboard(): React.ReactElement {
                   <span>3rd Place</span>
                 </div>
                 <div className="text-center pt-2">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-900 font-serif text-xl font-bold flex items-center justify-center mx-auto shadow-inner mb-3">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-900 font-sans text-xl font-bold flex items-center justify-center mx-auto shadow-inner mb-3">
                     {(topThree[2].student_name || topThree[2].name || "T")[0]}
                   </div>
                   <h3 className="font-bold text-slate-900 text-sm truncate">
@@ -262,12 +262,12 @@ export default function Leaderboard(): React.ReactElement {
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-4 text-xs">
                     <div>
                       <span className="text-[10px] text-slate-400 block">Diagnostic</span>
-                      <strong className="text-emerald-700 font-bold">{topThree[2].score || topThree[2].predicted_score} / 700</strong>
+                      <strong className="text-emerald-700 font-bold">{topThree[2].score || topThree[2].predicted_score} / 600</strong>
                     </div>
                     <div className="h-6 w-px bg-slate-100" />
                     <div>
                       <span className="text-[10px] text-slate-400 block">Mastery XP</span>
-                      <strong className="text-purple-700 font-bold">{topThree[2].xp_points || topThree[2].xpPoints} XP</strong>
+                      <strong className="text-blue-700 font-bold">{topThree[2].xp_points || topThree[2].xpPoints} XP</strong>
                     </div>
                   </div>
                 </div>
@@ -359,7 +359,7 @@ export default function Leaderboard(): React.ReactElement {
                             <span>{r.streak_days || 14}d</span>
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 font-bold text-purple-700">
+                        <td className="py-3.5 px-4 font-bold text-blue-700">
                           {r.xp_points || r.xpPoints || 1840} XP
                         </td>
                         <td className="py-3.5 px-4 text-right font-bold text-emerald-700 text-sm">

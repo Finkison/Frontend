@@ -1,161 +1,252 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { 
-  GraduationCap, 
-  ShieldCheck, 
-  Target, 
-  Heart, 
-  BookOpen, 
-  Users, 
-  Sparkles, 
-  Award,
+import {
+  BookOpen,
+  TrendingUp,
+  Cpu,
+  Building2,
+  Target,
+  ArrowRight,
+  School,
+  UserCheck,
+  GraduationCap,
   Globe2,
-  CheckCircle2,
-  ArrowRight
 } from "lucide-react";
+import { SectionHeader } from "../components/typography/SectionHeader";
+import { SITE_CONTENT } from "../content/siteContent";
 
 export default function AboutPage(): React.ReactElement {
+  useEffect(() => {
+    document.title = "About Finkison — Finkison";
+
+    if (window.location.hash) {
+      const id = window.location.hash.replace("#", "");
+      const elem = document.getElementById(id);
+      if (elem) {
+        elem.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Header Banner */}
-      <section className="bg-gradient-to-b from-[#0F2744] via-[#143257] to-[#0F2744] text-white py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold border border-amber-500/30">
-            <GraduationCap className="w-3.5 h-3.5" />
-            Our National Mission
-          </div>
-          <h1 className="font-serif text-3xl sm:text-5xl font-bold tracking-tight">
-            Democratizing University Entrance Prep for Every Ethiopian Candidate
-          </h1>
-          <p className="text-slate-300 text-base max-w-2xl mx-auto leading-relaxed">
-            Every year, hundreds of thousands of students sit for the Ethiopian University Entrance Examination. Finkison was created to ensure that whether you study in Addis Ababa, Hawassa, Adama, or a rural preparatory school, you have equal access to world-class learning tools.
-          </p>
+    <div className="min-h-screen bg-white text-[#261E1A] font-sans selection:bg-[#FFF1F2] selection:text-[#881337] dark:bg-[#1C1512] dark:text-stone-100">
+      {/* 1. HERO SECTION - Left-aligned to container */}
+      <section className="section bg-white dark:bg-[#1C1512] border-b border-[#E2E8F0] dark:border-stone-800">
+        <div className="container space-y-8">
+          <SectionHeader
+            asH1
+            title={SITE_CONTENT.pages.about.title}
+            subtitle={SITE_CONTENT.pages.about.subtitle}
+            actions={
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  to="/contact"
+                  className="min-h-[44px] px-6 py-2.5 rounded-[6px] bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-sm font-semibold transition-colors inline-flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#881337] active:scale-[0.98]"
+                >
+                  <span>Contact us</span>
+                  <ArrowRight className="w-4 h-4 text-[#1C1512]" aria-hidden="true" />
+                </Link>
+                <Link
+                  to="/team"
+                  className="min-h-[44px] px-5 py-2.5 rounded-[6px] border border-[#E2E8F0] dark:border-white/20 hover:bg-stone-50 dark:hover:bg-white/10 text-[#1C1512] dark:text-white text-sm font-semibold transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#881337] active:scale-[0.98]"
+                >
+                  <span>Meet our team</span>
+                </Link>
+              </div>
+            }
+          />
         </div>
       </section>
 
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
-        <div className="grid md:grid-cols-2 gap-10 items-center">
-          <div className="space-y-4">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-600">The Problem We Solve</span>
-            <h2 className="font-serif text-3xl font-bold text-slate-900">
-              Breaking Regional Disparities in Educational Outcomes
-            </h2>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              Historically, students in regional schools faced textbook shortages, limited access to verified past examination archives, and high tutoring costs.
-            </p>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              Finkison converts the entire MoE Grades 9–12 curriculum into an adaptive digital intelligence platform. Candidates can test themselves, get hints in their native language, and know their exact cutoff odds before exam day.
-            </p>
-            <div className="pt-2 flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>100% Free Core Access for Public School Candidates</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Bilingual Socratic Tutoring (English and Amharic)</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Accredited Ministry of Education Curriculum Alignment</span>
-              </div>
-            </div>
-          </div>
+      {/* 2. MISSION AND FOUNDING PRINCIPLES */}
+      <section className="section bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E2E8F0] dark:border-stone-800">
+        <div className="container space-y-12">
+          <SectionHeader
+            title="Curriculum fidelity and educational equity"
+            subtitle="Our core principles guide platform development, assessment calibration, and secondary school enablement across Ethiopia."
+          />
 
-          <div className="p-8 rounded-3xl bg-white border border-slate-200 shadow-xl space-y-6">
-            <h3 className="font-serif text-xl font-bold text-slate-900 border-b border-slate-100 pb-3">
-              National Impact Metrics
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-100">
-                <p className="font-serif text-2xl font-bold text-blue-900">32M+</p>
-                <p className="text-xs text-blue-700 mt-1">Secondary Youth Reached</p>
+          <div className="grid md:grid-cols-3 gap-8 text-start">
+            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4">
+              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
+                <BookOpen className="w-6 h-6 text-[#881337]" aria-hidden="true" />
               </div>
-              <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-100">
-                <p className="font-serif text-2xl font-bold text-amber-900">10,400+</p>
-                <p className="text-xs text-amber-700 mt-1">Verified Past Questions</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100">
-                <p className="font-serif text-2xl font-bold text-emerald-900">96.4%</p>
-                <p className="text-xs text-emerald-700 mt-1">University Cutoff Accuracy</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100">
-                <p className="font-serif text-2xl font-bold text-purple-900">12 / 12</p>
-                <p className="text-xs text-purple-700 mt-1">Regional States Served</p>
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-400 italic">
-              Data compiled from national entrance candidate simulations and regional pilot school deployments.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 3 Core Values */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white border-y border-slate-200">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="font-serif text-3xl font-bold text-slate-900">Our Guiding Values</h2>
-            <p className="text-sm text-slate-600 mt-2">
-              Every algorithm, question review, and translation is anchored in these three commitments.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-4">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-base text-slate-900 mb-2">Curriculum Integrity</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Zero hallucinated questions. Every single problem in our bank is authenticated by licensed master educators against real national exam past papers.
+              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
+                National curriculum alignment
+              </h3>
+              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
+                Every lesson outline, worked solution, and mock exam is mapped directly to approved Ethiopian national secondary textbooks across all units in Grades 9 through 12.
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center mb-4">
-                <Globe2 className="w-5 h-5" />
+            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4">
+              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
+                <TrendingUp className="w-6 h-6 text-[#881337]" aria-hidden="true" />
               </div>
-              <h4 className="font-bold text-base text-slate-900 mb-2">Bilingual Equity</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Language should never be a barrier to understanding physics, calculus, or chemistry. We provide full explanations in English and Amharic.
+              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
+                Empirical psychometric calibration
+              </h3>
+              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
+                We replace arbitrary percentages with calibrated entrance score forecasts modeled on historical university cutoffs, giving students clear confidence ranges before exam day.
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-4">
-                <Target className="w-5 h-5" />
+            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4">
+              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
+                <Globe2 className="w-6 h-6 text-[#881337]" aria-hidden="true" />
               </div>
-              <h4 className="font-bold text-base text-slate-900 mb-2">Psychometric Precision</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                We use Item Response Theory (IRT) and national percentiles rather than simple raw percentages, projecting real university entrance cutoff odds.
+              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
+                National educational equity
+              </h3>
+              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
+                Standardized across all regional states in clear, textbook-aligned English to give every student an equal path to university admission regardless of geographic location.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Call to action */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 text-center max-w-3xl mx-auto space-y-4">
-        <h3 className="font-serif text-2xl sm:text-3xl font-bold text-slate-900">
-          Be Part of Ethiopia's Next Generation of Innovators
-        </h3>
-        <p className="text-sm text-slate-600">
-          Prepare for your national exams today or learn more about our academic curriculum.
-        </p>
-        <div className="flex justify-center gap-3 pt-2">
-          <Link
-            to="/register"
-            className="px-6 py-3 rounded-xl font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm shadow"
-          >
-            Create Free Account
-          </Link>
-          <Link
-            to="/team"
-            className="px-6 py-3 rounded-xl font-semibold border border-slate-300 text-slate-700 hover:bg-slate-100 text-sm"
-          >
-            Meet the Team &rarr;
-          </Link>
+      {/* 3. INSTITUTIONAL INFRASTRUCTURE FOR SCHOOLS */}
+      <section className="section bg-white dark:bg-[#1C1512] border-b border-[#E2E8F0] dark:border-stone-800" id="schools">
+        <div className="container space-y-12">
+          <SectionHeader
+            title="Academic infrastructure for secondary schools"
+            subtitle="Finkison provides unified academic governance, cohort performance analytics, and automated exam generation for preparatory and secondary schools."
+          />
+
+          <div className="grid md:grid-cols-3 gap-8 text-start">
+            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 hover:border-[#FECDD3] dark:hover:border-[#881337]/40 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4">
+              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
+                <School className="w-6 h-6 text-[#881337]" aria-hidden="true" />
+              </div>
+              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
+                Institutional governance
+              </h3>
+              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
+                Principals and academic deans monitor cohort velocity, projected admission cutoffs, and export statutory continuous assessment reports with full audit integrity.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 hover:border-[#FECDD3] dark:hover:border-[#881337]/40 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4" id="teachers">
+              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
+                <UserCheck className="w-6 h-6 text-[#881337]" aria-hidden="true" />
+              </div>
+              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
+                Classroom assessment integrity
+              </h3>
+              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
+                Subject educators draft standardized tests across units, verify answer keys before publishing, and manage continuous assessment records with zero manual calculation overhead.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 hover:border-[#FECDD3] dark:hover:border-[#881337]/40 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4">
+              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
+                <GraduationCap className="w-6 h-6 text-[#881337]" aria-hidden="true" />
+              </div>
+              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
+                Candidate academic mastery
+              </h3>
+              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
+                Candidates access structured textbook summaries, interactive science simulations, timed entrance trials, and verified past papers with worked solutions.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. TEAM AND LEADERSHIP DIVISIONS */}
+      <section className="section bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E2E8F0] dark:border-stone-800" id="team">
+        <div className="container space-y-12">
+          <SectionHeader
+            title="Guided by Ethiopian curriculum specialists and measurement scientists"
+            subtitle="Every assessment item, score prediction model, and school deployment workflow is verified across four academic divisions."
+          />
+
+          <div className="p-8 sm:p-10 rounded-[16px] bg-white dark:bg-[#261E1A]/60 border border-[#E2E8F0] dark:border-stone-800 shadow-xs space-y-8 text-start">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="space-y-2.5">
+                <div className="w-10 h-10 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
+                  <BookOpen className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <h3 className="text-base font-bold text-[#1C1512] dark:text-white">Curriculum alignment</h3>
+                <p className="text-xs sm:text-sm text-[#57534E] dark:text-stone-300 leading-relaxed">
+                  Subject matter specialists mapping all items to approved national textbooks.
+                </p>
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="w-10 h-10 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
+                  <Target className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <h3 className="text-base font-bold text-[#1C1512] dark:text-white">Psychometrics</h3>
+                <p className="text-xs sm:text-sm text-[#57534E] dark:text-stone-300 leading-relaxed">
+                  Statistical scientists modeling item difficulty and university entrance score distributions.
+                </p>
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="w-10 h-10 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
+                  <Cpu className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <h3 className="text-base font-bold text-[#1C1512] dark:text-white">Domestic engineering</h3>
+                <p className="text-xs sm:text-sm text-[#57534E] dark:text-stone-300 leading-relaxed">
+                  Tier-3 Addis Ababa cloud hosting, AES-256 candidate security, and low-latency testing.
+                </p>
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="w-10 h-10 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
+                  <Building2 className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <h3 className="text-base font-bold text-[#1C1512] dark:text-white">School enablement</h3>
+                <p className="text-xs sm:text-sm text-[#57534E] dark:text-stone-300 leading-relaxed">
+                  On-site workshops for administrators and direct educator onboarding.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-stone-100 dark:border-stone-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <span className="text-xs sm:text-sm text-stone-600 dark:text-stone-300">
+                Learn more about our educational research methodologies, faculty, and technical team.
+              </span>
+              <Link
+                to="/team"
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#881337] dark:text-[#FBBF24] hover:underline"
+              >
+                <span>Meet our leadership team</span>
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. FINAL CALL TO ACTION (Academic Shield #4C0519) - Left-aligned to container */}
+      <section className="section bg-[#4C0519] text-white">
+        <div className="container space-y-8 text-start">
+          <SectionHeader
+            invertColors
+            title="Equip your secondary school with Finkison"
+            subtitle="Connect with our academic team to discuss school onboarding, educator workshops, or student license allocations."
+            className="text-white"
+            actions={
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                <Link
+                  to="/contact"
+                  className="min-h-[48px] px-8 py-3.5 rounded-[6px] bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-sm font-semibold transition-colors inline-flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#881337] active:scale-[0.98]"
+                >
+                  <span>Contact us</span>
+                  <ArrowRight className="w-4 h-4 text-[#1C1512]" aria-hidden="true" />
+                </Link>
+                <Link
+                  to="/academics"
+                  className="min-h-[48px] px-7 py-3.5 rounded-[6px] border border-white/40 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white active:scale-[0.98]"
+                >
+                  <span>Explore academics</span>
+                </Link>
+              </div>
+            }
+          />
         </div>
       </section>
     </div>

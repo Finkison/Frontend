@@ -47,24 +47,24 @@ export default function ExamHistory(): React.ReactElement {
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-700 text-xs font-semibold border border-blue-500/20 mb-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-700 text-xs font-semibold border border-blue-500/20 mb-1.5">
               <FileCheck2 className="w-3.5 h-3.5" />
-              <span>Assessment Archive</span>
+              <span>Assessments</span>
             </div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-              Exam History & Diagnostic Results
+            <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+              Exam history
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
-              Inspect historical entrance mock exams, timed past papers, and adaptive diagnostics with full question analysis.
+              Review completed mock exams and score analytics.
             </p>
           </div>
 
           <button
             onClick={() => navigate("/student/exams")}
-            className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-sm transition-colors shrink-0"
+            className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors shrink-0"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Take New Mock Exam</span>
+            <span>Take Exam</span>
           </button>
         </div>
       </div>
@@ -119,7 +119,7 @@ export default function ExamHistory(): React.ReactElement {
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">
                         Diagnostic Score
                       </span>
-                      <span className="font-serif text-2xl font-bold text-slate-900">
+                      <span className="font-sans text-2xl font-bold text-slate-900">
                         {rec.score}{" "}
                         <span className="text-xs font-normal text-slate-400">/ {rec.max_score}</span>
                       </span>
@@ -146,9 +146,9 @@ export default function ExamHistory(): React.ReactElement {
                 <div className="pt-2 border-t border-slate-100 flex justify-end">
                   <button
                     onClick={() => navigate("/student/results")}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
                   >
-                    <span>Inspect Detailed Question Analysis</span>
+                    <span>Inspect detailed question analysis</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>

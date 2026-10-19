@@ -138,9 +138,9 @@ export default function AITutorChat(): React.ReactElement {
           <div>
             <div className="inline-flex items-center gap-1.5 text-xs text-amber-400 font-bold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Socratic AI Pedagogical Guide</span>
+              <span>AI Tutor</span>
             </div>
-            <h2 className="font-serif text-2xl font-bold text-white">Interactive Curriculum Tutor</h2>
+            <h2 className="font-sans text-2xl font-bold text-white">AI Socratic Tutor</h2>
           </div>
         </div>
 
@@ -179,7 +179,7 @@ export default function AITutorChat(): React.ReactElement {
               {m.sender === "tutor" ? (
                 <>
                   <Bot className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Socratic AI ({subject})</span>
+                  <span>Tutor ({subject})</span>
                 </>
               ) : (
                 <span>You • {m.timestamp}</span>
@@ -207,7 +207,7 @@ export default function AITutorChat(): React.ReactElement {
               {m.suggestedFollowUps && m.suggestedFollowUps.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-slate-200 space-y-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Recommended Follow-ups:
+                    Suggested Questions:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {m.suggestedFollowUps.map((prompt, pIdx) => (
@@ -229,7 +229,7 @@ export default function AITutorChat(): React.ReactElement {
         {loading && (
           <div className="flex items-center gap-2 text-xs text-amber-600 font-bold p-3 bg-amber-50 rounded-2xl w-fit">
             <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Socratic AI is formulating step-by-step pedagogical breakdown...</span>
+            <span>Thinking...</span>
           </div>
         )}
       </div>
@@ -246,7 +246,7 @@ export default function AITutorChat(): React.ReactElement {
           type="text"
           value={inputQuery}
           onChange={(e) => setInputQuery(e.target.value)}
-          placeholder={`Ask Socratic AI about ${subject} (e.g., "Why is cell potential positive in galvanic cells?")...`}
+          placeholder={`Ask a question about ${subject}...`}
           className="flex-1 p-3 text-xs sm:text-sm bg-transparent focus:outline-none text-slate-800 placeholder:text-slate-400 font-medium"
         />
         <button

@@ -46,6 +46,18 @@ export default function ExamSession() {
   const [passageFontSize, setPassageFontSize] = useState<"sm" | "base" | "lg">("base");
   const [showFormulaSheet, setShowFormulaSheet] = useState(false);
   const [filterFlaggedOnly, setFilterFlaggedOnly] = useState(false);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+  const [tabSwitchWarnings, setTabSwitchWarnings] = useState(0);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setTabSwitchWarnings((prev) => prev + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
 
   useEffect(() => {
     if (!sessionId) {
@@ -105,7 +117,7 @@ export default function ExamSession() {
       <div className="container max-w-xl mx-auto py-16 px-4">
         <div className="card text-center p-8 bg-white rounded-3xl border border-slate-200 shadow-sm space-y-4">
           <FileText className="w-12 h-12 text-slate-400 mx-auto" />
-          <h3 className="font-serif text-xl font-bold text-slate-900">No Active Examination Session</h3>
+          <h3 className="font-sans text-xl font-bold text-slate-900">No Active Examination Session</h3>
           <p className="text-xs text-slate-500">Please choose an examination or model simulation from the Hub to begin.</p>
           <button className="btn primary mx-auto" onClick={() => navigate("/student/exams")}>
             Go to National Exams Hub
@@ -167,10 +179,25 @@ export default function ExamSession() {
       setResult(data);
       navigate("/student/results");
     } catch {
+      let localCorrect = 0;
+      questions.forEach((q, idx) => {
+        const studentAns = studentAnswers[idx];
+        const correctAns = q.correctAnswer ?? q.correct_answer;
+        const correctLabel = q.correct_label;
+        if (studentAns !== undefined) {
+          if (correctAns !== undefined && String(studentAns) === String(correctAns)) {
+            localCorrect += 1;
+          } else if (correctLabel && String(studentAns).toUpperCase() === String(correctLabel).toUpperCase()) {
+            localCorrect += 1;
+          }
+        }
+      });
+      const totalQ = questions.length || 1;
+      const scorePct = Math.round((localCorrect / totalQ) * 100);
       setResult({
-        score_percent: 88,
-        correct_count: Math.round(questions.length * 0.88),
-        total_questions: questions.length,
+        score_percent: scorePct,
+        correct_count: localCorrect,
+        total_questions: totalQ,
         duration_seconds: (timeRemaining || 7200) - timeLeft
       });
       navigate("/student/results");
@@ -183,8 +210,16 @@ export default function ExamSession() {
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12">
-      
-      {examSections.length > 1 && (
+      {tabSwitchWarnings > 0 && (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 font-semibold">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>Anti-Cheat Notice: Window focus lost ({tabSwitchWarnings} time{tabSwitchWarnings > 1 ? "s" : ""}). Stay on this tab to avoid flag inspection.</span>
+          </span>
+          <span className="text-[10px] uppercase font-bold bg-amber-500/20 px-2 py-0.5 rounded-full">Monitored</span>
+        </div>
+      )}
+      {examSections.length > 0 && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1 bg-white p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 shrink-0">
             Exam Sections:
@@ -225,7 +260,7 @@ export default function ExamSession() {
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-amber-600" />
                 <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
-                  Official Reading Passage
+                  Reading Passage
                 </h4>
               </div>
               <div className="flex items-center gap-1">
@@ -256,14 +291,14 @@ export default function ExamSession() {
               </div>
             </div>
 
-            <div className={`prose prose-slate max-w-none leading-relaxed text-slate-700 font-serif whitespace-pre-line ${
+            <div className={`prose prose-slate max-w-none leading-relaxed text-slate-700 font-sans whitespace-pre-line ${
               passageFontSize === "sm" ? "text-xs" : passageFontSize === "lg" ? "text-base" : "text-sm"
             }`}>
               {current?.passage}
             </div>
 
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-snug">
-              <strong>Tip:</strong> Refer back to this passage on the left when evaluating inference and authorial tone questions.
+              <strong>Tip:</strong> Reference the passage to verify inference and text evidence.
             </div>
           </div>
         )}
@@ -293,7 +328,7 @@ export default function ExamSession() {
                       title={bookmarkedQuestionIds?.includes(current.id) ? "Marked for review (Click to unflag)" : "Flag question for review"}
                     >
                       <Bookmark className={`w-3.5 h-3.5 ${bookmarkedQuestionIds?.includes(current.id) ? "fill-slate-950 text-slate-950" : "text-slate-400"}`} />
-                      <span>{bookmarkedQuestionIds?.includes(current.id) ? "Flagged for Review" : "Flag Question"}</span>
+                      <span>{bookmarkedQuestionIds?.includes(current.id) ? "Flagged" : "Flag"}</span>
                     </button>
                   )}
                   {current?.difficulty && (
@@ -332,18 +367,18 @@ export default function ExamSession() {
             {current?.question_type === "vocabulary_antonym" && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-950 text-xs font-bold flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>ANTONYM QUESTION: Choose the alternative that is MOST OPPOSITE in meaning!</span>
+                <span>Antonym: Select the word most opposite in meaning.</span>
               </div>
             )}
             {current?.question_type === "vocabulary_synonym" && (
               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-950 text-xs font-bold flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>SYNONYM QUESTION: Choose the alternative that is CLOSEST in meaning!</span>
+                <span>Synonym: Select the word most similar in meaning.</span>
               </div>
             )}
 
             {/* Question Stem */}
-            <div className="font-serif text-base sm:text-lg font-bold text-slate-900 leading-snug pt-1">
+            <div className="font-sans text-base sm:text-lg font-bold text-slate-900 leading-snug pt-1">
               <MathText text={current?.question_text || current?.question_text_en || current?.question || "Question prompt unavailable."} />
             </div>
 
@@ -387,7 +422,7 @@ export default function ExamSession() {
                 className="text-xs font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1.5 py-1.5 px-3 rounded-xl bg-amber-50 border border-amber-200 transition-colors cursor-pointer"
               >
                 <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
-                <span>{showHint ? "Hide Socratic Concept Hint" : "Need a Pedagogical Hint?"}</span>
+                <span>{showHint ? "Hide Hint" : "Show Hint"}</span>
                 {showHint ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
 
@@ -396,12 +431,12 @@ export default function ExamSession() {
                   <div className="flex items-center justify-between pb-2 border-b border-white/10">
                     <span className="font-bold text-amber-400 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>Socratic Guidance</span>
+                      <span>Hint</span>
                     </span>
                   </div>
                   <div className="text-slate-200 leading-relaxed font-sans">
                     <MathText text={
-                      current?.explanation_en || current?.explanation || "Recall the fundamental curriculum rule or formula governing this unit before evaluating the options."
+                      current?.explanation_en || current?.explanation || "Review the core concept or formula before selecting an option."
                     } />
                   </div>
                 </div>
@@ -430,7 +465,7 @@ export default function ExamSession() {
               onClick={onNext}
               disabled={busy || !selected}
             >
-              {busy ? "Submitting..." : currentQuestionIndex >= questions.length - 1 ? "Submit Entire Exam" : "Next Question"}
+              {busy ? "Submitting..." : currentQuestionIndex >= questions.length - 1 ? "Submit Exam" : "Next Question"}
             </button>
           </div>
         </div>
@@ -439,7 +474,7 @@ export default function ExamSession() {
         <aside className={`${hasPassage ? "lg:col-span-3" : "lg:col-span-3"} bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4`}>
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
-              Question Navigator
+              Questions
             </h4>
             <span className="text-[10px] font-mono text-slate-400">
               {Object.keys(studentAnswers).length}/{questions.length} Answered
@@ -536,14 +571,53 @@ export default function ExamSession() {
           <div className="pt-2">
             <button
               type="button"
-              onClick={onFinish}
+              onClick={() => setConfirmSubmitOpen(true)}
               className="w-full py-2.5 rounded-xl border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 font-bold text-xs transition-colors cursor-pointer"
             >
-              Finish & Review Now
+              Finish Exam
             </button>
           </div>
         </aside>
       </div>
+
+      {/* Submit Confirmation Modal */}
+      {confirmSubmitOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-xl border border-slate-200">
+            <h3 className="font-sans text-lg font-bold text-slate-900">
+              Submit Examination?
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              You have answered {Object.keys(studentAnswers).length} of {questions.length} questions.
+              {questions.length - Object.keys(studentAnswers).length > 0 && (
+                <span className="block mt-1 font-bold text-amber-600">
+                  {questions.length - Object.keys(studentAnswers).length} questions remain unanswered.
+                </span>
+              )}
+            </p>
+            <div className="flex gap-2 pt-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmSubmitOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Return to Exam
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmSubmitOpen(false);
+                  onFinish();
+                }}
+                disabled={busy}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-rose-600 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {busy ? "Submitting..." : "Confirm & Submit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Official Formula & Physical Constants Modal */}
       <FormulaSheetModal

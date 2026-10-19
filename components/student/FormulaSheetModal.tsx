@@ -265,15 +265,15 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-serif font-bold text-base text-white">
-                  Formula & Constants Reference Sheet
+                <h3 className="font-sans font-bold text-base text-white">
+                  Formula and constants reference
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-bold">
                   EUEE Standard
                 </span>
               </div>
               <p className="text-[11px] text-slate-300">
-                Official national curriculum identities, formulas, and physical constants.
+                Reference identities, formulas, and physical constants.
               </p>
             </div>
           </div>
@@ -294,7 +294,7 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search constants or formulas (e.g., gravity, kinetic energy, quadratic, pH)..."
+              placeholder="Search formulas or constants..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
@@ -335,7 +335,7 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
               }`}
             >
               <Atom className="w-3.5 h-3.5 text-sky-400" />
-              <span>Physical Constants</span>
+              <span>Constants</span>
             </button>
 
             <button
@@ -348,7 +348,7 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
               }`}
             >
               <Atom className="w-3.5 h-3.5 text-amber-400" />
-              <span>Physics Mechanics & Fields</span>
+              <span>Physics</span>
             </button>
 
             <button
@@ -361,7 +361,7 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
               }`}
             >
               <Calculator className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Mathematics & Trigonometry</span>
+              <span>Mathematics</span>
             </button>
 
             <button
@@ -373,8 +373,8 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
                   : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
               }`}
             >
-              <FlaskConical className="w-3.5 h-3.5 text-purple-400" />
-              <span>Chemistry & Solutions</span>
+              <FlaskConical className="w-3.5 h-3.5 text-blue-500" />
+              <span>Chemistry</span>
             </button>
           </div>
         </div>
@@ -444,7 +444,7 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
 
         {/* Footer info bar */}
         <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
-          <span>Active during national simulation drills. Does not halt exam timer.</span>
+          <span>Formula reference sheet. Does not pause exam timer.</span>
           <button
             type="button"
             onClick={onClose}
