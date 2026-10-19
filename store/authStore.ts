@@ -104,10 +104,14 @@ const useAuthStore = create<AuthState>((set) => ({
     set((state) => {
       if (!state.user) return state;
       const updated = { ...state.user, ...partial };
+      const newRole = partial.role !== undefined ? partial.role : state.role;
       try {
         localStorage.setItem("finkison_user", JSON.stringify(updated));
+        if (partial.role !== undefined) {
+          localStorage.setItem("finkison_role", partial.role);
+        }
       } catch {}
-      return { user: updated };
+      return { user: updated, role: newRole };
     }),
 }));
 

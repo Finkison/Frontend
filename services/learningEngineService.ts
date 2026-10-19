@@ -247,9 +247,7 @@ export const learningEngineService = {
     duration_seconds: number;
     confidence_before?: number;
     is_correct?: boolean;
-    is_offline?: boolean;
   }) => logStudyEvent(data.event_type, data.concept_id, data.duration_seconds, data.is_correct, {
     confidence_before: data.confidence_before,
-    is_offline: data.is_offline,
   }),
 };

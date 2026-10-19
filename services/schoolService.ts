@@ -105,3 +105,117 @@ export const rolloverAcademicYear = (payload: {
   promote_grades?: boolean;
 }) => api.post("/school/academic-year/rollover/", payload);
 
+// ==========================================
+// STANDARDIZED TEACHER ASSIGNMENTS & TOOLS
+// ==========================================
+export const getAssignmentMatrix = () => api.get("/school/assignments/");
+
+export const assignTeacher = (payload: {
+  section_id: string;
+  subject_id: string;
+  teacher_id: string;
+  academic_year?: string;
+  is_substitute?: boolean;
+  end_date?: string;
+  confirm_high_workload?: boolean;
+}) => api.post("/school/assignments/", payload);
+
+export const reassignTeacher = (payload: {
+  section_id: string;
+  subject_id: string;
+  new_teacher_id: string;
+  academic_year?: string;
+}) => api.post("/school/assignments/reassign/", payload);
+
+export const bulkAssignTeachers = (payload: {
+  subject_id: string;
+  assignments: Array<{ section_id: string; teacher_id: string }>;
+  academic_year?: string;
+}) => api.post("/school/assignments/bulk/", payload);
+
+export const getAssignments = () => api.get("/school/exam-assignments/");
+export const createAssignment = (payload: any) => api.post("/school/assignments/", payload);
+
+export const getTeacherAssignedPairs = () => api.get("/teacher/assigned-pairs/");
+
+export const getSubjectExamLimits = () => api.get("/exam/config/limits/");
+
+export const generateStandardExam = (payload: {
+  subject_id: string;
+  section_ids: string[];
+  scope: string;
+  question_count: number;
+  difficulty_mix?: { easy: number; medium: number; hard: number };
+  duration_minutes?: number;
+  marks?: number;
+  context?: string;
+  source?: string;
+  cognitive_mix?: Record<string, number>;
+  include_explanations?: boolean;
+  shuffle?: boolean;
+  exclude_recent_exams_count?: number;
+}) => api.post("/exam/generate/", payload);
+
+export const approveAndPublishExam = (payload: {
+  exam_id: string;
+  section_ids?: string[];
+}) => api.post("/exam/approve-publish/", payload);
+
+export const uploadPastPaper = (payload: {
+  subject_id: string;
+  year: string;
+  source?: string;
+  file_name?: string;
+  file_size_bytes: number;
+  rights_confirmed: boolean;
+  questions: Array<{
+    question_text: string;
+    options: string[];
+    correct_answer: number;
+    unit?: number;
+    topic?: string;
+    explanation?: string;
+    marks?: number;
+  }>;
+}) => api.post("/school/past-papers/upload/", payload);
+
+export const getStudentPastPapers = (subjectId?: string, year?: string) =>
+  api.get(`/student/past-papers/?${subjectId ? `subject_id=${subjectId}&` : ""}${year ? `year=${year}` : ""}`);
+
+export const createSchoolTask = (payload: {
+  title: string;
+  task_type: string;
+  subject_id: string;
+  section_ids: string[];
+  unit_number?: number;
+  topic?: string;
+  instructions?: string;
+  attachment_url?: string;
+  due_date: string;
+  max_marks?: number;
+  late_policy?: string;
+}) => api.post("/school/tasks/", payload);
+
+export const getSchoolTasks = () => api.get("/school/tasks/");
+
+export const getAITeachingTools = () => api.get("/teacher/ai-tools/");
+
+export const executeAITeachingTool = (payload: {
+  tool_id: string;
+  subject_id: string;
+  section_id: string;
+  unit_number?: number;
+  context?: string;
+  language_level?: string;
+}) => api.post("/teacher/ai-tools/execute/", payload);
+
+export const getInvitations = () => api.get("/school/invitations/");
+export const sendInvitation = (payload: { email: string; subject?: string; section_ids?: string[] }) =>
+  api.post("/school/invitations/", payload);
+export const resendInvitation = (id: string) =>
+  api.post(`/school/invitations/${id}/resend/`);
+export const revokeInvitation = (id: string) =>
+  api.post(`/school/invitations/${id}/revoke/`);
+export const getAuditLogs = () =>
+  api.get("/school/audit-log/");
+

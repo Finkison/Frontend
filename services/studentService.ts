@@ -22,3 +22,7 @@ export const getScoreTrajectory = () => api.get("/student/score-trajectory/");
 export const getDepartments = () => api.get("/student/departments/");
 export const getExamHistory = () => api.get("/student/exam-history/");
 export const globalSearch = (q: string) => api.get(`/search/?q=${encodeURIComponent(q)}`);
+export const getLeaderboard = (scope: "national" | "region" | "regional" | "school" | string = "national", region?: string) =>
+  api.get(`/leaderboard/?scope=${scope}${region ? `&region=${encodeURIComponent(region)}` : ""}`);
+export { getPracticeHistory } from "./practiceService";
+

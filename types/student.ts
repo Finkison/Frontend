@@ -10,6 +10,7 @@ export interface DashboardData {
   days_until_exam?: number;
   total_xp?: number;
   level?: number;
+  attendance_rate?: number;
 }
 
 export interface SubjectProgress {

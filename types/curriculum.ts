@@ -1,7 +1,15 @@
 export interface SubjectItem {
   id: string;
   name: string;
+  code?: string;
   stream: string;
+  category?: string;
+  gradeLevels?: string;
+  periodsPerWeek?: number;
+  hoursPerWeek?: string | number;
+  annualHours?: number;
+  isCompulsory?: boolean;
+  competencies?: string[];
   icon?: string;
   unitsCount: number;
   totalQuestions: number;
