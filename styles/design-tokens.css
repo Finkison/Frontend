@@ -1,0 +1,426 @@
+/**
+ * Finkison Enterprise Design System Tokens
+ * Strict 8pt Grid, Unified Single Left Edge Alignment, WCAG 2.2 AA Compliant
+ * Coursera / edX / Khan Academy Grade Architecture
+ *
+ * THREE-TIER TOKEN ARCHITECTURE:
+ * 1. Primitive Tokens: Raw hex codes and physics values
+ * 2. Semantic Tokens: Context-aware design decisions (light/dark switchable)
+ * 3. Component Tokens: Direct component property bindings
+ */
+
+:root {
+  /* =========================================================================
+     TIER 1: PRIMITIVE TOKENS
+     ========================================================================= */
+
+  /* Academic Crimson 10-Step Scale (Harvard / Oxford Heritage - Replaces Blue) */
+  --crimson-50:  #FFF1F2;
+  --crimson-100: #FFE4E6;
+  --crimson-200: #FECDD3;
+  --crimson-300: #FDA4AF;
+  --crimson-400: #FB7185;
+  --crimson-500: #F43F5E;
+  --crimson-600: #E11D48;
+  --crimson-700: #BE123C;
+  --crimson-800: #9F1239;
+  --crimson-900: #881337; /* Institutional interactive primary */
+  --crimson-950: #4C0519; /* Deep Academic Claret Hero */
+
+  /* Antique Brass & Burnished Gold Scale (Replaces Sky Blue) */
+  --brass-50:  #FFFBEB;
+  --brass-100: #FEF3C7;
+  --brass-200: #FDE68A;
+  --brass-300: #FCD34D;
+  --brass-400: #FBBF24;
+  --brass-500: #F59E0B;
+  --brass-600: #D97706;
+  --brass-700: #B45309;
+  --brass-800: #92400E;
+  --brass-900: #78350F;
+  --brass-950: #451A03;
+
+  /* Brand Signature Colors */
+  --brand-crimson: #881337;      /* Harvard Crimson Primary */
+  --brand-crimson-dark: #4C0519; /* Deep Claret Anchor */
+  --brand-brass: #FBBF24;        /* Antique Gold Accent */
+  --brand-brass-hover: #F59E0B;
+  --brand-brass-active: #D97706;
+  --brand-brass-contrast: #1C1512; /* On-brand text strictly #1C1512 */
+
+  /* Neutral Stone 10-Step Scale (Zero Pure Black, Zero Blue) */
+  --stone-50:  #FAF8F5; /* Warm Parchment Paper */
+  --stone-100: #F4EFEA;
+  --stone-200: #E7E0D6;
+  --stone-300: #D5CBC0;
+  --stone-400: #A89C90;
+  --stone-500: #7D6F63;
+  --stone-600: #5C5046;
+  --stone-700: #443932;
+  --stone-800: #312722;
+  --stone-900: #261E1A; /* Rich Cocoa Slate (Replaces #0F172A) */
+  --stone-950: #1C1512; /* Deep Espresso Anchor (Replaces #000000) */
+
+  /* Backward Compatibility Aliases */
+  --blue-50:  var(--crimson-50);
+  --blue-100: var(--crimson-100);
+  --blue-200: var(--crimson-200);
+  --blue-300: var(--crimson-300);
+  --blue-400: var(--crimson-400);
+  --blue-500: var(--crimson-500);
+  --blue-600: var(--crimson-600);
+  --blue-700: var(--crimson-900);
+  --blue-800: var(--crimson-950);
+  --brand-navy: var(--brand-crimson-dark);
+  --brand-navy-dark: #2A040E;
+  --brand-sky: var(--brand-brass);
+  --brand-sky-hover: var(--brand-brass-hover);
+  --brand-sky-active: var(--brand-brass-active);
+  --brand-sky-contrast: var(--brand-brass-contrast);
+  --gray-50:  var(--stone-50);
+  --gray-100: var(--stone-100);
+  --gray-200: var(--stone-200);
+  --gray-300: var(--stone-300);
+  --gray-400: var(--stone-400);
+  --gray-500: var(--stone-500);
+  --gray-600: var(--stone-600);
+  --gray-700: var(--stone-700);
+  --gray-800: var(--stone-800);
+  --gray-900: var(--stone-900);
+  --gray-950: var(--stone-950);
+
+  /* Status Scale (Success, Warning, Error, Info) */
+  --green-50:  #F0FDF4;
+  --green-100: #DCFCE7;
+  --green-600: #16A34A;
+  --green-700: #15803D;
+
+  --amber-50:  #FFFBEB;
+  --amber-100: #FEF3C7;
+  --amber-600: #D97706;
+  --amber-700: #B45309;
+
+  --red-50:    #FEF2F2;
+  --red-100:   #FEE2E2;
+  --red-600:   #DC2626;
+  --red-700:   #B91C1C;
+
+  /* =========================================================================
+     TIER 2: SEMANTIC TOKENS (LIGHT MODE DEFAULT)
+     ========================================================================= */
+
+  /* 60/30/10 Rule Allocation */
+  /* 60% Neutral Surfaces */
+  --color-bg:              var(--stone-50);
+  --color-surface:         #FFFFFF;
+  --color-surface-raised:  #FFFFFF;
+  --color-surface-sunken:  var(--stone-100);
+  --color-surface-alt:     var(--stone-100);
+  --color-surface-tint:    var(--crimson-50);
+  --color-surface-dark:    var(--brand-crimson-dark);
+  --color-surface-dark-2:  #2A040E;
+
+  /* Typography / Text Colors (Zero Pure Black) */
+  --color-text:            var(--stone-900); /* 17.2:1 on parchment */
+  --color-text-muted:      var(--stone-600); /* 7.2:1 on parchment */
+  --color-text-subtle:     var(--stone-500); /* 4.6:1 on parchment */
+  --color-text-inverse:    #FFFFFF;
+  --color-text-inverse-muted: var(--stone-200);
+
+  /* 30% Secondary Elements & Borders */
+  --color-border:          var(--stone-200);
+  --color-border-hover:    var(--stone-300);
+  --color-border-control:  var(--stone-500);
+  --color-border-dark:     rgba(255, 255, 255, 0.15);
+
+  /* 10% Accent / Interactive Primary CTA */
+  --color-primary:         var(--crimson-900);
+  --color-primary-hover:   var(--crimson-800);
+  --color-accent:          var(--brand-brass);
+  --color-accent-hover:    var(--brand-brass-hover);
+  --color-accent-active:   var(--brand-brass-active);
+  --color-on-accent:       var(--brand-brass-contrast, #1C1512);
+  --color-focus:           var(--brand-crimson, #881337);
+
+  /* Status Semantics */
+  --color-success:         var(--green-700);
+  --color-success-bg:      var(--green-100);
+  --color-success-border:  #BBF7D0;
+  --color-success-text:    var(--green-700);
+
+  --color-warning:         var(--amber-700);
+  --color-warning-bg:      var(--amber-100);
+  --color-warning-border:  #FDE68A;
+  --color-warning-text:    var(--amber-700);
+
+  --color-error:           var(--red-700);
+  --color-error-bg:        var(--red-100);
+  --color-error-border:    #FECACA;
+  --color-error-text:      var(--red-700);
+
+  --color-info:            var(--blue-700);
+  --color-info-bg:         var(--blue-50);
+  --color-info-border:     var(--blue-200);
+  --color-info-text:       var(--blue-700);
+
+  /* =========================================================================
+     TIER 3: COMPONENT TOKENS
+     ========================================================================= */
+
+  /* Buttons */
+  --button-primary-bg:          var(--color-primary);
+  --button-primary-text:        #FFFFFF;
+  --button-primary-hover-bg:    var(--color-primary-hover);
+  --button-accent-bg:           var(--color-accent);
+  --button-accent-text:         var(--color-on-accent);
+  --button-accent-hover-bg:     var(--color-accent-hover);
+  --button-secondary-bg:        var(--color-surface);
+  --button-secondary-text:      var(--color-text);
+  --button-secondary-border:    var(--color-border);
+  --button-height:              48px;
+  --button-padding-inline:      1.5rem; /* 24px */
+  --button-radius:              var(--radius-sm); /* 6px */
+
+  /* Inputs & Forms */
+  --input-bg:                   var(--color-surface);
+  --input-border:               var(--color-border-control);
+  --input-text:                 var(--color-text);
+  --input-height:               48px;
+  --input-font-size:            1rem; /* 16px to prevent iOS zoom */
+  --input-radius:               var(--radius-sm); /* 6px */
+
+  /* Cards */
+  --card-bg:                    var(--color-surface);
+  --card-border:                var(--color-border);
+  --card-radius:                var(--radius-md); /* 12px */
+  --card-padding-mobile:        1rem;             /* 16px */
+  --card-padding-desktop:       1.5rem;           /* 24px */
+
+  /* Navigation */
+  --nav-bg:                     rgba(255, 255, 255, 0.95);
+  --nav-height-mobile:          64px;
+  --nav-height-desktop:         72px;
+  --nav-height:                 var(--nav-height-desktop);
+  --nav-shadow:                 var(--elevation-3);
+
+  /* Drawers & Modals */
+  --drawer-bg:                  var(--color-surface);
+  --drawer-radius:              var(--radius-lg); /* 16px */
+  --drawer-scrim:               rgba(15, 23, 42, 0.5);
+  --modal-bg:                   var(--color-surface);
+  --modal-radius:               var(--radius-lg); /* 16px */
+  --pill-radius:                var(--radius-full); /* 9999px */
+
+  /* =========================================================================
+     LAYOUT & SPACING TOKENS (Strict 8pt Grid - rem values)
+     4, 8, 12, 16, 24, 32, 48, 64, 96px
+     ========================================================================= */
+  --space-4:  0.25rem;  /* 4px  */
+  --space-8:  0.5rem;   /* 8px  */
+  --space-12: 0.75rem;  /* 12px */
+  --space-16: 1rem;     /* 16px */
+  --space-24: 1.5rem;   /* 24px */
+  --space-32: 2rem;     /* 32px */
+  --space-48: 3rem;     /* 48px */
+  --space-64: 4rem;     /* 64px */
+  --space-96: 6rem;     /* 96px */
+
+  /* Container Alignment - Single Left Edge at every breakpoint */
+  --page-gutter:           clamp(1rem, 4vw, 4rem);
+  --section-padding-block: clamp(4rem, 8vw, 7.5rem);
+  --container-max-width:   1280px;
+  --reading-width:         65ch;
+  --article-width:         760px;
+
+  /* Safe Area Insets */
+  --safe-left:  max(16px, env(safe-area-inset-left, 16px));
+  --safe-right: max(16px, env(safe-area-inset-right, 16px));
+
+  /* =========================================================================
+     SHAPE & RADIUS SCALE (By Component Type)
+     ========================================================================= */
+  --radius-sm:   6px;    /* Inputs, Buttons, Small badges */
+  --radius-md:   12px;   /* Cards, Containers, Media frames */
+  --radius-lg:   16px;   /* Modals, Drawers, Sheets */
+  --radius-full: 9999px; /* Pills, Avatars, Round icon buttons */
+  --radius:      12px;   /* Canonical default radius */
+
+  /* =========================================================================
+     ELEVATION SYSTEM (5 Levels)
+     Level 0: Flat
+     Level 1: Cards
+     Level 2: Hover / Dropdown
+     Level 3: Sticky Nav
+     Level 4: Drawer / Modal
+     ========================================================================= */
+  --elevation-0: none;
+  --elevation-1: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.06);
+  --elevation-2: 0 4px 6px -1px rgba(15, 23, 42, 0.1), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+  --elevation-3: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --elevation-4: 0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+
+  /* Legacy shadow aliases for backward compatibility */
+  --shadow-sm: var(--elevation-1);
+  --shadow-md: var(--elevation-2);
+  --shadow-lg: var(--elevation-3);
+  --shadow-hover-lift: 0 12px 20px -4px rgba(15, 23, 42, 0.12), 0 4px 6px -2px rgba(15, 23, 42, 0.05);
+
+  /* =========================================================================
+     Z-INDEX SCALE (Strictly Only These Values)
+     base 0, sticky 100, dropdown 200, drawer 300, modal 400, toast 500, tooltip 600
+     ========================================================================= */
+  --z-base:     0;
+  --z-sticky:   100;
+  --z-dropdown: 200;
+  --z-drawer:   300;
+  --z-modal:    400;
+  --z-toast:    500;
+  --z-tooltip:  600;
+
+  /* =========================================================================
+     MOTION & ANIMATION TOKENS
+     Transform and Opacity ONLY. 150ms / 250ms / 400ms.
+     ========================================================================= */
+  --duration-micro:     150ms; /* Micro-interactions, icons, hover */
+  --duration-component: 250ms; /* Drawers, modals, dropdowns, accordions */
+  --duration-page:      400ms; /* Large transitions, hero slides */
+  --ease-enter:         cubic-bezier(0, 0, 0.2, 1);  /* ease-out entering */
+  --ease-exit:          cubic-bezier(0.4, 0, 1, 1);  /* ease-in exiting */
+  --ease-standard:      cubic-bezier(0.2, 0, 0, 1);
+
+  /* Legacy animation token aliases */
+  --duration-fast:   var(--duration-micro);
+  --duration-normal: var(--duration-component);
+  --duration-slow:   var(--duration-page);
+
+  /* =========================================================================
+     FLUID TYPOGRAPHY (Clamp Scale - Inter + Roboto Mono, 4 Weights)
+     ========================================================================= */
+  --font-family-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-mono: "Roboto Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* H1: 48-64px desktop / 32-40px mobile, LH 1.15 */
+  --type-h1-size: clamp(2rem, 1.4rem + 2.5vw, 4rem);
+  --type-h1-lh: 1.15;
+  --type-h1-tracking: -0.025em;
+
+  /* H2: 36-44px desktop / 28-32px mobile, LH 1.2 */
+  --type-h2-size: clamp(1.75rem, 1.35rem + 1.8vw, 2.75rem);
+  --type-h2-lh: 1.2;
+  --type-h2-tracking: -0.02em;
+
+  /* H3: 24-28px desktop / 20-24px mobile, LH 1.3 */
+  --type-h3-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.75rem);
+  --type-h3-lh: 1.3;
+  --type-h3-tracking: -0.015em;
+
+  /* Body: 16-18px, LH 1.6 */
+  --type-body-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --type-body-lh: 1.6;
+
+  /* Caption: 12-14px, LH 1.5 */
+  --type-caption-size: clamp(0.75rem, 0.72rem + 0.15vw, 0.875rem);
+  --type-caption-lh: 1.5;
+
+  /* Focus ring token */
+  --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-primary);
+
+  /* Legacy color aliases for existing component compatibility */
+  --color-navy:        var(--brand-navy);
+  --color-navy-dark:   var(--brand-navy-dark);
+  --color-navy-surface: #0F172A;
+  --color-brand-sky:   var(--brand-sky);
+  --color-brand-sky-hover: var(--brand-sky-hover);
+  --color-brand-sky-active: var(--brand-sky-active);
+  --color-on-brand:    var(--brand-sky-contrast);
+  --surface-primary:   var(--color-surface);
+  --surface-secondary: var(--color-surface-sunken);
+  --surface-tertiary:  var(--color-surface-tint);
+  --surface-dark:      var(--color-surface-dark);
+  --surface-dark-subtle: var(--color-surface-dark-2);
+  --surface-card:      var(--card-bg);
+  --text-primary:      var(--color-text);
+  --text-secondary:    var(--color-text-muted);
+  --text-tertiary:     var(--color-text-subtle);
+  --text-inverse:      var(--color-text-inverse);
+  --text-inverse-muted: var(--color-text-inverse-muted);
+  --border-subtle:     var(--color-border);
+  --border-medium:     var(--color-border-hover);
+  --border-control:    var(--color-border-control);
+  --status-success:    var(--color-success);
+  --status-success-bg: var(--color-success-bg);
+  --status-warning:    var(--color-warning);
+  --status-warning-bg: var(--color-warning-bg);
+  --status-error:      var(--color-error);
+  --status-error-bg:   var(--color-error-bg);
+  --status-info:       var(--color-info);
+  --status-info-bg:    var(--color-info-bg);
+}
+
+/* =========================================================================
+   DARK MODE TOKEN REDEFINITION (Semantic Tokens Only)
+   Never uses per-component overrides. Uses lighter surfaces for elevation.
+   ========================================================================= */
+[data-theme="dark"],
+html.dark {
+  --color-bg:              #1C1512; /* Deep Espresso Canvas (Zero Pure Black) */
+  --color-surface:         #261E1A; /* Rich Cocoa Surface */
+  --color-surface-raised:  #312722; /* Elevated Stone Surface */
+  --color-surface-sunken:  #140E0C;
+  --color-surface-alt:     #201815;
+  --color-surface-tint:    #35161D;
+  --color-surface-dark:    #140E0C;
+  --color-surface-dark-2:  #0C0807;
+
+  --color-text:            #FDFBF7;
+  --color-text-muted:      #E7E0D6;
+  --color-text-subtle:     #A89C90;
+  --color-text-inverse:    #1C1512;
+  --color-text-inverse-muted: #5C5046;
+
+  --color-border:          rgba(255, 255, 255, 0.12);
+  --color-border-hover:    rgba(255, 255, 255, 0.22);
+  --color-border-control:  #A89C90;
+
+  --color-primary:         #BE123C;
+  --color-primary-hover:   #E11D48;
+
+  --nav-bg:                rgba(28, 21, 18, 0.95);
+  --drawer-bg:             #261E1A;
+  --modal-bg:              #261E1A;
+  --card-bg:               #261E1A;
+
+  /* Elevation in dark mode: uses lighter border/surface highlights */
+  --elevation-1: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 2px 4px 0 rgba(0, 0, 0, 0.4);
+  --elevation-2: 0 0 0 1px rgba(255, 255, 255, 0.15), 0 6px 12px 0 rgba(0, 0, 0, 0.5);
+  --elevation-3: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 12px 24px 0 rgba(0, 0, 0, 0.6);
+  --elevation-4: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 24px 48px 0 rgba(0, 0, 0, 0.7);
+
+  --focus-ring: 0 0 0 2px var(--brand-crimson-dark), 0 0 0 4px var(--brand-brass);
+
+  /* Legacy dark aliases */
+  --surface-primary:       var(--color-surface);
+  --surface-secondary:     var(--color-surface-sunken);
+  --surface-tertiary:      var(--color-surface-tint);
+  --surface-card:          var(--color-surface);
+  --border-subtle:         var(--color-border);
+  --border-medium:         var(--color-border-hover);
+  --text-primary:          var(--color-text);
+  --text-secondary:        var(--color-text-muted);
+  --text-tertiary:         var(--color-text-subtle);
+}
+
+/* =========================================================================
+   PREFERS-REDUCED-MOTION SPECIFICATION
+   Instantly removes parallax, autoplay, and slide transitions
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

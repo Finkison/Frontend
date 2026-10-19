@@ -1,0 +1,7 @@
+dist
+node_modules
+build
+.env
+*.config.js
+*.config.ts
+public

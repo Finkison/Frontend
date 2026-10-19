@@ -15,7 +15,7 @@ export default function ProgressBar({
   max = 100,
   label,
   showPercentage = true,
-  color = "teal",
+  color = "blue",
   size = "md",
   className = ""
 }: ProgressBarProps): React.ReactElement {
@@ -27,12 +27,12 @@ export default function ProgressBar({
     lg: "h-4"
   };
 
-  const gradientColors = {
-    teal: "from-[#0A6E55] to-emerald-400",
-    emerald: "from-emerald-600 to-teal-400",
-    amber: "from-amber-500 to-amber-400",
-    blue: "from-blue-600 to-indigo-400",
-    rose: "from-rose-600 to-rose-400"
+  const solidColors = {
+    blue: "bg-[#1D4ED8]",
+    teal: "bg-[#0F766E]",
+    emerald: "bg-[#15803D]",
+    amber: "bg-[#B45309]",
+    rose: "bg-[#B91C1C]"
   };
 
   return (
@@ -45,7 +45,7 @@ export default function ProgressBar({
       )}
       <div className={`w-full bg-slate-100 rounded-full overflow-hidden ${sizeHeights[size]}`}>
         <div
-          className={`h-full rounded-full bg-gradient-to-r ${gradientColors[color]} transition-all duration-500 ease-out`}
+          className={`h-full rounded-full ${solidColors[color] || "bg-[#1D4ED8]"} transition-all duration-500 ease-out`}
           style={{ width: `${percentage}%` }}
           role="progressbar"
           aria-valuenow={value}

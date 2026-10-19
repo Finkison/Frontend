@@ -1,0 +1,329 @@
+/**
+ * Finkison Typography System - Part 1 & Part 2 Standardized Tokens & Classes
+ * COURSERA / EDX / KHAN ACADEMY ENTERPRISE SPECIFICATION
+ *
+ * Strict Fluid Scaling via clamp(), Left-Aligned Container Edge,
+ * Zero Arbitrary Inline Overrides, WCAG 2.2 AA Contrast Compliance (>= 4.5:1)
+ */
+
+/* =========================================================================
+   1. TWELVE STANDARDIZED TEXT ROLES
+   ========================================================================= */
+
+/* Role 1: Page title (H1) */
+/* Desktop 48-64px, Mobile 32-40px, Weight 500, LH 1.15, Max 28ch */
+.text-h1 {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(2rem, 1.4rem + 2.5vw, 4rem);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  max-width: 28ch;
+  color: var(--txt1, #0F172A);
+}
+
+/* Role 2: Section title (H2) */
+/* Desktop 36-44px, Mobile 28-32px, Weight 500, LH 1.2, 2 lines max, Max 50 chars */
+.text-h2 {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(1.75rem, 1.35rem + 1.8vw, 2.75rem);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  max-width: 36ch;
+  color: var(--txt1, #0F172A);
+}
+
+/* Role 3: Subsection (H3) */
+/* Desktop 24-28px, Mobile 20-24px, Weight 500, LH 1.3, 2 lines max, Max 60 chars */
+.text-h3 {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.75rem);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  color: var(--txt1, #0F172A);
+}
+
+/* Dark and Primary Crimson (#4C0519) Background High Contrast Adaptations */
+.bg-\[\#4C0519\] .text-h1,
+.bg-\[\#4C0519\] .text-h2,
+.bg-\[\#4C0519\] .text-h3,
+.text-white .text-h1,
+.text-white .text-h2,
+.text-white .text-h3,
+.dark .text-h1,
+.dark .text-h2,
+.dark .text-h3 {
+  color: #FFFFFF !important;
+}
+
+/* Role 4: Subtitle / lead */
+/* Desktop 18-20px, Mobile 16-18px, Weight 400, LH 1.55, Max 60ch, Max 160 chars */
+.text-lead,
+.text-subtitle {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(1rem, 0.95rem + 0.35vw, 1.25rem);
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: normal;
+  max-width: 60ch;
+  text-align: start;
+  color: var(--txt2, #475569);
+}
+
+.bg-\[\#4C0519\] .text-lead,
+.bg-\[\#4C0519\] .text-subtitle,
+.text-white .text-lead,
+.text-white .text-subtitle,
+.dark .text-lead,
+.dark .text-subtitle {
+  color: #F5F5F4 !important;
+}
+
+/* Role 5: Body */
+/* Desktop 16-18px, Mobile 16px, Weight 400, LH 1.6, Max 65ch */
+.text-body {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+  font-weight: 400;
+  line-height: 1.6;
+  max-width: 65ch;
+  text-align: start;
+  color: var(--txt2, #475569);
+}
+
+/* Role 6: Card title */
+/* Desktop 18-20px, Mobile 18px, Weight 600, LH 1.3, clamp 2 lines, Max 60 chars */
+.text-card-title {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(1.125rem, 1.08rem + 0.2vw, 1.25rem);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-align: start;
+  color: var(--txt1, #0F172A);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6em; /* Reserved space for equal height */
+}
+
+/* Role 7: Card description */
+/* Desktop 14-16px, Mobile 14-16px, Weight 400, LH 1.5, clamp 3 lines, Max 120 chars */
+.text-card-desc {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(0.875rem, 0.85rem + 0.15vw, 1rem);
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: start;
+  color: var(--txt2, #475569);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 4.5em; /* Reserved space for equal height */
+}
+
+/* Role 8: Meta (author, date, duration) */
+/* Desktop 13-14px, Mobile 13px, Weight 500, LH 1.4, 1 line ellipsis */
+.text-meta {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(0.8125rem, 0.8rem + 0.1vw, 0.875rem);
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: start;
+  color: var(--txt3, #64748B);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Role 9: Button label */
+/* Desktop 14-16px, Mobile 16px, Weight 600, LH 1, 1 line, Max 24 chars */
+.text-button {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(0.875rem, 0.85rem + 0.2vw, 1rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  text-transform: none; /* Strict Sentence case */
+}
+
+/* Role 10: Form label */
+/* Desktop 14px, Mobile 14px, Weight 500, LH 1.4, 1 line, Max 40 chars */
+.text-form-label {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: 0.875rem; /* 14px */
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: start;
+  color: var(--txt1, #0F172A);
+  white-space: nowrap;
+}
+
+/* Role 11: Helper/error */
+/* Desktop 12-14px, Mobile 12-14px, Weight 400, LH 1.4, 2 lines max, Max 100 chars */
+.text-helper {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(0.75rem, 0.72rem + 0.15vw, 0.875rem);
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: start;
+  color: var(--txt2, #475569);
+  max-width: 50ch;
+}
+
+.text-error {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(0.75rem, 0.72rem + 0.15vw, 0.875rem);
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: start;
+  color: var(--error, #B91C1C);
+  max-width: 50ch;
+}
+
+/* Role 12: Caption */
+/* Desktop 12-13px, Mobile 12px, Weight 400, LH 1.4, 2 lines max, Max 80 chars */
+.text-caption {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: clamp(0.75rem, 0.73rem + 0.1vw, 0.8125rem);
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: start;
+  color: var(--txt3, #7D6F63);
+  max-width: 45ch;
+}
+
+/* Additional Standard: Section Eyebrow (Max 3 words, ALL CAPS allowed only here) */
+.text-eyebrow {
+  font-family: var(--font-family-sans, "Inter", sans-serif);
+  font-size: 0.75rem; /* 12px */
+  font-weight: 800; /* Bolder high-impact kicker */
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent, #881337);
+  text-align: center; /* Center small text */
+  display: block;
+  margin-inline: auto;
+}
+
+.bg-\[\#4C0519\] .text-eyebrow,
+.text-white .text-eyebrow,
+.dark .text-eyebrow {
+  color: #FBBF24 !important;
+}
+
+/* =========================================================================
+   2. PART 2: VERTICAL RHYTHM TOKENS & SECTION HEADER SPACING
+   ========================================================================= */
+
+.section-header-block {
+  text-align: center;
+  max-width: 800px;
+  margin-inline: auto;
+  margin-block-end: clamp(2.5rem, 2rem + 1.2vw, 4rem); /* 40-64px to content */
+}
+
+.section-header-block > .text-eyebrow {
+  margin-block-end: clamp(0.5rem, 0.4rem + 0.3vw, 1rem); /* 8-16px to title */
+  text-align: center;
+  margin-inline: auto;
+  display: block;
+}
+
+.section-header-block > .text-h2,
+.section-header-block > .text-h1 {
+  margin-block-end: clamp(0.75rem, 0.65rem + 0.3vw, 1rem); /* 12-16px to subtitle */
+  text-align: center;
+  margin-inline: auto;
+  font-weight: 500; /* Unbolded modern enterprise title */
+}
+
+.section-header-block > .text-subtitle,
+.section-header-block > .text-lead {
+  margin-block-end: 0;
+  text-align: center;
+  margin-inline: auto;
+}
+
+.section-header-actions {
+  margin-block-start: clamp(1.5rem, 1.3rem + 0.5vw, 2rem); /* 24-32px from subtitle */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Equal Height Cards & Internal Vertical Rhythm */
+.enterprise-card-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.enterprise-card-vertical {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.card-media-block {
+  margin-block-end: 1rem; /* 16px to title */
+}
+
+.card-title-block {
+  margin-block-end: 0.625rem; /* 8-12px to description */
+}
+
+.card-desc-block {
+  margin-block-end: 0.875rem; /* 12-16px to meta */
+}
+
+.card-meta-block {
+  margin-block-end: 1.25rem; /* 16-24px to CTA */
+}
+
+.card-cta-pin {
+  margin-block-start: auto; /* Pin CTA to bottom */
+}
+
+/* Paragraph to Paragraph spacing */
+p + p {
+  margin-block-start: 1.25em;
+}
+
+/* List Items standard spacing & indent */
+ul.enterprise-list,
+ol.enterprise-list {
+  padding-inline-start: 1.5rem; /* 24px indent */
+  margin-block: 1rem;
+}
+
+ul.enterprise-list li,
+ol.enterprise-list li {
+  margin-block-end: 0.5rem; /* 8px item gap */
+  line-height: 1.6;
+}
+
+/* Icon Alignment to First Line of Text */
+.icon-first-line {
+  align-self: flex-start;
+  margin-block-start: 0.15em;
+  flex-shrink: 0;
+}
+
+/* Legacy utility classes mapping to standard roles */
+.heading-display { @extend .text-h1; }
+.heading-hero    { @extend .text-h1; }
+.heading-page    { @extend .text-h2; }
+.heading-section { @extend .text-h3; }
+.heading-card    { @extend .text-card-title; }
+.body-lead       { @extend .text-lead; }
+.body-default    { @extend .text-body; }
+.body-small      { @extend .text-meta; }
+.caption         { @extend .text-caption; }

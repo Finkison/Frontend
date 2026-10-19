@@ -11,7 +11,7 @@ interface MiniLineChartProps {
 export default function MiniLineChart({
   points = [],
   height = 120,
-  lineColor = "#D97706",
+  lineColor = "#1D4ED8",
   strokeWidth = 2.5,
   showPoints = true
 }: MiniLineChartProps): React.ReactElement | null {
