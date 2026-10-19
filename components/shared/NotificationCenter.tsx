@@ -39,50 +39,12 @@ export default function NotificationCenter(): React.ReactElement {
   const fetchNotifications = async () => {
     try {
       const res = await notificationService.list();
-      const list = res?.notifications || [
-        {
-          id: "n-1",
-          title: "National Mock Exam Ready",
-          body: "2026 EUEE Model Exam #4 is now calibrated for your stream.",
-          notif_type: "exam",
-          action_url: "/student/exams",
-          is_read: false,
-          created_at: "10 mins ago"
-        },
-        {
-          id: "n-2",
-          title: "Chemistry Concept Due for Review",
-          body: "Spaced repetition drill for Electrochemistry is due today.",
-          notif_type: "review",
-          action_url: "/student/spaced-review",
-          is_read: false,
-          created_at: "2 hours ago"
-        },
-        {
-          id: "n-3",
-          title: "14-Day Streak Milestone Achieved!",
-          body: "You earned 150 bonus XP points for your study consistency.",
-          notif_type: "streak",
-          action_url: "/student/achievements",
-          is_read: true,
-          created_at: "1 day ago"
-        }
-      ];
+      const list = res?.notifications || [];
       setNotifications(list);
       setUnreadCount(list.filter((n: any) => !n.is_read).length);
     } catch {
-      setNotifications([
-        {
-          id: "n-1",
-          title: "National Mock Exam Ready",
-          body: "2026 EUEE Model Exam #4 is now ready for your stream.",
-          notif_type: "exam",
-          action_url: "/student/exams",
-          is_read: false,
-          created_at: "Just now"
-        }
-      ]);
-      setUnreadCount(1);
+      setNotifications([]);
+      setUnreadCount(0);
     }
   };
 
@@ -162,7 +124,7 @@ export default function NotificationCenter(): React.ReactElement {
         );
       default:
         return (
-          <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5">
+          <div className="w-8 h-8 rounded-xl bg-[#EFF6FF] text-[#1D4ED8] flex items-center justify-center shrink-0 mt-0.5">
             <Sparkles className="w-4 h-4" />
           </div>
         );

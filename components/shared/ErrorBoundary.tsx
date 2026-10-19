@@ -44,7 +44,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             </div>
 
             <div>
-              <h3 className="font-serif text-2xl font-bold text-slate-900">Application Notice</h3>
+              <h3 className="font-sans text-2xl font-bold text-slate-900">Application Notice</h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                 A component experienced a transient render issue. Your exam progress and answers remain safely stored.
               </p>

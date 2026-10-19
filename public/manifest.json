@@ -1,50 +1,56 @@
 {
-  "name": "Finkison Education AI Operating System",
-  "short_name": "Finkison (ፈንክሶን)",
-  "description": "National University Entrance Examination & Curriculum AI Operating System for Ethiopian Students (Grades 9–12)",
+  "name": "Finkison - Ethiopian EUEE Exam Preparation",
+  "short_name": "Finkison",
+  "description": "Ethiopia's #1 EdTech platform for secondary education and EUEE exam preparation",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#040914",
-  "theme_color": "#F2B705",
-  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "128x128 192x192 512x512",
-      "type": "image/svg+xml",
+      "src": "/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/finkison-logo.svg",
+      "src": "/logo-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml"
-    },
-    {
-      "src": "/favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "categories": ["education", "productivity"],
-  "lang": "am-ET",
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
   "shortcuts": [
     {
-      "name": "Today's Study Plan",
-      "short_name": "Plan",
-      "url": "/student/study-plan",
-      "description": "AI-generated daily study plan based on your weak areas and EUEE topics"
-    },
-    {
-      "name": "Spaced Review",
-      "short_name": "Review",
-      "url": "/student/spaced-review",
-      "description": "Review concepts before you forget them — powered by FSRS algorithm"
-    },
-    {
-      "name": "Practice Exam",
+      "name": "Take Exam",
       "short_name": "Exam",
+      "description": "Start an exam",
       "url": "/student/exams",
-      "description": "Take national mock exams and EUEE past papers"
+      "icons": [{ "src": "/icon-exam.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Practice",
+      "short_name": "Practice",
+      "description": "Practice questions",
+      "url": "/student/practice",
+      "icons": [{ "src": "/icon-practice.png", "sizes": "192x192" }]
     }
-  ]
+  ],
+  "prefer_related_applications": false
 }

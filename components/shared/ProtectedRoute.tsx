@@ -40,35 +40,15 @@ export default function ProtectedRoute({
     ) || scope.isElevated;
 
     if (!isAllowed) {
-      return (
-        <div className="min-h-[70vh] flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl border border-red-100 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
-              <ShieldAlert className="w-8 h-8" />
-            </div>
-            <h2 className="font-serif text-2xl font-bold text-slate-900">
-              Access Restricted
-            </h2>
-            <p className="text-sm text-slate-600">
-              Your account role (
-              <span className="font-semibold text-slate-800">
-                {scope.role}
-              </span>
-              ) does not have authorization to view this portal.
-              You can only access features within your assigned scope.
-            </p>
-            <div className="pt-4">
-              <a
-                href={scope.homeRoute}
-                className="w-full py-3 px-4 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Return to Your {scope.isParent ? "Parent" : scope.isEducator ? "School" : "Student"} Portal</span>
-              </a>
-            </div>
-          </div>
-        </div>
+      // Enterprise Zero-Leakage Silent Fallback: Automatically route user to their legitimate portal
+      const fallbackRoute = scope.homeRoute || (
+        currentRole === "PARENT"
+          ? "/parent"
+          : currentRole === "TEACHER" || currentRole === "PRINCIPAL"
+          ? "/school"
+          : "/student"
       );
+      return <Navigate to={fallbackRoute} replace state={{ fromUnauthorized: location.pathname }} />;
     }
   }
 
@@ -80,7 +60,7 @@ export default function ProtectedRoute({
             <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
               <Lock className="w-8 h-8" />
             </div>
-            <h2 className="font-serif text-2xl font-bold text-slate-900">
+            <h2 className="font-sans text-2xl font-bold text-slate-900">
               Grade Level Restricted
             </h2>
             <p className="text-sm text-slate-600">
@@ -122,7 +102,7 @@ export default function ProtectedRoute({
           <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
             <Lock className="w-8 h-8" />
           </div>
-          <h2 className="font-serif text-2xl font-bold text-slate-900">
+          <h2 className="font-sans text-2xl font-bold text-slate-900">
             Feature Not Available
           </h2>
           <p className="text-sm text-slate-600">
