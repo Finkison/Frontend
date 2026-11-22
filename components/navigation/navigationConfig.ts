@@ -4,6 +4,10 @@ import {
   ListChecks,
   FileSpreadsheet,
   CalendarCheck,
+  CalendarDays,
+  School,
+  UserRoundPlus,
+  Bell,
   MessageSquare,
   Users,
   HeartHandshake,
@@ -12,13 +16,13 @@ import {
   HelpCircle,
   Settings,
   ShieldCheck,
-  Receipt,
   BookOpen,
   Sparkles,
   GraduationCap,
   FileCheck,
   BrainCircuit,
   TrendingUp,
+  Repeat,
   type LucideIcon,
 } from "lucide-react";
 
@@ -32,7 +36,7 @@ export type RoleType =
 
 export interface NavItem {
   id: string;
-  label: string;
+  labelKey: string;
   to: string;
   icon: LucideIcon;
   badge?: number | string;
@@ -42,127 +46,178 @@ export interface NavItem {
 }
 
 export interface NavGroup {
-  groupTitle?: string;
+  groupTitleKey?: string;
   items: NavItem[];
 }
 
 export interface RoleNavigationConfig {
-  roleName: string;
+  roleNameKey: string;
   primaryNav: NavItem[];
   secondaryNav: NavGroup;
+  secondaryGroups?: NavGroup[];
   bottomItems: NavItem[];
   mobileBottomTabs?: NavItem[];
 }
 
 export const ROLE_NAVIGATION_MAP: Record<string, RoleNavigationConfig> = {
-  // School Director (tenant owner - monitoring, people, assignments, settings, audit)
+
   SCHOOL_ADMIN: {
-    roleName: "School Director",
+    roleNameKey: "schoolAdministrator",
     primaryNav: [
-      { id: "dashboard", label: "Dashboard", to: "/school", icon: LayoutDashboard },
-      { id: "people", label: "People", to: "/school/people", icon: Users },
-      { id: "sections", label: "Sections", to: "/school/sections", icon: Layers },
-      { id: "assignments", label: "Assignments", to: "/school/assignments", icon: ListChecks },
-      { id: "reports", label: "Reports", to: "/school/reports", icon: FileText },
-      { id: "messages", label: "Messages", to: "/school/messages", icon: MessageSquare },
-      { id: "billing", label: "Billing", to: "/school/billing", icon: CreditCard },
+      { id: "dashboard", labelKey: "overview", to: "/school", icon: LayoutDashboard },
+      { id: "people", labelKey: "people", to: "/school/people", icon: Users },
+      { id: "sections", labelKey: "classes", to: "/school/sections", icon: Layers },
+      { id: "assignments", labelKey: "teachingAssignments", to: "/school/assignments", icon: ListChecks },
+      { id: "reports", labelKey: "reports", to: "/school/reports", icon: FileText },
+      { id: "messages", labelKey: "messages", to: "/school/messages", icon: MessageSquare },
+      { id: "billing", labelKey: "billing", to: "/school/billing", icon: CreditCard },
     ],
     secondaryNav: {
-      groupTitle: "Governance",
+      groupTitleKey: "schoolAdministration",
       items: [
-        { id: "settings", label: "Settings", to: "/school/settings", icon: Settings },
-        { id: "security", label: "Account Security", to: "/school/security", icon: ShieldCheck },
-        { id: "audit-log", label: "Audit log", to: "/school/audit-log", icon: FileText },
+        { id: "settings", labelKey: "settings", to: "/school/settings", icon: Settings },
+        { id: "schedule", labelKey: "schedule", to: "/school/schedule", icon: CalendarDays },
+        { id: "school-join-requests", labelKey: "studentJoinRequests", to: "/school/join-requests", icon: UserRoundPlus },
+        { id: "security", labelKey: "accountSecurity", to: "/school/security", icon: ShieldCheck },
+        { id: "audit-log", labelKey: "activityLog", to: "/school/audit-log", icon: FileText },
       ],
     },
     bottomItems: [
-      { id: "help", label: "Help & Support", to: "/contact", icon: HelpCircle },
+      { id: "help", labelKey: "helpSupport", to: "/contact", icon: HelpCircle },
+    ],
+    mobileBottomTabs: [
+      { id: "dashboard", labelKey: "overview", to: "/school", icon: LayoutDashboard },
+      { id: "people", labelKey: "people", to: "/school/people", icon: Users },
+      { id: "sections", labelKey: "classes", to: "/school/sections", icon: Layers },
+      { id: "reports", labelKey: "reports", to: "/school/reports", icon: FileText },
     ],
   },
 
-  // Teacher (assigned subject only - teaching assistant, assigned sections only)
   TEACHER: {
-    roleName: "Subject Teacher",
+    roleNameKey: "teacher",
     primaryNav: [
-      { id: "dashboard", label: "Dashboard", to: "/teacher", icon: LayoutDashboard },
-      { id: "my-sections", label: "My sections", to: "/teacher/sections", icon: Layers },
-      { id: "lessons", label: "Lessons", to: "/teacher/lessons", icon: BookOpen },
-      { id: "exams", label: "Exams", to: "/teacher/exams", icon: FileCheck },
-      { id: "tasks", label: "Tasks", to: "/teacher/tasks", icon: ListChecks },
-      { id: "question-bank", label: "Question bank", to: "/teacher/question-bank", icon: Sparkles },
-      { id: "ai-assistant", label: "AI assistant", to: "/teacher/ai-assistant", icon: BrainCircuit },
+      { id: "dashboard", labelKey: "overview", to: "/teacher", icon: LayoutDashboard },
+      { id: "my-sections", labelKey: "myClasses", to: "/teacher/sections", icon: Layers },
+      { id: "lessons", labelKey: "lessons", to: "/teacher/lessons", icon: BookOpen },
+      { id: "exams", labelKey: "exams", to: "/teacher/exams", icon: FileCheck },
+      { id: "tasks", labelKey: "assignments", to: "/teacher/tasks", icon: ListChecks },
+      { id: "question-bank", labelKey: "questionLibrary", to: "/teacher/question-bank", icon: Sparkles },
+      { id: "assessment-builder", labelKey: "assessmentBuilder", to: "/teacher/assessment-builder", icon: FileCheck },
     ],
     secondaryNav: {
-      groupTitle: "Classroom Tools",
+      groupTitleKey: "classroomTools",
       items: [
-        { id: "gradebook", label: "Gradebook", to: "/teacher/gradebook", icon: FileSpreadsheet },
-        { id: "attendance", label: "Attendance", to: "/teacher/attendance", icon: CalendarCheck },
-        { id: "past-papers", label: "Past papers", to: "/teacher/past-papers", icon: GraduationCap, grade12Only: true },
-        { id: "messages", label: "Messages", to: "/teacher/messages", icon: MessageSquare },
-        { id: "security", label: "Account Security", to: "/teacher/security", icon: ShieldCheck },
+        { id: "gradebook", labelKey: "grades", to: "/teacher/gradebook", icon: FileSpreadsheet },
+        { id: "diagnostic-scores", labelKey: "diagnosticScores", to: "/teacher/diagnostic-scores", icon: TrendingUp },
+        { id: "ai-teaching-tools", labelKey: "aiTeachingTools", to: "/teacher/ai-tools", icon: Sparkles },
+        { id: "attendance", labelKey: "attendance", to: "/teacher/attendance", icon: CalendarCheck },
+        { id: "schedule", labelKey: "schedule", to: "/teacher/schedule", icon: CalendarDays },
+        { id: "past-papers", labelKey: "pastExamPapers", to: "/teacher/past-papers", icon: GraduationCap, grade12Only: true },
+        { id: "messages", labelKey: "messages", to: "/teacher/messages", icon: MessageSquare },
+        { id: "security", labelKey: "accountSecurity", to: "/teacher/security", icon: ShieldCheck },
       ],
     },
     bottomItems: [
-      { id: "help", label: "Help & Support", to: "/contact", icon: HelpCircle },
+      { id: "help", labelKey: "helpSupport", to: "/contact", icon: HelpCircle },
+    ],
+    mobileBottomTabs: [
+      { id: "dashboard", labelKey: "overview", to: "/teacher", icon: LayoutDashboard },
+      { id: "my-sections", labelKey: "myClasses", to: "/teacher/sections", icon: Layers },
+      { id: "tasks", labelKey: "assignments", to: "/teacher/tasks", icon: ListChecks },
+      { id: "attendance", labelKey: "attendance", to: "/teacher/attendance", icon: CalendarCheck },
     ],
   },
 
-  // Student (own section, own results only)
   STUDENT: {
-    roleName: "Student",
+    roleNameKey: "student",
     primaryNav: [
-      { id: "dashboard", label: "Dashboard", to: "/student", icon: LayoutDashboard },
-      { id: "lessons", label: "Lessons", to: "/student/lessons", icon: BookOpen },
-      { id: "practice", label: "Practice", to: "/student/practice", icon: Sparkles },
-      { id: "exams", label: "Exams", to: "/student/exams", icon: FileCheck },
-      { id: "study-tools", label: "Study tools", to: "/student/notes", icon: BrainCircuit },
-      { id: "progress", label: "Progress", to: "/student/score", icon: TrendingUp },
+      { id: "dashboard", labelKey: "overview", to: "/student", icon: LayoutDashboard },
+      { id: "lessons", labelKey: "lessons", to: "/student/lessons", icon: BookOpen },
+      { id: "practice", labelKey: "practice", to: "/student/practice", icon: Sparkles },
+      { id: "exams", labelKey: "exams", to: "/student/exams", icon: FileCheck },
     ],
     secondaryNav: {
-      groupTitle: "Communication & Archives",
+      groupTitleKey: "learningTools",
       items: [
-        { id: "messages", label: "Messages", to: "/parent/messages", icon: MessageSquare },
-        { id: "past-papers", label: "Past papers", to: "/student/past-papers", icon: GraduationCap, grade12Only: true },
+        { id: "class-resources", labelKey: "learningResources", to: "/student/resources", icon: BookOpen },
+        { id: "coursework", labelKey: "classwork", to: "/student/coursework", icon: ListChecks },
+        { id: "progress", labelKey: "progress", to: "/student/score", icon: TrendingUp },
+        { id: "study-tools", labelKey: "studyTools", to: "/student/notes", icon: BrainCircuit },
+        { id: "ai-tutor", labelKey: "aiTutor", to: "/student/ai-tutor", icon: BrainCircuit },
+        { id: "study-plan", labelKey: "studyPlan", to: "/student/study-plan", icon: CalendarDays },
+        { id: "spaced-review", labelKey: "spacedReview", to: "/student/spaced-review", icon: Repeat },
+        { id: "knowledge-map", labelKey: "knowledgeMap", to: "/student/knowledge-map", icon: BrainCircuit },
+        { id: "weak-areas", labelKey: "weakAreas", to: "/student/weak-areas", icon: TrendingUp },
+        { id: "exam-history", labelKey: "examHistory", to: "/student/exam-history", icon: FileSpreadsheet },
+        { id: "achievements", labelKey: "achievements", to: "/student/achievements", icon: Sparkles },
+        { id: "past-papers", labelKey: "pastExamPapers", to: "/student/past-papers", icon: GraduationCap, grade12Only: true },
+        { id: "attendance-record", labelKey: "attendanceRecord", to: "/student/attendance", icon: CalendarCheck },
+        { id: "school-access", labelKey: "schoolAccess", to: "/student/school-access", icon: School },
       ],
     },
+    secondaryGroups: [
+      {
+        groupTitleKey: "learningTools",
+        items: [
+          { id: "class-resources", labelKey: "learningResources", to: "/student/resources", icon: BookOpen },
+          { id: "coursework", labelKey: "classwork", to: "/student/coursework", icon: ListChecks },
+          { id: "progress", labelKey: "progress", to: "/student/score", icon: TrendingUp },
+          { id: "study-tools", labelKey: "studyTools", to: "/student/notes", icon: BrainCircuit },
+          { id: "ai-tutor", labelKey: "aiTutor", to: "/student/ai-tutor", icon: BrainCircuit },
+          { id: "study-plan", labelKey: "studyPlan", to: "/student/study-plan", icon: CalendarDays },
+          { id: "spaced-review", labelKey: "spacedReview", to: "/student/spaced-review", icon: Repeat },
+        ],
+      },
+      {
+        groupTitleKey: "moreLearning",
+        items: [
+          { id: "knowledge-map", labelKey: "knowledgeMap", to: "/student/knowledge-map", icon: BrainCircuit },
+          { id: "weak-areas", labelKey: "weakAreas", to: "/student/weak-areas", icon: TrendingUp },
+          { id: "exam-history", labelKey: "examHistory", to: "/student/exam-history", icon: FileSpreadsheet },
+          { id: "achievements", labelKey: "achievements", to: "/student/achievements", icon: Sparkles },
+          { id: "past-papers", labelKey: "pastExamPapers", to: "/student/past-papers", icon: GraduationCap, grade12Only: true },
+          { id: "attendance-record", labelKey: "attendanceRecord", to: "/student/attendance", icon: CalendarCheck },
+          { id: "school-access", labelKey: "schoolAccess", to: "/student/school-access", icon: School },
+        ],
+      },
+    ],
     bottomItems: [
-      { id: "help", label: "Help & Support", to: "/contact", icon: HelpCircle },
-      { id: "settings", label: "Settings", to: "/student/settings", icon: Settings },
+      { id: "help", labelKey: "helpSupport", to: "/contact", icon: HelpCircle },
+      { id: "billing", labelKey: "studentPlansBilling", to: "/student/subscription", icon: CreditCard },
+      { id: "settings", labelKey: "settings", to: "/student/settings", icon: Settings },
     ],
     mobileBottomTabs: [
-      { id: "dashboard", label: "Dashboard", to: "/student", icon: LayoutDashboard },
-      { id: "lessons", label: "Lessons", to: "/student/lessons", icon: BookOpen },
-      { id: "practice", label: "Practice", to: "/student/practice", icon: Sparkles },
-      { id: "exams", label: "Exams", to: "/student/exams", icon: FileCheck },
-      { id: "progress", label: "Progress", to: "/student/score", icon: TrendingUp },
+      { id: "dashboard", labelKey: "overview", to: "/student", icon: LayoutDashboard },
+      { id: "lessons", labelKey: "lessons", to: "/student/lessons", icon: BookOpen },
+      { id: "coursework", labelKey: "classwork", to: "/student/coursework", icon: ListChecks },
+      { id: "practice", labelKey: "practice", to: "/student/practice", icon: Sparkles },
     ],
   },
 
-  // Parent (linked children only)
   PARENT: {
-    roleName: "Parent",
+    roleNameKey: "parentGuardian",
     primaryNav: [
-      { id: "dashboard", label: "Dashboard", to: "/parent", icon: LayoutDashboard },
-      { id: "children", label: "Children", to: "/parent", icon: HeartHandshake },
-      { id: "results", label: "Results", to: "/parent", icon: FileSpreadsheet },
-      { id: "messages", label: "Messages", to: "/parent/messages", icon: MessageSquare },
-      { id: "fees", label: "Fees", to: "/client", icon: Receipt },
+      { id: "dashboard", labelKey: "overview", to: "/parent", icon: LayoutDashboard },
+      { id: "children", labelKey: "myChildren", to: "/parent/children", icon: HeartHandshake },
+      { id: "results", labelKey: "results", to: "/parent/results", icon: FileSpreadsheet },
+      { id: "messages", labelKey: "messages", to: "/parent/messages", icon: MessageSquare },
     ],
     secondaryNav: {
-      groupTitle: "Notifications",
+      groupTitleKey: "updates",
       items: [
-        { id: "attendance", label: "Attendance alerts", to: "/parent/alerts", icon: CalendarCheck },
+        { id: "notifications", labelKey: "notifications", to: "/parent/alerts", icon: Bell },
       ],
     },
     bottomItems: [
-      { id: "help", label: "Help & Support", to: "/contact", icon: HelpCircle },
-      { id: "settings", label: "Settings", to: "/parent", icon: Settings },
+      { id: "help", labelKey: "helpSupport", to: "/contact", icon: HelpCircle },
+      { id: "settings", labelKey: "settings", to: "/parent/settings", icon: Settings },
     ],
     mobileBottomTabs: [
-      { id: "dashboard", label: "Dashboard", to: "/parent", icon: LayoutDashboard },
-      { id: "children", label: "Children", to: "/parent", icon: HeartHandshake },
-      { id: "results", label: "Results", to: "/parent", icon: FileSpreadsheet },
-      { id: "messages", label: "Messages", to: "/parent/messages", icon: MessageSquare },
+      { id: "dashboard", labelKey: "overview", to: "/parent", icon: LayoutDashboard },
+      { id: "children", labelKey: "myChildren", to: "/parent/children", icon: HeartHandshake },
+      { id: "results", labelKey: "results", to: "/parent/results", icon: FileSpreadsheet },
+      { id: "messages", labelKey: "messages", to: "/parent/messages", icon: MessageSquare },
+      { id: "notifications", labelKey: "notifications", to: "/parent/alerts", icon: Bell },
     ],
   },
 };
@@ -181,9 +236,9 @@ export function getNavigationForRole(role?: string, grade?: string | number): Ro
     config = ROLE_NAVIGATION_MAP.STUDENT;
   }
 
-  // Filter out Grade 12 only items if student/teacher is not Grade 12
-  const isGrade12 = grade ? String(grade).includes("12") : true; // Default true if unspecified
-  if (!isGrade12) {
+  const isGrade12 = grade != null && /(^|\D)12(\D|$)/.test(String(grade));
+  const canSeeGrade12Resources = normalized === "TEACHER" || isGrade12;
+  if (!canSeeGrade12Resources) {
     return {
       ...config,
       secondaryNav: {

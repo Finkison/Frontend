@@ -28,7 +28,7 @@ export default function ProgressBar({
   };
 
   const solidColors = {
-    blue: "bg-[#1D4ED8]",
+    blue: "bg-[#881337]",
     teal: "bg-[#0F766E]",
     emerald: "bg-[#15803D]",
     amber: "bg-[#B45309]",
@@ -38,14 +38,14 @@ export default function ProgressBar({
   return (
     <div className={`w-full ${className}`}>
       {(label || showPercentage) && (
-        <div className="flex justify-between items-center text-xs font-semibold text-slate-700 mb-1.5">
+        <div className="flex justify-between items-center text-xs font-semibold text-stone-700 dark:text-[#E7E0D6] mb-1.5">
           {label && <span>{label}</span>}
-          {showPercentage && <span className="text-slate-500 font-mono ml-auto">{percentage}%</span>}
+          {showPercentage && <span className="text-stone-500 dark:text-[#A89C90] font-mono ml-auto">{percentage}%</span>}
         </div>
       )}
-      <div className={`w-full bg-slate-100 rounded-full overflow-hidden ${sizeHeights[size]}`}>
+      <div className={`w-full bg-stone-100 dark:bg-[#201815] rounded-full overflow-hidden ${sizeHeights[size]}`}>
         <div
-          className={`h-full rounded-full ${solidColors[color] || "bg-[#1D4ED8]"} transition-all duration-500 ease-out`}
+          className={`h-full rounded-full ${solidColors[color] || "bg-[#881337]"} transition-all duration-500 ease-out`}
           style={{ width: `${percentage}%` }}
           role="progressbar"
           aria-valuenow={value}

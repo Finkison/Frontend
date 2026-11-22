@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
+import { useI18n } from "../../i18n";
 
 export interface BreadcrumbCrumb {
   label: string;
@@ -42,14 +43,14 @@ function formatRouteSegment(segment: string): string {
 
 export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps): React.ReactElement {
   const location = useLocation();
+  const { t } = useI18n();
 
-  // If items not explicitly passed, auto-derive from pathname (max 4 levels)
   const crumbs: BreadcrumbCrumb[] = React.useMemo(() => {
     if (items && items.length > 0) return items.slice(0, 4);
 
     const segments = location.pathname.split("/").filter(Boolean);
     if (segments.length === 0) {
-      return [{ label: "Home" }];
+      return [{ label: t("appNavigation.breadcrumbs.home") }];
     }
 
     const derived: BreadcrumbCrumb[] = [];
@@ -59,20 +60,20 @@ export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps)
       accumulatedPath += `/${seg}`;
       const isLast = idx === segments.length - 1;
       derived.push({
-        label: formatRouteSegment(seg),
+        label: t(`appNavigation.breadcrumbs.${seg}`, { defaultValue: formatRouteSegment(seg) }),
         to: isLast ? undefined : accumulatedPath,
       });
     });
 
     return derived;
-  }, [items, location.pathname]);
+  }, [items, location.pathname, t]);
 
   if (crumbs.length === 0) return <></>;
 
   return (
     <nav
-      aria-label="Breadcrumb"
-      className={`flex items-center text-xs font-medium text-[#475569] ${className}`}
+      aria-label={t("appNavigation.breadcrumbNavigation")}
+      className={`flex items-center text-xs font-medium text-[#5C5046] dark:text-[#A89C90] ${className}`}
     >
       <ol className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
         {crumbs.map((crumb, idx) => {
@@ -82,26 +83,25 @@ export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps)
           return (
             <li key={idx} className="flex items-center gap-1.5">
               {idx > 0 && (
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                <ChevronRight className="w-3.5 h-3.5 text-stone-400 dark:text-[#A89C90] shrink-0" aria-hidden="true" />
               )}
 
-              {/* Mobile collapse middle items to '...' */}
               {isMiddleCollapsed && (
-                <span className="sm:hidden text-slate-400 font-mono">...</span>
+                <span className="sm:hidden text-stone-400 dark:text-[#A89C90] font-mono">...</span>
               )}
 
               <span className={isMiddleCollapsed ? "hidden sm:inline" : ""}>
                 {isLast || !crumb.to ? (
                   <span
                     aria-current="page"
-                    className="text-[#0F172A] font-semibold truncate max-w-[140px] sm:max-w-[200px]"
+                    className="text-[#261E1A] dark:text-[#FDFBF7] font-semibold truncate max-w-[140px] sm:max-w-[200px]"
                   >
                     {crumb.label}
                   </span>
                 ) : (
                   <Link
                     to={crumb.to}
-                    className="text-[#475569] hover:text-[#1D4ED8] hover:underline transition-colors focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] rounded px-0.5 truncate max-w-[120px]"
+                    className="text-[#5C5046] dark:text-[#E7E0D6] hover:text-[#881337] dark:hover:text-[#FBBF24] hover:underline transition-colors focus:outline-none focus:ring-2 focus:ring-[#881337] dark:focus:ring-[#FBBF24] rounded px-0.5 truncate max-w-[120px]"
                   >
                     {crumb.label}
                   </Link>

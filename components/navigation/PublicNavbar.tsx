@@ -1,426 +1,305 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, ChevronDown, ArrowRight, ShieldCheck } from "lucide-react";
 import FinkisonLogo from "../shared/FinkisonLogo";
-import { SITE_CONTENT } from "../../content/siteContent";
+import PublicPreferences from "../shared/PublicPreferences";
+import { useI18n } from "../../i18n";
+
+type NavigationMenu = "platform" | "solutions" | null;
 
 export default function PublicNavbar(): React.ReactElement {
   const location = useLocation();
-
+  const { t } = useI18n();
   const [scrolled, setScrolled] = useState(false);
-  const [solutionsOpen, setSolutionsOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState<NavigationMenu>(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
+  const platformRef = useRef<HTMLDivElement>(null);
   const solutionsRef = useRef<HTMLDivElement>(null);
+  const platformTriggerRef = useRef<HTMLButtonElement>(null);
+  const solutionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileCloseButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
 
-  // Scroll listener for 1px #E2E8F0 bottom border fade (200ms)
+  const closeMobileDrawer = useCallback(() => {
+    setMobileDrawerOpen(false);
+    window.requestAnimationFrame(() => mobileMenuButtonRef.current?.focus());
+  }, []);
+
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 10);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Escape key and touch/click outside listener
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setSolutionsOpen(false);
-        setMobileDrawerOpen(false);
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (!platformRef.current?.contains(target) && !solutionsRef.current?.contains(target)) {
+        setOpenMenu(null);
       }
     };
-    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
-      if (solutionsRef.current && !solutionsRef.current.contains(e.target as Node)) {
-        setSolutionsOpen(false);
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside, { passive: true });
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown, { passive: true });
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
     };
   }, []);
 
-  // Lock body scroll when mobile drawer is open
   useEffect(() => {
-    if (mobileDrawerOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileDrawerOpen]);
+    if (!mobileDrawerOpen) return;
 
-  // Close menus on route change
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    mobileCloseButtonRef.current?.focus();
+
+    const handleDrawerKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMobileDrawer();
+        return;
+      }
+      if (event.key !== "Tab" || !drawerRef.current) return;
+
+      const focusable = Array.from(
+        drawerRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), select:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => element.offsetParent !== null);
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !drawerRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !drawerRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleDrawerKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleDrawerKeyDown);
+    };
+  }, [mobileDrawerOpen, closeMobileDrawer]);
+
   useEffect(() => {
-    setSolutionsOpen(false);
-    setMobileDrawerOpen(false);
+    setOpenMenu(null);
+    if (mobileDrawerOpen) closeMobileDrawer();
+    // Route changes close an open drawer and return focus to its trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
-  const isSolutionsActive =
-    location.pathname.startsWith("/for-school") ||
-    location.pathname.startsWith("/for-teacher") ||
-    location.pathname.startsWith("/for-student") ||
-    location.pathname.startsWith("/solutions");
+  const platformItems = [
+    { label: t("public.navigation.curriculum"), to: "/academics" },
+    { label: t("public.navigation.learningTools"), to: "/ai-features" },
+    { label: t("public.navigation.howItWorks"), to: "/how-we-work" },
+  ];
+
+  const solutionItems = [
+    { label: t("public.navigation.students"), to: "/for-students" },
+    { label: t("public.navigation.families"), to: "/for-families" },
+    { label: t("public.navigation.teachers"), to: "/for-teachers" },
+    { label: t("public.navigation.schools"), to: "/for-schools" },
+  ];
+
+  const isPlatformActive = ["/academics", "/subjects", "/ai-features", "/how-we-work"].includes(location.pathname);
+  const isSolutionsActive = ["/for-students", "/for-families", "/for-teachers", "/for-schools", "/students", "/teachers", "/schools"].includes(location.pathname) || location.pathname.startsWith("/solutions/");
+  const routeAliases: Record<string, string[]> = {
+    "/academics": ["/academics", "/subjects"],
+    "/for-students": ["/for-students", "/students", "/solutions/students"],
+    "/for-families": ["/for-families", "/families"],
+    "/for-teachers": ["/for-teachers", "/teachers", "/solutions/teachers"],
+    "/for-schools": ["/for-schools", "/schools", "/solutions/schools"],
+  };
+  const isRouteCurrent = (to: string) => (routeAliases[to] || [to]).includes(location.pathname);
+
+  const renderDropdown = (
+    menu: Exclude<NavigationMenu, null>,
+    label: string,
+    items: typeof platformItems,
+    triggerRef: React.RefObject<HTMLButtonElement | null>,
+    containerRef: React.RefObject<HTMLDivElement | null>,
+    active: boolean
+  ) => {
+    const isOpen = openMenu === menu;
+    const menuId = `public-nav-${menu}`;
+    return (
+      <div
+        className="relative"
+        ref={containerRef}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setOpenMenu((current) => current === menu ? null : current);
+          }
+        }}
+      >
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setOpenMenu((current) => current === menu ? null : menu)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && isOpen) {
+              event.preventDefault();
+              setOpenMenu(null);
+              triggerRef.current?.focus();
+            }
+          }}
+          className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 transition-colors ${
+            active || isOpen
+              ? "bg-[#FFF1F2] font-semibold text-[#881337] dark:bg-[#4C0519]/40 dark:text-[#FBBF24]"
+              : "text-stone-700 hover:bg-stone-100/80 hover:text-stone-950 dark:text-stone-200 dark:hover:bg-white/5 dark:hover:text-white"
+          }`}
+          aria-expanded={isOpen}
+          aria-controls={menuId}
+        >
+          {label}
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+        </button>
+        <ul id={menuId} hidden={!isOpen} className="absolute left-0 top-[calc(100%+8px)] z-50 w-72 list-none rounded-2xl border border-stone-200/90 bg-white/95 p-2 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-[#261E1A]/95">
+            {items.map((item) => (
+              <li key={item.to}>
+                <Link
+                  to={item.to}
+                  onClick={() => setOpenMenu(null)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setOpenMenu(null);
+                      triggerRef.current?.focus();
+                    }
+                  }}
+                  aria-current={isRouteCurrent(item.to) ? "page" : undefined}
+                  className={`group flex items-center justify-between gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-stone-900 transition-colors hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:text-white dark:hover:bg-white/5 ${
+                    isRouteCurrent(item.to) ? "bg-[#FFF1F2] dark:bg-[#4C0519]/30" : ""
+                  }`}
+                >
+                  {item.label}<ArrowRight className="h-3.5 w-3.5 text-stone-400 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+        </ul>
+      </div>
+    );
+  };
+
+  const linkClass = (active: boolean) => `rounded-lg px-3 py-2 transition-colors ${
+    active
+      ? "bg-[#FFF1F2] font-semibold text-[#881337] dark:bg-[#4C0519]/40 dark:text-[#FBBF24]"
+      : "text-stone-700 hover:bg-stone-100/80 hover:text-stone-950 dark:text-stone-200 dark:hover:bg-white/5 dark:hover:text-white"
+  }`;
 
   return (
     <header
-      className={`h-[64px] lg:h-[72px] sticky top-0 select-none transition-all duration-200 ${
+      className={`sticky top-0 h-16 select-none border-b transition-all duration-200 lg:h-[72px] ${
         scrolled
-          ? "bg-white/90 dark:bg-[#1C1512]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-white/10 shadow-xs"
-          : "bg-white/70 dark:bg-[#1C1512]/70 backdrop-blur-xs border-b border-transparent"
+          ? "border-stone-200/80 bg-white/90 shadow-xs backdrop-blur-md dark:border-white/10 dark:bg-[#1C1512]/90"
+          : "border-transparent bg-white/75 backdrop-blur-sm dark:bg-[#1C1512]/75"
       }`}
       style={{ zIndex: "var(--z-sticky, 100)" }}
     >
-      {/* Full-width responsive container anchored near device margins across all screen sizes */}
-      <div className="w-full h-full flex items-center justify-between gap-2.5 sm:gap-4 px-4 sm:px-6 lg:px-8 xl:px-10">
-        {/* Left: Logo (Positioned right near the left margin of the screen on all devices) */}
-        <div className="flex items-center gap-3 shrink-0">
-          <FinkisonLogo variant="horizontal" size="md" to="/" />
-        </div>
+      <div className="flex h-full items-center justify-between gap-2.5 px-4 sm:gap-4 sm:px-6 lg:px-8 xl:px-10">
+        <FinkisonLogo variant="horizontal" size="md" to="/" />
 
-        {/* Center: Public Links */}
-        <nav aria-label="Main navigation" className="hidden lg:flex items-center gap-1 xl:gap-1.5 text-sm font-medium">
-          {/* 1. Solutions Dropdown */}
-          <div className="relative" ref={solutionsRef}>
-            <button
-              type="button"
-              onClick={() => setSolutionsOpen((v) => !v)}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setSolutionsOpen(true);
-                }
-              }}
-              className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all duration-150 cursor-pointer ${
-                isSolutionsActive || solutionsOpen
-                  ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24] font-semibold shadow-2xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/5"
-              }`}
-              aria-expanded={solutionsOpen}
-              aria-haspopup="menu"
-            >
-              <span>{SITE_CONTENT.navigation.solutions}</span>
-              <ChevronDown
-                className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                  solutionsOpen ? "rotate-180 text-[#881337] dark:text-[#FBBF24]" : "text-slate-400"
-                }`}
-                aria-hidden="true"
-              />
-            </button>
-
-            {solutionsOpen && (
-              <div
-                role="menu"
-                aria-orientation="vertical"
-                className="absolute top-[calc(100%+8px)] left-0 w-80 bg-white/95 dark:bg-[#261E1A]/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 rounded-2xl shadow-xl py-2 z-50 text-left animate-fade-in"
-              >
-                <div className="p-1.5 space-y-1">
-                  {SITE_CONTENT.navigation.solutionsMenu.map((item) => {
-                    const isActive = location.pathname === item.to;
-                    return (
-                      <Link
-                        key={item.name}
-                        to={item.to}
-                        onClick={() => setSolutionsOpen(false)}
-                        className={`block px-3.5 py-2.5 rounded-xl transition-all duration-150 group ${
-                          isActive
-                            ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24]"
-                            : "hover:bg-slate-50 dark:hover:bg-white/5"
-                        }`}
-                        role="menuitem"
-                      >
-                        <div
-                          className={`text-sm font-semibold flex items-center justify-between ${
-                            isActive
-                              ? "text-[#881337] dark:text-[#FBBF24]"
-                              : "text-slate-900 dark:text-white group-hover:text-[#881337] dark:group-hover:text-[#FBBF24]"
-                          }`}
-                        >
-                          <span>{item.name}</span>
-                          <ArrowRight
-                            className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#881337] dark:group-hover:text-[#FBBF24] transition-transform group-hover:translate-x-1"
-                            aria-hidden="true"
-                          />
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
-                          {item.description}
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 2. Academics */}
-          <Link
-            to="/academics"
-            className={`px-3 py-2 rounded-lg transition-all duration-150 ${
-              location.pathname === "/academics" || location.pathname === "/subjects"
-                ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24] font-semibold shadow-2xs"
-                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/5"
-            }`}
-            aria-current={location.pathname === "/academics" || location.pathname === "/subjects" ? "page" : undefined}
-          >
-            {SITE_CONTENT.navigation.academics}
-          </Link>
-
-          {/* 3. AI Features */}
-          <Link
-            to="/ai-features"
-            className={`px-3 py-2 rounded-lg transition-all duration-150 ${
-              location.pathname === "/ai-features"
-                ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24] font-semibold shadow-2xs"
-                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/5"
-            }`}
-            aria-current={location.pathname === "/ai-features" ? "page" : undefined}
-          >
-            {SITE_CONTENT.navigation.aiFeatures}
-          </Link>
-
-          {/* 4. Pricing */}
-          <Link
-            to="/pricing"
-            className={`px-3 py-2 rounded-lg transition-all duration-150 ${
-              location.pathname === "/pricing"
-                ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24] font-semibold shadow-2xs"
-                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/5"
-            }`}
-            aria-current={location.pathname === "/pricing" ? "page" : undefined}
-          >
-            {SITE_CONTENT.navigation.pricing}
-          </Link>
-
-          {/* 5. About */}
-          <Link
-            to="/about"
-            className={`px-3 py-2 rounded-lg transition-all duration-150 ${
-              location.pathname === "/about"
-                ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24] font-semibold shadow-2xs"
-                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/5"
-            }`}
-            aria-current={location.pathname === "/about" ? "page" : undefined}
-          >
-            {SITE_CONTENT.navigation.about}
-          </Link>
-
+        <nav aria-label={t("public.navigation.mainMenu")} className="hidden items-center gap-1 text-sm font-medium xl:flex">
+          {renderDropdown("platform", t("public.navigation.platform"), platformItems, platformTriggerRef, platformRef, isPlatformActive)}
+          {renderDropdown("solutions", t("public.navigation.solutions"), solutionItems, solutionsTriggerRef, solutionsRef, isSolutionsActive)}
+          <Link to="/pricing" className={linkClass(location.pathname === "/pricing")} aria-current={location.pathname === "/pricing" ? "page" : undefined}>{t("public.navigation.pricing")}</Link>
+          <Link to="/about" className={linkClass(location.pathname === "/about" || location.pathname === "/team")} aria-current={location.pathname === "/about" || location.pathname === "/team" ? "page" : undefined}>{t("public.navigation.about")}</Link>
+          <Link to="/contact" className={linkClass(location.pathname === "/contact")} aria-current={location.pathname === "/contact" ? "page" : undefined}>{t("public.navigation.contact")}</Link>
         </nav>
 
-        {/* Right: Focused Action Dock (Desktop) */}
-        <div className="hidden lg:flex items-center gap-3 shrink-0">
-          {/* Sign in Link */}
-          <Link
-            to="/login"
-            className="text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white px-3 py-2 rounded-lg hover:bg-slate-100/70 dark:hover:bg-white/5 transition-colors"
-          >
-            {SITE_CONTENT.navigation.signIn}
+        <div className="hidden shrink-0 items-center gap-2 xl:flex">
+          <PublicPreferences variant="header" />
+          <Link to="/login" className="rounded-lg px-3 py-2 text-xs font-semibold text-stone-700 transition-colors hover:bg-stone-100/70 hover:text-stone-950 dark:text-stone-200 dark:hover:bg-white/5 dark:hover:text-white">
+            {t("public.navigation.signIn")}
           </Link>
-
-          {/* Contact us (Primary Brand Action) */}
-          <Link
-            to="/contact"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FBBF24] hover:bg-[#F59E0B] active:bg-[#D97706] text-[#1C1512] text-xs font-semibold transition-all duration-150 active:scale-[0.98] shadow-xs hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[#881337]"
-          >
-            <span>{SITE_CONTENT.navigation.contactUs}</span>
-            <ArrowRight className="w-3.5 h-3.5 text-[#1C1512]" aria-hidden="true" />
+          <Link to="/register" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-[#FBBF24] px-4 py-2 text-xs font-bold text-[#1C1512] shadow-xs transition-colors hover:bg-[#F59E0B] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337]">
+            {t("public.navigation.getStarted")}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </div>
 
-        {/* Mobile / Tablet Controls (< 1024px) - Clean & uncluttered, zero collision on <400px devices */}
-        <div className="flex lg:hidden items-center gap-2 shrink-0">
-          {/* Sign in - Visible on tablets (sm: 640px+), hidden on extra-small mobile to prevent collision */}
-          <Link
-            to="/login"
-            className="hidden sm:inline-flex text-xs font-semibold px-2.5 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10"
-          >
-            {SITE_CONTENT.navigation.signIn}
+        <div className="flex shrink-0 items-center gap-2 xl:hidden">
+          <Link to="/login" className="hidden rounded-lg px-2.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-white/10 sm:inline-flex">
+            {t("public.navigation.signIn")}
           </Link>
-
-          {/* Contact us - Primary Compact CTA */}
-          <Link
-            to="/contact"
-            className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-xs font-semibold shadow-xs shrink-0"
-          >
-            <span>{SITE_CONTENT.navigation.contactUs}</span>
+          <Link to="/register" className="hidden min-h-10 items-center rounded-lg bg-[#FBBF24] px-3 py-2 text-xs font-bold text-[#1C1512] shadow-xs hover:bg-[#F59E0B] sm:inline-flex">
+            {t("public.navigation.getStarted")}
           </Link>
-
-          {/* Hamburger Drawer Button */}
           <button
+            ref={mobileMenuButtonRef}
             type="button"
             onClick={() => setMobileDrawerOpen(true)}
-            className="min-h-[40px] min-w-[40px] sm:min-h-[44px] sm:min-w-[44px] p-2 rounded-xl text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#881337]"
-            aria-label="Open mobile navigation drawer"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2 text-stone-900 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:text-white dark:hover:bg-white/10"
+            aria-label={t("public.navigation.openMenu")}
             aria-expanded={mobileDrawerOpen}
+            aria-haspopup="dialog"
           >
-            <Menu className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden="true" />
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
       </div>
 
-      {/* Full-Height Mobile Drawer */}
       {mobileDrawerOpen && (
-        <div
-          className="fixed inset-0 flex justify-start bg-slate-900/60 backdrop-blur-xs transition-opacity"
-          style={{ zIndex: "var(--z-drawer, 300)" }}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Mobile navigation"
-        >
-          {/* Backdrop Click */}
-          <div
-            className="fixed inset-0"
-            onClick={() => setMobileDrawerOpen(false)}
-            aria-hidden="true"
-          />
-
-          {/* Drawer Content */}
-          <div
-            ref={drawerRef}
-            className="relative w-full max-w-sm h-full bg-white dark:bg-[#1C1512] text-slate-900 dark:text-white shadow-2xl flex flex-col justify-between p-6 z-10 animate-fade-in overflow-y-auto border-r border-slate-200 dark:border-white/10"
-          >
-            {/* Top Bar inside Drawer */}
+        <div className="fixed inset-0 flex justify-start bg-stone-900/60 backdrop-blur-sm" style={{ zIndex: "var(--z-drawer, 300)" }}>
+          <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={closeMobileDrawer} aria-label={t("public.navigation.closeMenu")} />
+          <div ref={drawerRef} className="relative z-10 flex h-full w-full max-w-sm flex-col justify-between overflow-y-auto border-r border-stone-200 bg-white p-5 text-stone-900 shadow-2xl dark:border-white/10 dark:bg-[#1C1512] dark:text-white sm:p-6" role="dialog" aria-modal="true" aria-label={t("public.navigation.mobileMenu")}>
             <div>
-              <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
-                <div onClick={() => setMobileDrawerOpen(false)} className="cursor-pointer">
-                  <FinkisonLogo variant="horizontal" size="sm" to="/" />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMobileDrawerOpen(false)}
-                  className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#881337]"
-                  aria-label="Close navigation drawer"
-                >
-                  <X className="w-5 h-5" aria-hidden="true" />
+              <div className="flex items-center justify-between border-b border-stone-200 pb-4 dark:border-white/10">
+                <FinkisonLogo variant="horizontal" size="sm" to="/" />
+                <button ref={mobileCloseButtonRef} type="button" onClick={closeMobileDrawer} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-stone-500 hover:bg-stone-100 hover:text-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:text-stone-300 dark:hover:bg-white/10 dark:hover:text-white" aria-label={t("public.navigation.closeMenu")}>
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
 
-              {/* Stacked Links with Active Route Indicators */}
-              <nav className="mt-6 space-y-1">
-                <Link
-                  to="/"
-                  onClick={() => setMobileDrawerOpen(false)}
-                  className={`block px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                    location.pathname === "/"
-                      ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24]"
-                      : "text-slate-900 dark:text-white hover:bg-[#FFF1F2] dark:hover:bg-[#4C0519]/30 hover:text-[#881337] dark:hover:text-[#FBBF24]"
-                  }`}
-                >
-                  {SITE_CONTENT.navigation.home}
-                </Link>
-                <Link
-                  to="/about"
-                  onClick={() => setMobileDrawerOpen(false)}
-                  className={`block px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                    location.pathname === "/about"
-                      ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24]"
-                      : "text-slate-900 dark:text-white hover:bg-[#FFF1F2] dark:hover:bg-[#4C0519]/30 hover:text-[#881337] dark:hover:text-[#FBBF24]"
-                  }`}
-                >
-                  {SITE_CONTENT.navigation.about}
-                </Link>
-
-                <div className="py-2">
-                  <span className="block text-xs font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider px-3 mb-1">
-                    {SITE_CONTENT.navigation.solutions}
-                  </span>
-                  {SITE_CONTENT.navigation.solutionsMenu.map((s) => {
-                    const isItemActive = location.pathname === s.to;
-                    return (
-                      <Link
-                        key={s.name}
-                        to={s.to}
-                        onClick={() => setMobileDrawerOpen(false)}
-                        className={`block px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                          isItemActive
-                            ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24]"
-                            : "text-slate-900 dark:text-white hover:bg-[#FFF1F2] dark:hover:bg-[#4C0519]/30"
-                        }`}
-                      >
-                        <span>{s.name}</span>
-                        <span className="block text-xs text-slate-500 dark:text-slate-400 font-normal">{s.description}</span>
-                      </Link>
-                    );
-                  })}
+              <nav aria-label={t("public.navigation.mainMenu")} className="mt-5 space-y-5">
+                <div>
+                  <p className="px-3 pb-1 text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">{t("public.navigation.platform")}</p>
+                  <ul className="list-none">
+                    {platformItems.map((item) => (
+                      <li key={item.to}>
+                        <Link to={item.to} onClick={closeMobileDrawer} aria-current={isRouteCurrent(item.to) ? "page" : undefined} className={`block rounded-xl px-3 py-2.5 text-sm font-semibold text-stone-900 hover:bg-[#FFF1F2] hover:text-[#881337] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:text-white dark:hover:bg-[#4C0519]/30 dark:hover:text-[#FBBF24] ${isRouteCurrent(item.to) ? "bg-[#FFF1F2] dark:bg-[#4C0519]/30" : ""}`}>
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-
-                <div className="pt-2 border-t border-slate-200 dark:border-white/10 space-y-0.5">
-                  <Link
-                    to="/academics"
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className={`block px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                      location.pathname === "/academics" || location.pathname === "/subjects"
-                        ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24]"
-                        : "text-slate-900 dark:text-white hover:bg-[#FFF1F2] dark:hover:bg-[#4C0519]/30 hover:text-[#881337] dark:hover:text-[#FBBF24]"
-                    }`}
-                  >
-                    {SITE_CONTENT.navigation.academics}
-                  </Link>
-                  <Link
-                    to="/ai-features"
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className={`block px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                      location.pathname === "/ai-features"
-                        ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24]"
-                        : "text-slate-900 dark:text-white hover:bg-[#FFF1F2] dark:hover:bg-[#4C0519]/30 hover:text-[#881337] dark:hover:text-[#FBBF24]"
-                    }`}
-                  >
-                    {SITE_CONTENT.navigation.aiFeatures}
-                  </Link>
-                  <Link
-                    to="/pricing"
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className={`block px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                      location.pathname === "/pricing"
-                        ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24]"
-                        : "text-slate-900 dark:text-white hover:bg-[#FFF1F2] dark:hover:bg-[#4C0519]/30 hover:text-[#881337] dark:hover:text-[#FBBF24]"
-                    }`}
-                  >
-                    {SITE_CONTENT.navigation.pricing}
-                  </Link>
-                  <Link
-                    to="/contact"
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className={`block px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                      location.pathname === "/contact"
-                        ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24]"
-                        : "text-slate-900 dark:text-white hover:bg-[#FFF1F2] dark:hover:bg-[#4C0519]/30 hover:text-[#881337] dark:hover:text-[#FBBF24]"
-                    }`}
-                  >
-                    {SITE_CONTENT.navigation.contactUs}
-                  </Link>
+                <div>
+                  <p className="px-3 pb-1 text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">{t("public.navigation.solutions")}</p>
+                  <ul className="list-none">
+                    {solutionItems.map((item) => (
+                      <li key={item.to}>
+                        <Link to={item.to} onClick={closeMobileDrawer} aria-current={isRouteCurrent(item.to) ? "page" : undefined} className={`block rounded-xl px-3 py-2.5 text-sm font-semibold text-stone-900 hover:bg-[#FFF1F2] hover:text-[#881337] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:text-white dark:hover:bg-[#4C0519]/30 dark:hover:text-[#FBBF24] ${isRouteCurrent(item.to) ? "bg-[#FFF1F2] dark:bg-[#4C0519]/30" : ""}`}>
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="border-t border-stone-200 pt-3 dark:border-white/10">
+                  <ul className="list-none space-y-1">
+                    <li><Link to="/pricing" onClick={closeMobileDrawer} aria-current={location.pathname === "/pricing" ? "page" : undefined} className={`block rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-stone-100 dark:hover:bg-white/5 ${location.pathname === "/pricing" ? "bg-stone-100 dark:bg-white/10" : ""}`}>{t("public.navigation.pricing")}</Link></li>
+                    <li><Link to="/about" onClick={closeMobileDrawer} aria-current={location.pathname === "/about" ? "page" : undefined} className={`block rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-stone-100 dark:hover:bg-white/5 ${location.pathname === "/about" ? "bg-stone-100 dark:bg-white/10" : ""}`}>{t("public.navigation.about")}</Link></li>
+                    <li><Link to="/contact" onClick={closeMobileDrawer} aria-current={location.pathname === "/contact" ? "page" : undefined} className={`block rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-stone-100 dark:hover:bg-white/5 ${location.pathname === "/contact" ? "bg-stone-100 dark:bg-white/10" : ""}`}>{t("public.navigation.contact")}</Link></li>
+                  </ul>
                 </div>
               </nav>
             </div>
 
-            {/* Bottom Actions inside Drawer */}
-            <div className="pt-6 border-t border-slate-200 dark:border-white/10 space-y-2.5">
-              <Link
-                to="/login"
-                onClick={() => setMobileDrawerOpen(false)}
-                className="w-full h-11 flex items-center justify-center gap-2 rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-white/5 text-slate-900 dark:text-white text-sm font-semibold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
-              >
-                <ShieldCheck className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />
-                <span>{SITE_CONTENT.navigation.signIn}</span>
+            <div className="space-y-2.5 border-t border-stone-200 pt-5 dark:border-white/10">
+              <PublicPreferences variant="drawer" />
+              <Link to="/login" onClick={closeMobileDrawer} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white text-sm font-semibold text-stone-900 hover:bg-stone-50 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10">
+                <ShieldCheck className="h-4 w-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />{t("public.navigation.signIn")}
               </Link>
-
-              <Link
-                to="/contact"
-                onClick={() => setMobileDrawerOpen(false)}
-                className="w-full h-11 flex items-center justify-center gap-2 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-sm font-semibold transition-all shadow-xs"
-              >
-                <span>Get started</span>
-                <ArrowRight className="w-4 h-4 text-[#1C1512]" aria-hidden="true" />
+              <Link to="/register" onClick={closeMobileDrawer} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#FBBF24] text-sm font-bold text-[#1C1512] shadow-xs hover:bg-[#F59E0B]">
+                {t("public.navigation.getStarted")}<ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             </div>
           </div>

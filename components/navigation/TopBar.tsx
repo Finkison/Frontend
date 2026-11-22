@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuthStore from "../../store/authStore";
 import notificationService from "../../services/notificationService";
+import type { NotificationItem } from "../../services/notificationService";
+import { logout as revokeCurrentSession } from "../../services/authService";
 import {
   Menu,
   Search,
@@ -30,28 +32,42 @@ import {
 } from "lucide-react";
 import Breadcrumbs from "./Breadcrumbs";
 import GlobalSearchModal from "../shared/GlobalSearchModal";
+import { useI18n } from "../../i18n";
+import { useToast } from "../ui/Toast";
 
 export interface TopBarProps {
   onToggleSidebar: () => void;
   isSidebarOpen?: boolean;
 }
 
-export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactElement {
-  const { user, logout, updateUser } = useAuthStore();
+export default function TopBar({ onToggleSidebar, isSidebarOpen = false }: TopBarProps): React.ReactElement {
+  const { user, role, logout, updateUser } = useAuthStore();
+  const { t } = useI18n();
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
-  const currentRole = (user?.role || "STUDENT").toUpperCase();
+  const currentRole = (user?.role || role || "STUDENT").toUpperCase();
   const isTeacher = currentRole === "TEACHER";
+  const isStudent = currentRole === "STUDENT";
   const isDirector = ["PRINCIPAL", "SCHOOL_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(currentRole);
   const isParent = currentRole === "PARENT";
-  const teacherSubject = (user as any)?.subject || "Mathematics";
+  const teacherSubject = user?.subject || "Mathematics";
+  const roleLabel = isDirector
+    ? t("appNavigation.roles.schoolAdministrator")
+    : isTeacher
+    ? t("appNavigation.roles.teacher")
+    : isParent
+    ? t("appNavigation.roles.parentGuardian")
+    : t("appNavigation.roles.student");
+  const notificationDestination = "/student/settings";
+  const notificationDestinationLabel = "appNavigation.topBar.notificationSettings";
 
   const profileLink = isDirector
     ? "/school/security"
     : isTeacher
     ? "/teacher/security"
     : isParent
-    ? "/parent"
+    ? "/parent/settings"
     : "/student/profile";
 
   const settingsLink = isDirector
@@ -59,7 +75,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
     : isTeacher
     ? "/teacher/security"
     : isParent
-    ? "/parent"
+    ? "/parent/settings"
     : "/student/settings";
 
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -67,12 +83,24 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
   const [copiedSupportEmail, setCopiedSupportEmail] = useState(false);
   const [activeMenu, setActiveMenu] = useState<"create" | "notifs" | "help" | "profile" | null>(null);
   const [notifTab, setNotifTab] = useState<"all" | "unread">("all");
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsFailed, setNotificationsFailed] = useState(false);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [notificationRetryCount, setNotificationRetryCount] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const notificationsFetchedRef = useRef(false);
+  const lastNotificationRetryRef = useRef(0);
+  const menuTriggerRefs = useRef<Record<"create" | "notifs" | "help" | "profile", HTMLButtonElement | null>>({
+    create: null,
+    notifs: null,
+    help: null,
+    profile: null,
+  });
+  const helpCloseButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Close menus on outside click or Escape
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -84,7 +112,16 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
         e.preventDefault();
         setSearchModalOpen(true);
       } else if (e.key === "Escape") {
-        setActiveMenu(null);
+        if (activeMenu) {
+          e.preventDefault();
+          const trigger = menuTriggerRefs.current[activeMenu];
+          setActiveMenu(null);
+          window.requestAnimationFrame(() => trigger?.focus());
+        } else if (helpModalOpen) {
+          e.preventDefault();
+          setHelpModalOpen(false);
+          window.requestAnimationFrame(() => menuTriggerRefs.current.help?.focus());
+        }
       }
     };
     document.addEventListener("mousedown", handleOutside);
@@ -93,43 +130,146 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
       document.removeEventListener("mousedown", handleOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [activeMenu, helpModalOpen]);
 
   useEffect(() => {
+    if (!helpModalOpen) return;
+
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    window.requestAnimationFrame(() => helpCloseButtonRef.current?.focus());
+
+    const handleHelpKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const dialog = document.getElementById("support-desk-dialog");
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter((element) => element.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleHelpKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleHelpKeyDown);
+      window.requestAnimationFrame(() => previousFocus?.focus());
+    };
+  }, [helpModalOpen]);
+
+  useEffect(() => {
+    let isActive = true;
+    if (!isStudent) {
+      notificationsFetchedRef.current = false;
+      setNotifications([]);
+      setUnreadCount(0);
+      setNotificationsFailed(false);
+      setNotificationsLoading(false);
+      setActiveMenu((active) => active === "notifs" ? null : active);
+      return () => { isActive = false; };
+    }
+
+    const shouldRefreshNotifications = !notificationsFetchedRef.current
+      || activeMenu === "notifs"
+      || notificationRetryCount !== lastNotificationRetryRef.current;
+    if (!shouldRefreshNotifications) return;
+    notificationsFetchedRef.current = true;
+    lastNotificationRetryRef.current = notificationRetryCount;
+
+    setNotificationsLoading(true);
     notificationService.list()
-      .then((res) => {
-        const list = Array.isArray(res?.notifications) ? res.notifications : (Array.isArray(res) ? res : []);
+      .then((response) => {
+        if (!isActive) return;
+        const list = Array.isArray(response.notifications) ? response.notifications : [];
         setNotifications(list);
-        setUnreadCount(list.filter((n: any) => !n.is_read && !n.read).length);
+        setUnreadCount(typeof response.unread_count === "number"
+          ? response.unread_count
+          : list.filter((notification) => !notification.is_read).length);
+        setNotificationsFailed(false);
       })
       .catch(() => {
+        if (!isActive) return;
         setNotifications([]);
         setUnreadCount(0);
+        setNotificationsFailed(true);
+      })
+      .finally(() => {
+        if (isActive) setNotificationsLoading(false);
       });
-  }, []);
+
+    return () => { isActive = false; };
+  }, [isStudent, activeMenu, notificationRetryCount]);
 
   const toggleMenu = (menu: "create" | "notifs" | "help" | "profile") => {
     setActiveMenu((prev) => (prev === menu ? null : menu));
   };
 
   const displayedNotifications = notifTab === "unread"
-    ? notifications.filter((n) => !n.is_read && !n.read)
+    ? notifications.filter((notification) => !notification.is_read)
     : notifications;
+
+  const handleMarkAllNotificationsRead = async () => {
+    if (markingAllRead || unreadCount === 0) return;
+    setMarkingAllRead(true);
+    try {
+      await notificationService.markAllRead();
+      setNotifications((current) => current.map((notification) => ({ ...notification, is_read: true })));
+      setUnreadCount(0);
+    } catch {
+      showToast({
+        type: "error",
+        title: t("appNavigation.topBar.notificationUpdateFailedTitle"),
+        message: t("appNavigation.topBar.notificationUpdateFailedMessage"),
+      });
+    } finally {
+      setMarkingAllRead(false);
+    }
+  };
+
+  const handleOpenNotification = async (notification: NotificationItem) => {
+    if (!notification.is_read) {
+      try {
+        await notificationService.markRead(notification.id);
+        setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, is_read: true } : item));
+        setUnreadCount((count) => Math.max(0, count - 1));
+      } catch {
+        showToast({
+          type: "error",
+          title: t("appNavigation.topBar.notificationUpdateFailedTitle"),
+          message: t("appNavigation.topBar.notificationUpdateFailedMessage"),
+        });
+        return;
+      }
+    }
+
+    setActiveMenu(null);
+    if (notification.action_url.startsWith("/") && !notification.action_url.startsWith("//")) {
+      navigate(notification.action_url);
+    }
+  };
 
   return (
     <>
       <header
         ref={containerRef}
-        className="h-[56px] bg-white/95 dark:bg-[#0B1B3A]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-white/10 sticky top-0 z-30 px-3 sm:px-4 flex items-center justify-between gap-3 select-none transition-colors"
+        className="h-[56px] bg-white/95 dark:bg-[#1C1512]/95 backdrop-blur-md border-b border-stone-200/80 dark:border-white/10 sticky top-0 z-30 px-3 sm:px-4 flex items-center justify-between gap-3 select-none transition-colors"
       >
-        {/* Left: Sidebar Toggle + Breadcrumbs + Fixed Subject Label (Teacher) */}
+
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="flex items-center justify-center p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
-            aria-label="Toggle navigation menu"
-            title="Toggle sidebar (Ctrl+B)"
+            className="flex items-center justify-center p-2 rounded-lg text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#881337]"
+            aria-label={isSidebarOpen ? t("appNavigation.topBar.closeNavigation") : t("appNavigation.topBar.openNavigation")}
+            aria-expanded={isSidebarOpen}
+            title={t("appNavigation.topBar.toggleSidebar")}
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -137,139 +277,127 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
           <div className="hidden sm:flex items-center gap-2.5 min-w-0">
             <Breadcrumbs />
             {isTeacher && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] dark:bg-sky-950/50 text-[#1D4ED8] dark:text-[#87CEFA] border border-[#BFDBFE] dark:border-sky-800/60 shrink-0">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FFF1F2] dark:bg-crimson-950/50 text-[#881337] dark:text-[#FBBF24] border border-[#FECDD3] dark:border-crimson-800/60 shrink-0">
                 {teacherSubject}
               </span>
             )}
           </div>
         </div>
 
-        {/* Center / Left-aligned: Global Search (360px on desktop) */}
         <div className="flex-1 max-w-[360px] hidden md:block">
           <button
             type="button"
             onClick={() => setSearchModalOpen(true)}
-            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg border border-slate-200/80 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 hover:border-slate-300 dark:hover:border-white/20 text-xs text-slate-500 dark:text-slate-400 transition-colors cursor-pointer min-h-[38px] focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
-            aria-label="Search or type a command (Ctrl+K)"
+            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg border border-stone-200/80 dark:border-white/10 bg-stone-50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 hover:border-stone-300 dark:hover:border-white/20 text-xs text-stone-500 dark:text-stone-400 transition-colors cursor-pointer min-h-[44px] focus:outline-none focus:ring-2 focus:ring-[#881337] dark:focus:ring-[#FBBF24]"
+            aria-label={t("appNavigation.topBar.searchCommand")}
           >
-            <div className="flex items-center gap-2 text-slate-400">
-              <Search className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-              <span>Search or type a command...</span>
+            <div className="flex items-center gap-2 text-stone-400 dark:text-[#A89C90]">
+              <Search className="w-4 h-4 text-stone-400 dark:text-stone-500" />
+              <span>{t("appNavigation.topBar.searchCommand")}</span>
             </div>
-            <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded border border-slate-200 dark:border-white/15 bg-white dark:bg-white/10 text-[10px] font-mono text-slate-400 dark:text-slate-400">
+            <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded border border-stone-200 dark:border-white/15 bg-white dark:bg-white/10 text-[10px] font-mono text-stone-400 dark:text-stone-400">
               Ctrl+K
             </kbd>
           </button>
         </div>
 
-        {/* Right: Fixed Order: Quick Create (+), AI Credits, Notifications, Help, Language, Profile */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {/* Mobile search icon button */}
+
           <button
             type="button"
             onClick={() => setSearchModalOpen(true)}
-            className="md:hidden flex items-center justify-center p-2 rounded-[8px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 min-h-[44px] min-w-[44px] cursor-pointer"
-            aria-label="Search"
+            className="md:hidden flex items-center justify-center p-2 rounded-[8px] text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#881337] dark:focus:ring-[#FBBF24]"
+            aria-label={t("appNavigation.topBar.search")}
           >
             <Search className="w-4 h-4" />
           </button>
 
-          {/* AI Credits Pill */}
-          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200">
-            <Sparkles className="w-3.5 h-3.5 text-[#1D4ED8] dark:text-[#87CEFA]" />
-            <span>{isTeacher ? "100 credits" : "450 credits"}</span>
-          </div>
-
-          {/* 1. Quick create (+) */}
-          <div className="relative">
+          {!isParent && <div className="relative">
             <button
+              ref={(element) => { menuTriggerRefs.current.create = element; }}
               type="button"
               onClick={() => toggleMenu("create")}
-              className={`flex items-center justify-center p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:text-[#1D4ED8] dark:hover:text-[#87CEFA] hover:bg-[#EFF6FF] dark:hover:bg-white/10 min-h-[44px] min-w-[44px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0369A1] ${
-                activeMenu === "create" ? "bg-[#EFF6FF] dark:bg-white/10 text-[#1D4ED8] dark:text-[#87CEFA]" : ""
+              className={`flex items-center justify-center p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:text-[#881337] dark:hover:text-[#FBBF24] hover:bg-[#FFF1F2] dark:hover:bg-white/10 min-h-[44px] min-w-[44px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#881337] ${
+                activeMenu === "create" ? "bg-[#FFF1F2] dark:bg-white/10 text-[#881337] dark:text-[#FBBF24]" : ""
               }`}
-              aria-label="Quick create"
+              aria-label={t("appNavigation.topBar.quickCreate")}
               aria-expanded={activeMenu === "create"}
-              title="Quick create"
+              aria-controls="quick-actions-panel"
+              title={t("appNavigation.topBar.quickCreate")}
             >
               <Plus className="w-5 h-5" />
             </button>
 
             {activeMenu === "create" && (
               <div
-                role="menu"
-                className="absolute right-0 mt-1 w-56 bg-white dark:bg-[#0E2046] border border-slate-200/90 dark:border-white/10 rounded-xl shadow-xl py-1.5 z-40 text-xs text-slate-900 dark:text-white"
+                id="quick-actions-panel"
+                role="group"
+                aria-label={t("appNavigation.topBar.quickActions")}
+                className="absolute right-0 mt-1 w-56 bg-white dark:bg-[#261E1A] border border-stone-200/90 dark:border-white/10 rounded-xl shadow-xl py-1.5 z-40 text-xs text-stone-900 dark:text-white"
               >
-                <div className="px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] text-slate-400">
-                  Quick Actions
+                <div className="px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] text-stone-400 dark:text-[#A89C90]">
+                  {t("appNavigation.topBar.quickActions")}
                 </div>
                 {isDirector ? (
                   <>
                     <Link
                       to="/school/sections"
                       onClick={() => setActiveMenu(null)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-[#1D4ED8] dark:hover:text-[#87CEFA] min-h-[38px]"
-                      role="menuitem"
+                      className="flex items-center gap-2.5 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 hover:text-[#881337] dark:hover:text-[#FBBF24] min-h-[38px]"
                     >
-                      <Layers className="w-4 h-4 text-slate-400" />
-                      <span>Section</span>
+                      <Layers className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                      <span>{t("appNavigation.topBar.section")}</span>
                     </Link>
                     <Link
                       to="/school/people?tab=teachers"
                       onClick={() => setActiveMenu(null)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-[#1D4ED8] dark:hover:text-[#87CEFA] min-h-[38px]"
-                      role="menuitem"
+                      className="flex items-center gap-2.5 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 hover:text-[#881337] dark:hover:text-[#FBBF24] min-h-[38px]"
                     >
-                      <UserPlus className="w-4 h-4 text-slate-400" />
-                      <span>Invite teacher</span>
+                      <UserPlus className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                      <span>{t("appNavigation.topBar.inviteTeacher")}</span>
                     </Link>
                     <Link
                       to="/school/people?tab=students"
                       onClick={() => setActiveMenu(null)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-[#1D4ED8] dark:hover:text-[#87CEFA] min-h-[38px]"
-                      role="menuitem"
+                      className="flex items-center gap-2.5 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 hover:text-[#881337] dark:hover:text-[#FBBF24] min-h-[38px]"
                     >
-                      <UserPlus className="w-4 h-4 text-slate-400" />
-                      <span>Invite students</span>
+                      <UserPlus className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                      <span>{t("appNavigation.topBar.inviteStudents")}</span>
                     </Link>
                   </>
                 ) : isTeacher ? (
                   <>
                     <Link
-                      to="/teacher/ai-assistant?tool=exam_generator"
+                      to="/teacher/ai-tools?tool=exam_generator"
                       onClick={() => setActiveMenu(null)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-[#1D4ED8] dark:hover:text-[#87CEFA] min-h-[38px]"
-                      role="menuitem"
+                      className="flex items-center gap-2.5 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 hover:text-[#881337] dark:hover:text-[#FBBF24] min-h-[38px]"
                     >
-                      <FileCheck className="w-4 h-4 text-slate-400" />
-                      <span>Exam</span>
+                      <FileCheck className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                      <span>{t("appNavigation.topBar.createExam")}</span>
                     </Link>
                     <Link
                       to="/teacher/tasks"
                       onClick={() => setActiveMenu(null)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-[#1D4ED8] dark:hover:text-[#87CEFA] min-h-[38px]"
-                      role="menuitem"
+                      className="flex items-center gap-2.5 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 hover:text-[#881337] dark:hover:text-[#FBBF24] min-h-[38px]"
                     >
-                      <ListChecks className="w-4 h-4 text-slate-400" />
-                      <span>Task</span>
+                      <ListChecks className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                      <span>{t("appNavigation.topBar.createAssignment")}</span>
                     </Link>
                     <Link
-                      to="/teacher/ai-assistant?tool=notes"
+                      to="/teacher/ai-tools?tool=notes_generator"
                       onClick={() => setActiveMenu(null)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-[#1D4ED8] dark:hover:text-[#87CEFA] min-h-[38px]"
-                      role="menuitem"
+                      className="flex items-center gap-2.5 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 hover:text-[#881337] dark:hover:text-[#FBBF24] min-h-[38px]"
                     >
-                      <BookOpen className="w-4 h-4 text-slate-400" />
-                      <span>Notes</span>
+                      <BookOpen className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                      <span>{t("appNavigation.topBar.createNotes")}</span>
                     </Link>
                     <Link
-                      to="/teacher/ai-assistant?tool=lesson_plan"
+                      to="/teacher/ai-tools?tool=lesson_plan"
                       onClick={() => setActiveMenu(null)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-[#1D4ED8] dark:hover:text-[#87CEFA] min-h-[38px]"
-                      role="menuitem"
+                      className="flex items-center gap-2.5 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 hover:text-[#881337] dark:hover:text-[#FBBF24] min-h-[38px]"
                     >
-                      <Layers className="w-4 h-4 text-slate-400" />
-                      <span>Lesson plan</span>
+                      <Layers className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                      <span>{t("appNavigation.topBar.lessonPlan")}</span>
                     </Link>
                   </>
                 ) : (
@@ -277,42 +405,41 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
                     <Link
                       to="/student/exams"
                       onClick={() => setActiveMenu(null)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-[#1D4ED8] dark:hover:text-[#87CEFA] min-h-[38px]"
-                      role="menuitem"
+                      className="flex items-center gap-2.5 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 hover:text-[#881337] dark:hover:text-[#FBBF24] min-h-[38px]"
                     >
-                      <FileCheck className="w-4 h-4 text-slate-400" />
-                      <span>Take mock test</span>
+                      <FileCheck className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                      <span>{t("appNavigation.topBar.takeMockTest")}</span>
                     </Link>
                     <Link
                       to="/student/practice"
                       onClick={() => setActiveMenu(null)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-[#1D4ED8] dark:hover:text-[#87CEFA] min-h-[38px]"
-                      role="menuitem"
+                      className="flex items-center gap-2.5 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 hover:text-[#881337] dark:hover:text-[#FBBF24] min-h-[38px]"
                     >
-                      <Sparkles className="w-4 h-4 text-slate-400" />
-                      <span>Practice drill</span>
+                      <Sparkles className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                      <span>{t("appNavigation.topBar.practiceDrill")}</span>
                     </Link>
                   </>
                 )}
               </div>
             )}
-          </div>
+          </div>}
 
-          {/* 2. Notifications (capped at 9+) */}
-          <div className="relative">
+          {isStudent && <div className="relative">
             <button
+              ref={(element) => { menuTriggerRefs.current.notifs = element; }}
               type="button"
               onClick={() => toggleMenu("notifs")}
-              className={`relative flex items-center justify-center p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0369A1] ${
-                activeMenu === "notifs" ? "bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white" : ""
+              className={`relative flex items-center justify-center p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#881337] ${
+                activeMenu === "notifs" ? "bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-white" : ""
               }`}
-              aria-label={`Notifications, ${unreadCount} unread`}
+              aria-label={t("appNavigation.topBar.notificationsUnread", { count: unreadCount })}
               aria-expanded={activeMenu === "notifs"}
-              title="Notifications"
+              aria-controls="notification-center"
+              title={t("appNavigation.topBar.notifications")}
             >
               <Bell className="w-4.5 h-4.5" />
               {unreadCount > 0 && (
-                <span className="absolute top-2 right-2 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#0369A1] text-white text-[10px] font-mono tabular-nums font-bold">
+                <span className="absolute top-2 right-2 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#881337] text-white text-[10px] font-mono tabular-nums font-bold">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
@@ -320,107 +447,122 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
 
             {activeMenu === "notifs" && (
               <div
-                className="absolute right-0 mt-1 w-80 sm:w-96 bg-white dark:bg-[#0E2046] border border-slate-200/90 dark:border-white/10 rounded-xl shadow-xl overflow-hidden z-40 text-xs"
-                role="dialog"
-                aria-label="Notification center"
+                className="absolute right-0 mt-1 w-[min(20rem,calc(100vw-1.5rem))] sm:w-96 bg-white dark:bg-[#261E1A] border border-stone-200/90 dark:border-white/10 rounded-xl shadow-xl overflow-hidden z-40 text-xs"
+                id="notification-center"
+                role="region"
+                aria-label={t("appNavigation.topBar.notificationCenter")}
               >
-                <div className="p-3 border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between">
+                <div className="p-3 border-b border-stone-200/80 dark:border-white/10 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-900 dark:text-white">Notifications</span>
-                    <span className="px-1.5 py-0.5 rounded bg-[#EFF6FF] dark:bg-sky-950 text-[#1D4ED8] dark:text-[#87CEFA] font-mono tabular-nums text-[10px] font-bold">
-                      {unreadCount} new
+                    <span className="font-semibold text-stone-900 dark:text-white">{t("appNavigation.topBar.notifications")}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-[#FFF1F2] dark:bg-crimson-950 text-[#881337] dark:text-[#FBBF24] font-mono tabular-nums text-[10px] font-bold">
+                      {t("appNavigation.topBar.newNotifications", { count: unreadCount })}
                     </span>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setUnreadCount(0)}
-                    className="text-[11px] text-[#1D4ED8] dark:text-[#87CEFA] hover:underline font-medium cursor-pointer"
+                    onClick={() => void handleMarkAllNotificationsRead()}
+                    disabled={markingAllRead || notificationsLoading || unreadCount === 0}
+                    className="text-[11px] text-[#881337] dark:text-[#FBBF24] hover:underline font-medium cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Mark all read
+                    {markingAllRead ? t("appNavigation.topBar.markingAllRead") : t("appNavigation.topBar.markAllRead")}
                   </button>
                 </div>
 
-                {/* Tabs: All / Unread */}
-                <div className="px-3 pt-2 border-b border-[#E2E8F0] flex items-center gap-4">
+                <div className="px-3 pt-2 border-b border-[#E7E0D6] dark:border-white/10 flex items-center gap-4">
                   <button
                     type="button"
                     onClick={() => setNotifTab("all")}
                     className={`pb-2 border-b-2 font-medium cursor-pointer ${
-                      notifTab === "all" ? "border-[#1D4ED8] text-[#1D4ED8]" : "border-transparent text-slate-500"
+                      notifTab === "all" ? "border-[#881337] text-[#881337] dark:text-[#FBBF24] dark:border-[#FBBF24]" : "border-transparent text-stone-500"
                     }`}
                   >
-                    All
+                    {t("appNavigation.topBar.all")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setNotifTab("unread")}
                     className={`pb-2 border-b-2 font-medium cursor-pointer ${
-                      notifTab === "unread" ? "border-[#1D4ED8] text-[#1D4ED8]" : "border-transparent text-slate-500"
+                      notifTab === "unread" ? "border-[#881337] text-[#881337] dark:text-[#FBBF24] dark:border-[#FBBF24]" : "border-transparent text-stone-500"
                     }`}
                   >
-                    Unread ({unreadCount})
+                    {t("appNavigation.topBar.unread", { count: unreadCount })}
                   </button>
                 </div>
 
-                {/* Notification Items */}
-                <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
-                  {displayedNotifications.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400 text-xs">
-                      No {notifTab === "unread" ? "unread " : ""}notifications.
+                <div className="max-h-64 overflow-y-auto divide-y divide-stone-100">
+                  {notificationsLoading ? (
+                    <div className="p-8 text-center text-stone-400 dark:text-[#A89C90] text-xs">{t("appNavigation.topBar.loadingNotifications")}</div>
+                  ) : notificationsFailed ? (
+                    <div role="alert" className="p-8 text-center text-rose-700 dark:text-rose-300 text-xs">
+                      <p>{t("appNavigation.topBar.notificationsLoadFailed")}</p>
+                      <button type="button" onClick={() => setNotificationRetryCount((count) => count + 1)} className="mt-2 font-semibold underline underline-offset-2">
+                        {t("appNavigation.topBar.retryNotifications")}
+                      </button>
+                    </div>
+                  ) : displayedNotifications.length === 0 ? (
+                    <div className="p-8 text-center text-stone-400 dark:text-[#A89C90] text-xs">
+                      {t(notifTab === "unread" ? "appNavigation.topBar.noUnreadNotifications" : "appNavigation.topBar.noNotifications")}
                     </div>
                   ) : (
                     displayedNotifications.map((notif) => (
-                      <div
+                      <button
+                        type="button"
                         key={notif.id}
-                        className={`p-3 hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer ${
-                          (!notif.is_read && !notif.read) ? "bg-[#EFF6FF]/40" : ""
+                        onClick={() => void handleOpenNotification(notif)}
+                        className={`w-full p-3 text-left hover:bg-stone-50 dark:hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#881337] transition-colors flex items-start gap-2.5 ${
+                          !notif.is_read ? "bg-[#FFF1F2]/60 dark:bg-[#4C0519]/30" : ""
                         }`}
                       >
-                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${(!notif.is_read && !notif.read) ? "bg-[#1D4ED8]" : "bg-transparent"}`} />
+                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!notif.is_read ? "bg-[#881337]" : "bg-transparent"}`} aria-hidden="true" />
                         <div className="flex-1 space-y-0.5">
-                          <p className="text-slate-800 font-medium">{notif.title}</p>
-                          <p className="text-[11px] text-slate-400">{notif.time || notif.created_at || "Recent"}</p>
+                          <p className="text-stone-800 dark:text-stone-100 font-medium">{notif.title}</p>
+                          <p className="text-[11px] text-stone-500 dark:text-stone-400">{notif.body}</p>
+                          <p className="text-[10px] text-stone-400 dark:text-[#A89C90]">{notif.created_at || t("appNavigation.topBar.recent")}</p>
                         </div>
-                      </div>
+                      </button>
                     ))
                   )}
                 </div>
 
-                <div className="p-2.5 bg-[#F8FAFC] border-t border-[#E2E8F0] text-center">
+                <div className="p-2.5 bg-[#FAF8F5] dark:bg-white/5 border-t border-[#E7E0D6] dark:border-white/10 text-center">
                   <Link
-                    to="/parent/alerts"
+                    to={notificationDestination}
                     onClick={() => setActiveMenu(null)}
-                    className="text-xs text-[#1D4ED8] hover:underline font-semibold"
+                    className="text-xs text-[#881337] hover:underline font-semibold"
                   >
-                    View notification center
+                    {t(notificationDestinationLabel)}
                   </Link>
                 </div>
               </div>
             )}
-          </div>
+          </div>}
 
-          {/* 3. Help */}
           <div className="relative">
             <button
+              ref={(element) => { menuTriggerRefs.current.help = element; }}
               type="button"
               onClick={() => toggleMenu("help")}
-              className={`flex items-center justify-center p-2 rounded-[8px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 min-h-[44px] min-w-[44px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#15803D] ${
-                activeMenu === "help" ? "bg-slate-100 text-slate-900" : ""
+              className={`flex items-center justify-center p-2 rounded-[8px] text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#881337] dark:focus:ring-[#FBBF24] ${
+                activeMenu === "help" ? "bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-white" : ""
               }`}
-              aria-label="Help and documentation"
+              aria-label={t("appNavigation.topBar.helpDocumentation")}
               aria-expanded={activeMenu === "help"}
-              title="Help"
+              aria-controls="help-actions-panel"
+              title={t("appNavigation.topBar.help")}
             >
               <HelpCircle className="w-4.5 h-4.5" />
             </button>
 
             {activeMenu === "help" && (
               <div
-                role="menu"
-                className="absolute right-0 mt-1 w-64 bg-white dark:bg-[#0E2046] border border-slate-200/90 dark:border-white/10 rounded-xl shadow-xl py-1.5 z-40 text-xs text-slate-900 dark:text-white"
+                id="help-actions-panel"
+                role="group"
+                aria-label={t("appNavigation.topBar.helpSupportDesk")}
+                className="absolute right-0 mt-1 w-64 bg-white dark:bg-[#261E1A] border border-stone-200/90 dark:border-white/10 rounded-xl shadow-xl py-1.5 z-40 text-xs text-stone-900 dark:text-white"
               >
-                <div className="px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] text-slate-400">
-                  Help & Support Desk
+                <div className="px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] text-stone-400 dark:text-[#A89C90]">
+                  {t("appNavigation.topBar.helpSupportDesk")}
                 </div>
                 <button
                   type="button"
@@ -428,11 +570,10 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
                     setActiveMenu(null);
                     setHelpModalOpen(true);
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 min-h-[38px] text-start cursor-pointer"
-                  role="menuitem"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 min-h-[38px] text-start cursor-pointer"
                 >
-                  <BookOpen className="w-4 h-4 text-slate-400" />
-                  <span>Quick Help & Guides</span>
+                  <BookOpen className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                  <span>{t("appNavigation.topBar.quickHelpGuides")}</span>
                 </button>
                 <button
                   type="button"
@@ -442,88 +583,87 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
                       new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true })
                     );
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 min-h-[38px] cursor-pointer"
-                  role="menuitem"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 min-h-[38px] cursor-pointer"
                 >
-                  <Keyboard className="w-4 h-4 text-slate-400" />
-                  <span>Keyboard shortcuts</span>
+                  <Keyboard className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                  <span>{t("appNavigation.topBar.keyboardShortcuts")}</span>
                 </button>
                 <Link
                   to="/contact"
                   onClick={() => setActiveMenu(null)}
-                  className="flex items-center gap-2 px-3 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 min-h-[38px]"
-                  role="menuitem"
+                  className="flex items-center gap-2 px-3 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 min-h-[38px]"
                 >
-                  <Headphones className="w-4 h-4 text-slate-400" />
-                  <span>Contact IT support</span>
+                  <Headphones className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                  <span>{t("appNavigation.topBar.contactSupport")}</span>
                 </Link>
               </div>
             )}
           </div>
 
-          {/* 5. Profile Menu */}
           <div className="relative">
             <button
               type="button"
               onClick={() => toggleMenu("profile")}
-              className={`flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 min-h-[44px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0369A1] ${
-                activeMenu === "profile" ? "bg-slate-100 dark:bg-white/10" : ""
+              className={`flex items-center gap-2 p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-white/10 min-h-[44px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#881337] ${
+                activeMenu === "profile" ? "bg-stone-100 dark:bg-white/10" : ""
               }`}
-              aria-label="Profile and user preferences"
+              aria-label={t("appNavigation.topBar.profilePreferences")}
               aria-expanded={activeMenu === "profile"}
+              aria-controls="profile-actions-panel"
             >
-              <div className="w-7 h-7 rounded-full bg-slate-900 dark:bg-[#0369A1] text-white font-bold text-xs flex items-center justify-center">
+              <div className="w-7 h-7 rounded-full bg-stone-900 dark:bg-[#881337] text-white font-bold text-xs flex items-center justify-center">
                 {(user?.fullName || user?.name || "U").charAt(0).toUpperCase()}
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+              <ChevronDown className="w-3.5 h-3.5 text-stone-400 dark:text-[#A89C90] hidden sm:block" />
             </button>
 
             {activeMenu === "profile" && (
               <div
-                role="menu"
-                className="absolute right-0 mt-1 w-64 bg-white dark:bg-[#0E2046] border border-slate-200/90 dark:border-white/10 rounded-xl shadow-xl py-2 z-40 text-xs text-slate-900 dark:text-white"
+                id="profile-actions-panel"
+                role="group"
+                aria-label={t("appNavigation.topBar.profilePreferences")}
+                className="absolute right-0 mt-1 w-64 bg-white dark:bg-[#261E1A] border border-stone-200/90 dark:border-white/10 rounded-xl shadow-xl py-2 z-40 text-xs text-stone-900 dark:text-white"
               >
-                {/* User Identity Block: Name, Role, School */}
-                <div className="px-3.5 py-2.5 border-b border-slate-100 dark:border-white/10 space-y-1">
-                  <p className="font-bold text-slate-900 dark:text-white truncate">
-                    {user?.fullName || user?.name || "School Administrator"}
+
+                <div className="px-3.5 py-2.5 border-b border-stone-100 dark:border-white/10 space-y-1">
+                  <p className="font-bold text-stone-900 dark:text-white truncate">
+                    {user?.fullName || user?.name || roleLabel}
                   </p>
                   <div className="flex items-center gap-1.5">
-                    <span className="px-1.5 py-0.5 rounded bg-[#EFF6FF] dark:bg-sky-950/60 text-[#1D4ED8] dark:text-[#87CEFA] font-semibold text-[10px] border border-[#BFDBFE] dark:border-sky-800/60">
-                      {user?.role || "SCHOOL_ADMIN"}
+                    <span className="px-1.5 py-0.5 rounded bg-[#FFF1F2] dark:bg-crimson-950/60 text-[#881337] dark:text-[#FBBF24] font-semibold text-[10px] border border-[#FECDD3] dark:border-crimson-800/60">
+                      {roleLabel}
                     </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400 truncate">
                       {user?.school || "Finkison Academy"}
                     </span>
                   </div>
                 </div>
 
-                {/* Profile menu links: Profile, Preferences, Switch role, Sign out */}
                 <div className="py-1">
                   <Link
                     to={profileLink}
                     onClick={() => setActiveMenu(null)}
-                    className="flex items-center gap-2 px-3.5 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 min-h-[38px]"
-                    role="menuitem"
+                    className="flex items-center gap-2 px-3.5 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 min-h-[38px]"
                   >
-                    <User className="w-4 h-4 text-slate-400" />
-                    <span>Profile & Account</span>
+                    <User className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                    <span>{t(isDirector || isTeacher ? "appNavigation.items.accountSecurity" : "appNavigation.topBar.profileAccount")}</span>
                   </Link>
-                  <Link
-                    to={settingsLink}
-                    onClick={() => setActiveMenu(null)}
-                    className="flex items-center gap-2 px-3.5 py-2 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 min-h-[38px]"
-                    role="menuitem"
-                  >
-                    <Settings className="w-4 h-4 text-slate-400" />
-                    <span>Preferences & Security</span>
-                  </Link>
+                  {(isDirector || currentRole === "STUDENT") && (
+                    <Link
+                      to={settingsLink}
+                      onClick={() => setActiveMenu(null)}
+                      className="flex items-center gap-2 px-3.5 py-2 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-white/5 min-h-[38px]"
+                    >
+                      <Settings className="w-4 h-4 text-stone-400 dark:text-[#A89C90]" />
+                      <span>{t("appNavigation.items.settings")}</span>
+                    </Link>
+                  )}
                 </div>
 
-                {/* Switch Role Options */}
-                <div className="py-1 border-t border-slate-100 dark:border-white/10">
-                  <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Switch Role
+                {import.meta.env.DEV && (
+                <div className="py-1 border-t border-stone-100 dark:border-white/10">
+                  <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-[#A89C90]">
+                    {t("appNavigation.topBar.previewRole")}
                   </div>
                   <button
                     type="button"
@@ -532,26 +672,26 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
                       setActiveMenu(null);
                       navigate("/school");
                     }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-slate-50 cursor-pointer min-h-[38px] ${
-                      isDirector ? "bg-[#EFF6FF] text-[#1D4ED8] font-semibold" : "text-[#0F172A]"
+                    className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-stone-50 dark:hover:bg-white/5 cursor-pointer min-h-[38px] ${
+                      isDirector ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] font-semibold" : "text-[#261E1A] dark:text-[#FDFBF7]"
                     }`}
                   >
-                    <span>School Director</span>
-                    {isDirector && <Check className="w-3.5 h-3.5 text-[#1D4ED8]" />}
+                    <span>{t("appNavigation.roles.schoolAdministrator")}</span>
+                    {isDirector && <Check className="w-3.5 h-3.5 text-[#881337]" />}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      updateUser({ role: "TEACHER", subject: (user as any)?.subject || "Biology" });
+                      updateUser({ role: "TEACHER", subject: user?.subject || "Biology" });
                       setActiveMenu(null);
                       navigate("/teacher");
                     }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-slate-50 cursor-pointer min-h-[38px] ${
-                      isTeacher ? "bg-[#EFF6FF] text-[#1D4ED8] font-semibold" : "text-[#0F172A]"
+                    className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-stone-50 dark:hover:bg-white/5 cursor-pointer min-h-[38px] ${
+                      isTeacher ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] font-semibold" : "text-[#261E1A] dark:text-[#FDFBF7]"
                     }`}
                   >
-                    <span>Teacher ({teacherSubject || "Biology"})</span>
-                    {isTeacher && <Check className="w-3.5 h-3.5 text-[#1D4ED8]" />}
+                    <span>{t("appNavigation.topBar.teacherRole", { subject: teacherSubject })}</span>
+                    {isTeacher && <Check className="w-3.5 h-3.5 text-[#881337]" />}
                   </button>
                   <button
                     type="button"
@@ -560,12 +700,12 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
                       setActiveMenu(null);
                       navigate("/student");
                     }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-slate-50 cursor-pointer min-h-[38px] ${
-                      currentRole === "STUDENT" ? "bg-[#EFF6FF] text-[#1D4ED8] font-semibold" : "text-[#0F172A]"
+                    className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-stone-50 dark:hover:bg-white/5 cursor-pointer min-h-[38px] ${
+                      currentRole === "STUDENT" ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] font-semibold" : "text-[#261E1A] dark:text-[#FDFBF7]"
                     }`}
                   >
-                    <span>Student</span>
-                    {currentRole === "STUDENT" && <Check className="w-3.5 h-3.5 text-[#1D4ED8]" />}
+                    <span>{t("appNavigation.roles.student")}</span>
+                    {currentRole === "STUDENT" && <Check className="w-3.5 h-3.5 text-[#881337]" />}
                   </button>
                   <button
                     type="button"
@@ -574,28 +714,33 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
                       setActiveMenu(null);
                       navigate("/parent");
                     }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-slate-50 cursor-pointer min-h-[38px] ${
-                      currentRole === "PARENT" ? "bg-[#EFF6FF] text-[#1D4ED8] font-semibold" : "text-[#0F172A]"
+                    className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-stone-50 dark:hover:bg-white/5 cursor-pointer min-h-[38px] ${
+                      currentRole === "PARENT" ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] font-semibold" : "text-[#261E1A] dark:text-[#FDFBF7]"
                     }`}
                   >
-                    <span>Parent</span>
-                    {currentRole === "PARENT" && <Check className="w-3.5 h-3.5 text-[#1D4ED8]" />}
+                    <span>{t("appNavigation.topBar.parentRole")}</span>
+                    {currentRole === "PARENT" && <Check className="w-3.5 h-3.5 text-[#881337]" />}
                   </button>
                 </div>
+                )}
 
-                <div className="pt-1 border-t border-[#E2E8F0]">
+                <div className="pt-1 border-t border-[#E7E0D6] dark:border-white/10">
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       setActiveMenu(null);
+                      try {
+                        await revokeCurrentSession();
+                      } catch {
+                        // Clear local credentials even if the network is unavailable.
+                      }
                       logout();
                       navigate("/");
                     }}
                     className="w-full flex items-center gap-2 px-3.5 py-2 text-rose-600 hover:bg-rose-50 cursor-pointer min-h-[38px]"
-                    role="menuitem"
                   >
                     <LogOut className="w-4 h-4 text-rose-600" />
-                    <span className="font-semibold">Sign out</span>
+                    <span className="font-semibold">{t("appNavigation.topBar.signOut")}</span>
                   </button>
                 </div>
               </div>
@@ -604,7 +749,6 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
         </div>
       </header>
 
-      {/* Global Search Command Palette Modal */}
       {searchModalOpen && (
         <GlobalSearchModal
           isOpen={searchModalOpen}
@@ -612,73 +756,79 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
         />
       )}
 
-      {/* Interactive In-App Help & Support Modal */}
       {helpModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-5 border border-[#E2E8F0] shadow-xl animate-fade-in text-start">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 backdrop-blur-xs p-4">
+          <div id="support-desk-dialog" role="dialog" aria-modal="true" aria-labelledby="support-desk-title" aria-describedby="support-desk-description" className="bg-white dark:bg-[#261E1A] rounded-2xl max-w-lg w-full p-6 space-y-5 border border-[#E7E0D6] dark:border-white/10 shadow-xl animate-fade-in text-start">
+            <div className="flex items-center justify-between border-b border-stone-100 dark:border-white/10 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#F0F9FF] border border-[#BAE6FD] flex items-center justify-center text-[#0369A1]">
+                <div className="w-8 h-8 rounded-lg bg-[#F0F9FF] border border-[#BAE6FD] flex items-center justify-center text-[#881337]">
                   <HelpCircle className="w-4.5 h-4.5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#0F172A]">Finkison Support Desk</h3>
-                  <p className="text-[11px] text-[#64748B]">Operational assistance and technical support</p>
+                  <h3 id="support-desk-title" className="text-base font-bold text-[#261E1A] dark:text-[#FDFBF7]">{t("appNavigation.topBar.supportDeskTitle")}</h3>
+                  <p id="support-desk-description" className="text-[11px] text-[#A89C90]">{t("appNavigation.topBar.supportDeskDescription")}</p>
                 </div>
               </div>
               <button
+                ref={helpCloseButtonRef}
                 type="button"
                 onClick={() => setHelpModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-semibold p-1 cursor-pointer"
-                aria-label="Close"
+                className="text-stone-400 dark:text-[#A89C90] hover:text-stone-600 text-sm font-semibold p-1 cursor-pointer"
+                aria-label={t("appNavigation.topBar.close")}
               >
-                ✕
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Quick Guides</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-[#A89C90]">{t("appNavigation.topBar.quickGuides")}</h4>
               <div className="space-y-2 text-xs">
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                  <p className="font-semibold text-[#0F172A]">Password and session controls</p>
-                  <p className="text-[#64748B] mt-0.5">
-                    Navigate to Account Security from the sidebar or profile menu to change passwords, enable 2FA, and sign out other devices.
+                <div className="p-3 rounded-lg bg-stone-50 dark:bg-[#1C1512] border border-stone-200 dark:border-white/10">
+                  <p className="font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{t("appNavigation.topBar.passwordControls")}</p>
+                  <p className="text-[#A89C90] mt-0.5">
+                    {t("appNavigation.topBar.passwordControlsDescription")}
                   </p>
                 </div>
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                  <p className="font-semibold text-[#0F172A]">Progress and session auto-save</p>
-                  <p className="text-[#64748B] mt-0.5">
-                    Practice sets and exam drafts auto-save continuously to protect study progress across active sessions.
+                <div className="p-3 rounded-lg bg-stone-50 dark:bg-[#1C1512] border border-stone-200 dark:border-white/10">
+                  <p className="font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{t("appNavigation.topBar.progressAutosave")}</p>
+                  <p className="text-[#A89C90] mt-0.5">
+                    {t("appNavigation.topBar.progressAutosaveDescription")}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-100 space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Direct Support Channels</h4>
+            <div className="pt-2 border-t border-stone-100 dark:border-white/10 space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-[#A89C90]">{t("appNavigation.topBar.supportChannels")}</h4>
               <div className="flex items-center justify-between p-3 rounded-lg bg-[#F0F9FF] border border-[#BAE6FD] text-xs">
                 <div className="space-y-0.5">
-                  <p className="font-semibold text-[#0369A1]">Technical Support Email</p>
-                  <p className="font-mono text-slate-700">support@finkison.com</p>
+                  <p className="font-semibold text-[#881337]">{t("appNavigation.topBar.supportEmail")}</p>
+                  <a href="mailto:support@finkison.com" className="font-mono text-stone-700 underline-offset-2 hover:text-[#881337] hover:underline dark:text-[#E7E0D6] dark:hover:text-[#FBBF24]">support@finkison.com</a>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText("support@finkison.com");
-                    setCopiedSupportEmail(true);
-                    setTimeout(() => setCopiedSupportEmail(false), 2000);
+                  onClick={async () => {
+                    if (!navigator.clipboard?.writeText) return;
+                    try {
+                      await navigator.clipboard.writeText("support@finkison.com");
+                      setCopiedSupportEmail(true);
+                      setTimeout(() => setCopiedSupportEmail(false), 2000);
+                    } catch {
+                      setCopiedSupportEmail(false);
+                    }
                   }}
-                  className="px-3 py-1.5 rounded-[6px] bg-white border border-[#BAE6FD] text-[#0369A1] font-semibold hover:bg-slate-50 text-xs inline-flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 rounded-[6px] bg-white dark:bg-[#261E1A] border border-[#BAE6FD] text-[#881337] font-semibold hover:bg-stone-50 dark:hover:bg-white/5 text-xs inline-flex items-center gap-1 cursor-pointer"
                 >
                   {copiedSupportEmail ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedSupportEmail ? "Copied" : "Copy email"}</span>
+                  <span>{t(copiedSupportEmail ? "appNavigation.topBar.copied" : "appNavigation.topBar.copyEmail")}</span>
                 </button>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-stone-50 dark:bg-[#1C1512] border border-stone-200 dark:border-white/10 text-xs">
                 <div>
-                  <p className="font-semibold text-slate-800">Support desk hotline • Addis Ababa</p>
-                  <p className="text-slate-600 font-mono">+251 11 123 4567 • Mon–Fri, 8:30 AM–5:30 PM EAT</p>
+                  <p className="font-semibold text-stone-800 dark:text-[#FDFBF7]">{t("appNavigation.topBar.supportHotline")}</p>
+                  <a href="tel:+251115588080" className="block font-mono text-stone-700 underline-offset-2 hover:text-[#881337] hover:underline dark:text-[#E7E0D6] dark:hover:text-[#FBBF24]">+251 11 558 8080</a>
+                  <p className="mt-1 text-stone-600 dark:text-[#E7E0D6]">{t("appNavigation.topBar.supportHours")}</p>
                 </div>
               </div>
             </div>
@@ -692,27 +842,27 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): React.ReactEle
                     new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true })
                   );
                 }}
-                className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1.5 cursor-pointer"
+                className="text-xs text-stone-500 dark:text-[#A89C90] hover:text-stone-800 inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <Keyboard className="w-3.5 h-3.5" />
-                <span>Keyboard shortcuts • Ctrl+K</span>
+                <span>{t("appNavigation.topBar.keyboardShortcutHint")}</span>
               </button>
 
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setHelpModalOpen(false)}
-                  className="px-3.5 py-1.5 rounded-[6px] text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-[6px] text-xs font-medium text-stone-600 dark:text-[#E7E0D6] hover:bg-stone-100 dark:hover:bg-white/10 cursor-pointer"
                 >
-                  Close
+                  {t("appNavigation.topBar.close")}
                 </button>
                 <Link
                   to="/contact"
                   onClick={() => setHelpModalOpen(false)}
-                  className="px-4 py-1.5 rounded-[6px] text-xs font-semibold bg-[#0369A1] hover:bg-[#075985] text-white inline-flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-1.5 rounded-[6px] text-xs font-semibold bg-[#881337] hover:bg-[#9F1239] text-white inline-flex items-center gap-1.5 cursor-pointer"
                 >
                   <Headphones className="w-3.5 h-3.5" />
-                  <span>Submit Ticket</span>
+                  <span>{t("appNavigation.topBar.submitTicket")}</span>
                 </Link>
               </div>
             </div>

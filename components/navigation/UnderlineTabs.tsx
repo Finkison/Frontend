@@ -24,7 +24,6 @@ export default function UnderlineTabs({
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
-  // Close "More" menu on click outside or Escape
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
       if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
@@ -51,7 +50,7 @@ export default function UnderlineTabs({
     <div
       role="tablist"
       aria-label="Secondary navigation tabs"
-      className={`border-b border-[#E2E8F0] flex items-center gap-1 overflow-x-visible relative select-none ${className}`}
+      className={`border-b border-[#E7E0D6] dark:border-white/10 flex items-center gap-1 overflow-x-visible relative select-none ${className}`}
     >
       {visibleTabs.map((tab) => {
         const isActive = activeTab === tab.id;
@@ -64,10 +63,10 @@ export default function UnderlineTabs({
             id={`tab-${tab.id}`}
             disabled={tab.disabled}
             onClick={() => onChange(tab.id)}
-            className={`min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#881337] dark:focus:ring-[#FBBF24] focus:ring-offset-2 dark:focus:ring-offset-[#1C1512] disabled:opacity-40 disabled:cursor-not-allowed ${
               isActive
-                ? "border-[#1D4ED8] text-[#1D4ED8]"
-                : "border-transparent text-[#475569] hover:text-[#0F172A] hover:border-slate-300"
+                ? "border-[#881337] text-[#881337] dark:border-[#FBBF24] dark:text-[#FBBF24]"
+                : "border-transparent text-[#5C5046] hover:text-[#261E1A] hover:border-[#D5CBC0] dark:text-[#A89C90] dark:hover:text-white dark:hover:border-white/20"
             }`}
           >
             <span>{tab.label}</span>
@@ -75,8 +74,8 @@ export default function UnderlineTabs({
               <span
                 className={`px-1.5 py-0.5 rounded-[8px] text-[10px] tabular-nums font-mono font-bold ${
                   isActive
-                    ? "bg-[#EFF6FF] text-[#1D4ED8]"
-                    : "bg-slate-100 text-slate-600"
+                    ? "bg-[#FFF1F2] text-[#881337] dark:bg-[#4C0519]/50 dark:text-[#FBBF24]"
+                    : "bg-[#F4EFEA] text-[#5C5046] dark:bg-white/10 dark:text-[#E7E0D6]"
                 }`}
               >
                 {tab.count}
@@ -86,7 +85,6 @@ export default function UnderlineTabs({
         );
       })}
 
-      {/* Overflow "More" menu for tabs beyond 6 */}
       {overflowTabs.length > 0 && (
         <div ref={moreRef} className="relative">
           <button
@@ -94,10 +92,10 @@ export default function UnderlineTabs({
             onClick={() => setMoreOpen((v) => !v)}
             aria-haspopup="true"
             aria-expanded={moreOpen}
-            className={`min-h-[44px] px-3 py-2.5 text-xs sm:text-sm font-semibold flex items-center gap-1 border-b-2 transition-colors cursor-pointer whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] ${
+            className={`min-h-[44px] px-3 py-2.5 text-xs sm:text-sm font-semibold flex items-center gap-1 border-b-2 transition-colors cursor-pointer whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#881337] dark:focus:ring-[#FBBF24] ${
               isOverflowActive
-                ? "border-[#1D4ED8] text-[#1D4ED8]"
-                : "border-transparent text-[#475569] hover:text-[#0F172A]"
+                ? "border-[#881337] text-[#881337] dark:border-[#FBBF24] dark:text-[#FBBF24]"
+                : "border-transparent text-[#5C5046] hover:text-[#261E1A] dark:text-[#A89C90] dark:hover:text-white"
             }`}
           >
             <span>More</span>
@@ -107,7 +105,7 @@ export default function UnderlineTabs({
           {moreOpen && (
             <div
               role="menu"
-              className="absolute left-0 top-full mt-1 w-48 bg-white border border-[#E2E8F0] rounded-[8px] shadow-lg py-1 z-50 text-xs"
+              className="absolute left-0 top-full mt-1 w-48 bg-white dark:bg-[#261E1A] border border-[#E7E0D6] dark:border-white/10 rounded-[8px] shadow-lg py-1 z-50 text-xs"
             >
               {overflowTabs.map((tab) => {
                 const isActive = activeTab === tab.id;
@@ -119,14 +117,14 @@ export default function UnderlineTabs({
                       onChange(tab.id);
                       setMoreOpen(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer ${
-                      isActive ? "bg-[#EFF6FF] text-[#1D4ED8] font-bold" : "text-[#0F172A]"
+                    className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between hover:bg-[#FAF8F5] dark:hover:bg-white/5 cursor-pointer ${
+                      isActive ? "bg-[#FFF1F2] text-[#881337] font-bold dark:bg-[#4C0519]/50 dark:text-[#FBBF24]" : "text-[#261E1A] dark:text-[#FDFBF7]"
                     }`}
                     role="menuitem"
                   >
                     <span>{tab.label}</span>
                     {typeof tab.count === "number" && (
-                      <span className="font-mono tabular-nums text-[10px] text-slate-500">
+                      <span className="font-mono tabular-nums text-[10px] text-[#7D6F63] dark:text-[#A89C90]">
                         {tab.count}
                       </span>
                     )}

@@ -11,7 +11,7 @@ interface MiniLineChartProps {
 export default function MiniLineChart({
   points = [],
   height = 120,
-  lineColor = "#1D4ED8",
+  lineColor = "#881337",
   strokeWidth = 2.5,
   showPoints = true
 }: MiniLineChartProps): React.ReactElement | null {
@@ -47,10 +47,8 @@ export default function MiniLineChart({
           </linearGradient>
         </defs>
 
-        {/* Gradient Area fill */}
         <path d={areaPath} fill="url(#chartGradient)" />
 
-        {/* Line Stroke */}
         <path
           d={path}
           fill="none"
@@ -60,7 +58,6 @@ export default function MiniLineChart({
           strokeLinejoin="round"
         />
 
-        {/* Data points */}
         {showPoints &&
           coords.map((c, i) => (
             <circle

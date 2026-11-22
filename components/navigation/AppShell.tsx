@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import TopBar from "./TopBar";
 import Sidebar from "./Sidebar";
 import BottomTabBar from "./BottomTabBar";
+import { useI18n } from "../../i18n";
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -16,37 +17,41 @@ export default function AppShell({
   overrideRole,
 }: AppShellProps): React.ReactElement {
   const location = useLocation();
+  const { t } = useI18n();
 
-  // Responsive default: collapsed on viewports <1280px, expanded on 1280px+
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("finkison_sidebar_collapsed");
       if (saved !== null) return saved === "true";
       return window.innerWidth < 1280;
     } catch {
-      return false;
+      return window.innerWidth < 1280;
     }
   });
 
+  const [isMobileViewport, setIsMobileViewport] = useState<boolean>(() => window.innerWidth < 1024);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Synchronize responsive breakpoint resize
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        // Below 1024px, drawer is used
-      } else if (window.innerWidth < 1280) {
-        // 1024-1279px: default to collapsed 64px if user hasn't explicitly set otherwise
+      const viewportWidth = window.innerWidth;
+      const mobileViewport = viewportWidth < 1024;
+      setIsMobileViewport(mobileViewport);
+      if (mobileViewport) return;
+
+      setIsMobileOpen(false);
+      try {
         const saved = localStorage.getItem("finkison_sidebar_collapsed");
-        if (saved === null) setIsCollapsed(true);
+        if (saved === null) setIsCollapsed(viewportWidth < 1280);
+      } catch {
+        setIsCollapsed(viewportWidth < 1280);
       }
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Flash subtle content transition skeleton indicator on route change
   useEffect(() => {
     setIsTransitioning(true);
     const timer = setTimeout(() => setIsTransitioning(false), 80);
@@ -64,30 +69,28 @@ export default function AppShell({
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-[#0F172A]">
-      {/* 1. Skip to Content Link (First focusable element) */}
+    <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#1C1512] flex flex-col font-sans text-[#261E1A] dark:text-[#FDFBF7] transition-colors">
+
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2.5 focus:bg-[#1D4ED8] focus:text-white focus:rounded-[8px] focus:font-semibold focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1D4ED8]"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2.5 focus:bg-[#881337] focus:text-white focus:rounded-[8px] focus:font-semibold focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#881337]"
       >
-        Skip to main content
+        {t("appNavigation.skipToMain")}
       </a>
 
-      {/* 2. Fixed Top Bar (Height 56px, z-30) */}
       <TopBar
         onToggleSidebar={() => {
-          if (window.innerWidth < 1024) {
+          if (isMobileViewport) {
             setIsMobileOpen((v) => !v);
           } else {
             handleToggleCollapse();
           }
         }}
-        isSidebarOpen={!isCollapsed}
+        isSidebarOpen={isMobileViewport ? isMobileOpen : !isCollapsed}
       />
 
-      {/* Main Structural Frame: Sidebar + Independent Content Area */}
       <div className="flex-1 flex min-w-0 relative">
-        {/* 3. Fixed Left Sidebar (240px expanded / 64px collapsed / 280px drawer) */}
+
         <Sidebar
           isMobileOpen={isMobileOpen}
           onCloseMobile={() => setIsMobileOpen(false)}
@@ -96,7 +99,6 @@ export default function AppShell({
           overrideRole={overrideRole}
         />
 
-        {/* 4. Independently Scrolling Content Area */}
         <main
           id="main-content"
           tabIndex={-1}
@@ -105,10 +107,11 @@ export default function AppShell({
           }`}
         >
           {isTransitioning ? (
-            <div className="p-4 sm:p-6 lg:p-8 max-w-[1280px] mx-auto animate-pulse space-y-4">
-              <div className="h-6 w-48 bg-slate-200 rounded-[8px]" />
-              <div className="h-4 w-96 bg-slate-100 rounded-[8px]" />
-              <div className="h-64 bg-white border border-[#E2E8F0] rounded-[8px]" />
+            <div role="status" aria-live="polite" className="p-4 sm:p-6 lg:p-8 max-w-[1280px] mx-auto animate-pulse space-y-4">
+              <div className="h-6 w-48 bg-[#E7E0D6] dark:bg-white/10 rounded-[8px]" />
+              <div className="h-4 w-96 max-w-full bg-[#F4EFEA] dark:bg-white/5 rounded-[8px]" />
+              <div className="h-64 bg-white dark:bg-[#261E1A] border border-[#E7E0D6] dark:border-white/10 rounded-xl" />
+              <span className="sr-only">Loading page</span>
             </div>
           ) : (
             <div className="p-4 sm:p-6 lg:p-8 max-w-[1280px] mx-auto min-h-[calc(100vh-56px)]">
@@ -118,7 +121,6 @@ export default function AppShell({
         </main>
       </div>
 
-      {/* 5. Mobile Bottom Tab Bar (64px, for Student & Parent roles on mobile) */}
       <BottomTabBar overrideRole={overrideRole} />
     </div>
   );

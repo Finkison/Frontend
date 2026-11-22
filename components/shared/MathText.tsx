@@ -25,7 +25,7 @@ export default function MathText({ text, className = "" }: MathTextProps): React
             }
             if (part.startsWith("_")) {
               return (
-                <sub key={pIdx} className="text-[0.7em] font-serif font-bold text-slate-700">
+                <sub key={pIdx} className="text-[0.7em] font-serif font-bold text-stone-700 dark:text-[#E7E0D6]">
                   {part.slice(1)}
                 </sub>
               );

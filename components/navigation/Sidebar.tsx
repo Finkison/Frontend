@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useRef } from "react";
-import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import React, { useEffect, useRef } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import useAuthStore from "../../store/authStore";
 import {
   PanelLeftClose,
   PanelLeftOpen,
-  ChevronDown,
   Building2,
   X,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import { getNavigationForRole, type NavItem } from "./navigationConfig";
+import { useI18n } from "../../i18n";
 
 export interface SidebarProps {
   isMobileOpen: boolean;
@@ -26,46 +27,88 @@ export default function Sidebar({
   onToggleCollapse,
   overrideRole,
 }: SidebarProps): React.ReactElement {
-  const { user } = useAuthStore();
+  const { user, role } = useAuthStore();
+  const { t } = useI18n();
   const location = useLocation();
   const drawerRef = useRef<HTMLDivElement>(null);
-  const [schoolMenuOpen, setSchoolMenuOpen] = useState(false);
-  const currentSchool = user?.school || "Finkison Academy";
-  const [selectedSchool, setSelectedSchool] = useState(currentSchool);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const currentSchool = user?.school || t("appNavigation.defaultSchool");
 
-  const effectiveRole = overrideRole || user?.role || "SCHOOL_ADMIN";
-  const navConfig = getNavigationForRole(effectiveRole, (user as any)?.grade);
+  const effectiveRole = overrideRole || user?.role || role || "SCHOOL_ADMIN";
+  const navConfig = getNavigationForRole(effectiveRole, user?.grade);
+  const secondaryGroups = navConfig.secondaryGroups || [navConfig.secondaryNav];
+  const isSecondaryRouteActive = secondaryGroups.flatMap((group) => group.items).some(
+    (item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
+  );
+  const [openSecondaryGroups, setOpenSecondaryGroups] = React.useState<Record<string, boolean>>({});
 
-  const availableSchools = (user as any)?.schools?.length
-    ? (user as any).schools
-    : [currentSchool];
+  const compact = isCollapsed && !isMobileOpen;
 
-  // Close mobile drawer on route change
+  useEffect(() => {
+    if (!isSecondaryRouteActive) return;
+    setOpenSecondaryGroups((current) => {
+      const next = { ...current };
+      secondaryGroups.forEach((group, index) => {
+        const key = group.groupTitleKey || `secondary-${index}`;
+        if (group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`))) next[key] = true;
+      });
+      return next;
+    });
+  }, [isSecondaryRouteActive, location.pathname]);
+
   useEffect(() => {
     if (isMobileOpen) {
       onCloseMobile();
     }
   }, [location.pathname]);
 
-  // Trap focus & Escape listener for mobile drawer
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isMobileOpen) {
+    if (!isMobileOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    document.body.style.overflow = "hidden";
+    window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
         onCloseMobile();
+        return;
+      }
+      if (event.key !== "Tab" || !drawerRef.current) return;
+
+      const focusable = Array.from(
+        drawerRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => element.offsetParent !== null);
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !drawerRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !drawerRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
       }
     };
-    if (isMobileOpen) {
-      document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", handleKeyDown);
-    }
+
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
+      window.requestAnimationFrame(() => previousFocusRef.current?.focus());
     };
   }, [isMobileOpen, onCloseMobile]);
 
-  const renderNavItem = (item: NavItem, isBottom = false) => {
-    // Phase 3 & 7: Unavailable items are hidden, not disabled
+  const renderNavItem = (item: NavItem) => {
+
     if (item.disabled) return null;
     const Icon = item.icon;
 
@@ -75,14 +118,15 @@ export default function Sidebar({
         to={item.to}
         end={item.to === "/school" || item.to === "/teacher" || item.to === "/student" || item.to === "/parent"}
         tabIndex={0}
-        title={isCollapsed ? item.label : undefined}
+        aria-label={compact ? t(`appNavigation.items.${item.labelKey}`) : undefined}
+        title={compact ? t(`appNavigation.items.${item.labelKey}`) : undefined}
         className={({ isActive }) =>
-          `group relative flex items-center h-[40px] px-3 rounded-[8px] transition-colors select-none focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] focus:ring-offset-2 ${
-            isCollapsed ? "justify-center" : "gap-2"
+          `group relative flex items-center min-h-[44px] px-3 rounded-[8px] transition-colors select-none focus:outline-none focus:ring-2 focus:ring-[#881337] focus:ring-offset-2 dark:focus:ring-offset-[#1C1512] ${
+            compact ? "justify-center" : "gap-2"
           } ${
             isActive
-              ? "bg-[#EFF6FF] text-[#1D4ED8] border-l-[3px] border-[#1D4ED8] font-semibold"
-              : "text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A] font-medium"
+              ? "bg-[#FFF1F2] text-[#881337] border-l-[3px] border-[#881337] font-semibold dark:bg-[#4C0519]/40 dark:text-[#FBBF24] dark:border-[#FBBF24]"
+              : "text-[#5C5046] hover:bg-[#FAF8F5] hover:text-[#261E1A] font-medium dark:text-[#E7E0D6] dark:hover:bg-white/5 dark:hover:text-white"
           }`
         }
       >
@@ -92,36 +136,35 @@ export default function Sidebar({
             <>
               <Icon
                 className={`w-5 h-5 shrink-0 transition-colors ${
-                  active ? "text-[#1D4ED8]" : "text-[#475569] group-hover:text-[#0F172A]"
+                  active ? "text-[#881337] dark:text-[#FBBF24]" : "text-[#5C5046] group-hover:text-[#261E1A] dark:text-[#A89C90] dark:group-hover:text-white"
                 }`}
                 aria-hidden="true"
               />
 
-              {!isCollapsed && (
+              {!compact && (
                 <span className="flex-1 truncate text-sm leading-5">
-                  {item.label}
+                  {t(`appNavigation.items.${item.labelKey}`)}
                 </span>
               )}
 
-              {/* Trailing Badge */}
-              {!isCollapsed && item.badge !== undefined && (
+              {!compact && item.badge !== undefined && (
                 <span
                   className={`px-1.5 py-0.5 rounded-[8px] text-[10px] font-mono tabular-nums font-bold shrink-0 ${
-                    active ? "bg-[#1D4ED8] text-white" : "bg-slate-100 text-slate-600"
+                    active ? "bg-[#881337] text-white dark:bg-[#FBBF24] dark:text-[#1C1512]" : "bg-[#F4EFEA] text-[#5C5046] dark:bg-white/10 dark:text-[#E7E0D6]"
                   }`}
-                  aria-label={`${item.badge} pending items`}
+                  aria-label={t("appNavigation.pendingItems", { count: Number(item.badge) })}
                 >
                   {item.badge}
                 </span>
               )}
 
-              {/* Hover Tooltip in Collapsed Mode */}
-              {isCollapsed && (
+              {compact && (
                 <div
                   role="tooltip"
-                  className="absolute left-full ml-2 px-2.5 py-1 rounded-[8px] bg-slate-900 text-white text-xs font-medium whitespace-nowrap shadow-md opacity-0 pointer-events-none group-hover:opacity-100 group-focus:opacity-100 transition-opacity z-50"
+                  aria-hidden="true"
+                  className="absolute left-full ml-2 px-2.5 py-1 rounded-[8px] bg-stone-900 text-white text-xs font-medium whitespace-nowrap shadow-md opacity-0 pointer-events-none group-hover:opacity-100 group-focus:opacity-100 transition-opacity z-50"
                 >
-                  {item.label}
+                  {t(`appNavigation.items.${item.labelKey}`)}
                   {item.badge !== undefined && ` (${item.badge})`}
                 </div>
               )}
@@ -135,119 +178,90 @@ export default function Sidebar({
   const sidebarContent = (
     <div className="flex flex-col h-full justify-between">
       <div>
-        {/* 1. Organization Block */}
-        <div className="p-3 border-b border-[#E2E8F0]">
+
+        <div className="p-3 border-b border-[#E7E0D6] dark:border-white/10">
           <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                if (!isCollapsed && availableSchools.length > 1) {
-                  setSchoolMenuOpen((v) => !v);
-                }
-              }}
+            <div
+              role="group"
+              aria-label={`${t("appNavigation.currentSchool")}: ${currentSchool}`}
               className={`w-full flex items-center ${
-                isCollapsed ? "justify-center" : "justify-between gap-2.5"
-              } p-1 rounded-[8px] ${
-                availableSchools.length > 1 ? "hover:bg-slate-50 cursor-pointer" : "cursor-default"
-              } transition-colors text-left focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]`}
-              aria-label={availableSchools.length > 1 ? "Switch organization" : "Current organization"}
-              aria-expanded={availableSchools.length > 1 ? schoolMenuOpen : undefined}
-              title={selectedSchool}
+                compact ? "justify-center" : "justify-between gap-2.5"
+              } p-1 rounded-[8px]`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                {/* 32px Logo */}
-                <div className="w-8 h-8 rounded-[8px] bg-[#1D4ED8] text-white flex items-center justify-center font-bold text-sm shrink-0">
-                  <Building2 className="w-4 h-4" />
+
+                <div className="w-8 h-8 rounded-[8px] bg-[#881337] text-white flex items-center justify-center font-bold text-sm shrink-0 dark:bg-[#FBBF24] dark:text-[#1C1512]">
+                  <Building2 className="w-4 h-4" aria-hidden="true" />
                 </div>
-                {!isCollapsed && (
+                {!compact && (
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#0F172A] truncate">
-                      {selectedSchool}
+                    <p className="text-xs font-bold text-[#261E1A] dark:text-[#FDFBF7] truncate">
+                      {currentSchool}
                     </p>
-                    <p className="text-[10px] text-slate-400 font-medium truncate">
-                      {navConfig.roleName}
+                    <p className="text-[10px] text-stone-400 dark:text-[#A89C90] font-medium truncate">
+                      {t(`appNavigation.roles.${navConfig.roleNameKey}`)}
                     </p>
                   </div>
                 )}
               </div>
 
-              {!isCollapsed && availableSchools.length > 1 && (
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              )}
-            </button>
-
-            {/* School Switcher Dropdown */}
-            {schoolMenuOpen && !isCollapsed && availableSchools.length > 1 && (
-              <div
-                className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E2E8F0] rounded-[8px] shadow-lg py-1 z-50 text-xs"
-                role="menu"
-              >
-                <div className="px-3 py-1 font-bold uppercase tracking-wider text-[10px] text-slate-400">
-                  Switch School
-                </div>
-                {availableSchools.map((s: string) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSchool(s);
-                      setSchoolMenuOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 hover:bg-slate-50 truncate cursor-pointer ${
-                      selectedSchool === s ? "bg-[#EFF6FF] text-[#1D4ED8] font-bold" : "text-[#0F172A]"
-                    }`}
-                    role="menuitem"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* 2. Primary Navigation (max 7 items) */}
         <div className="p-3 space-y-1">
-          {navConfig.primaryNav.slice(0, 7).map((item) => renderNavItem(item))}
+          {navConfig.primaryNav.map((item) => renderNavItem(item))}
         </div>
 
-        {/* 3. Secondary Navigation (grouped, max 5 items) */}
         <div className="px-3 pb-3">
-          {isCollapsed ? (
-            <div className="h-px bg-slate-200 my-2" aria-hidden="true" />
+          {compact ? (
+            <div className="h-px bg-[#E7E0D6] dark:bg-white/10 my-2" aria-hidden="true" />
           ) : (
-            navConfig.secondaryNav.groupTitle && (
-              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                {navConfig.secondaryNav.groupTitle}
-              </div>
-            )
+            <div className="space-y-1">
+              {secondaryGroups.map((group, index) => {
+                const key = group.groupTitleKey || `secondary-${index}`;
+                const isOpen = openSecondaryGroups[key] ?? index === 0;
+                return (
+                  <div key={key}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenSecondaryGroups((current) => ({ ...current, [key]: !isOpen }))}
+                      aria-expanded={isOpen}
+                      className="flex min-h-[36px] w-full items-center justify-between rounded-[8px] px-3 py-1.5 text-left text-[10px] font-bold uppercase tracking-wider text-stone-400 transition-colors hover:bg-[#FAF8F5] hover:text-[#5C5046] focus:outline-none focus:ring-2 focus:ring-[#881337] dark:text-[#A89C90] dark:hover:bg-white/5 dark:hover:text-[#E7E0D6] dark:focus:ring-[#FBBF24]"
+                    >
+                      <span>{group.groupTitleKey ? t(`appNavigation.groups.${group.groupTitleKey}`) : t("appNavigation.groups.learningTools")}</span>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+                    </button>
+                    <div className={`${isOpen ? "space-y-1" : "hidden"} mt-1`}>
+                      {group.items.map((item) => renderNavItem(item))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
-          <div className="space-y-1">
-            {navConfig.secondaryNav.items.slice(0, 5).map((item) => renderNavItem(item))}
-          </div>
+          {compact && <div className="space-y-1 mt-1">{secondaryGroups.flatMap((group) => group.items).map((item) => renderNavItem(item))}</div>}
         </div>
       </div>
 
-      {/* 4. Bottom Section: Help, Settings, Collapse Toggle */}
-      <div className="p-3 border-t border-[#E2E8F0] space-y-1 bg-white">
-        {navConfig.bottomItems.map((item) => renderNavItem(item, true))}
+      <div className="p-3 border-t border-[#E7E0D6] dark:border-white/10 space-y-1 bg-white dark:bg-[#1C1512]">
+        {navConfig.bottomItems.map((item) => renderNavItem(item))}
 
-        {/* Desktop Collapse Toggle */}
         <button
           type="button"
           onClick={onToggleCollapse}
           className={`w-full hidden lg:flex items-center ${
-            isCollapsed ? "justify-center" : "gap-2"
-          } h-[40px] px-3 rounded-[8px] text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A] text-sm font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]`}
-          aria-label={isCollapsed ? "Expand sidebar to 240px" : "Collapse sidebar to 64px"}
-          title={isCollapsed ? "Expand sidebar (240px)" : "Collapse sidebar (64px)"}
+            compact ? "justify-center" : "gap-2"
+          } min-h-[44px] px-3 rounded-[8px] text-[#5C5046] hover:bg-[#FAF8F5] hover:text-[#261E1A] dark:text-[#A89C90] dark:hover:bg-white/5 dark:hover:text-white text-sm font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#881337] dark:focus:ring-[#FBBF24]`}
+          aria-label={compact ? t("appNavigation.expandSidebar") : t("appNavigation.collapseSidebar")}
+          title={compact ? t("appNavigation.expandSidebar") : t("appNavigation.collapseSidebar")}
         >
-          {isCollapsed ? (
-            <PanelLeftOpen className="w-5 h-5 shrink-0 text-[#475569]" />
+          {compact ? (
+            <PanelLeftOpen className="w-5 h-5 shrink-0 text-[#5C5046] dark:text-[#A89C90]" />
           ) : (
             <>
-              <PanelLeftClose className="w-5 h-5 shrink-0 text-[#475569]" />
-              <span className="truncate">Collapse sidebar</span>
+              <PanelLeftClose className="w-5 h-5 shrink-0 text-[#5C5046] dark:text-[#A89C90]" />
+              <span className="truncate">{t("appNavigation.collapseSidebar")}</span>
             </>
           )}
         </button>
@@ -257,43 +271,42 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Desktop / Laptop Persistent Sidebar */}
+
       <nav
-        aria-label="Main"
-        className={`hidden lg:flex flex-col bg-[#FFFFFF] border-r border-[#E2E8F0] shrink-0 fixed top-[56px] left-0 bottom-0 z-20 transition-all duration-200 select-none overflow-y-auto ${
-          isCollapsed ? "w-[64px]" : "w-[240px]"
+        aria-label={t("appNavigation.mainNavigation")}
+        className={`hidden lg:flex flex-col bg-[#FFFFFF] dark:bg-[#1C1512] border-r border-[#E7E0D6] dark:border-white/10 shrink-0 fixed top-[56px] left-0 bottom-0 z-20 transition-all duration-200 select-none overflow-y-auto ${
+          compact ? "w-[64px]" : "w-[240px]"
         }`}
       >
         {sidebarContent}
       </nav>
 
-      {/* Tablet Portrait & Mobile Slide-Over Drawer (280px) */}
       {isMobileOpen && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Mobile Navigation"
+          aria-label={t("appNavigation.mobileNavigation")}
           className="fixed inset-0 z-50 lg:hidden"
         >
-          {/* Backdrop */}
+
           <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-stone-900/50 backdrop-blur-xs transition-opacity"
             onClick={onCloseMobile}
             aria-hidden="true"
           />
 
-          {/* 280px Drawer */}
           <div
             ref={drawerRef}
-            className="relative w-[280px] max-w-[85vw] h-full bg-[#FFFFFF] shadow-xl flex flex-col justify-between overflow-y-auto z-10"
+            className="relative w-[280px] max-w-[85vw] h-full bg-[#FFFFFF] dark:bg-[#1C1512] shadow-xl flex flex-col justify-between overflow-y-auto z-10"
           >
-            {/* Drawer Header Close Button */}
+
             <div className="absolute top-3 right-3 z-20">
               <button
                 type="button"
                 onClick={onCloseMobile}
-                className="flex items-center justify-center p-2 rounded-[8px] text-slate-400 hover:text-slate-700 hover:bg-slate-100 min-h-[44px] min-w-[44px] cursor-pointer"
-                aria-label="Close navigation drawer"
+                className="flex items-center justify-center p-2 rounded-[8px] text-stone-500 hover:text-[#261E1A] hover:bg-[#F4EFEA] dark:text-[#A89C90] dark:hover:text-white dark:hover:bg-white/10 min-h-[44px] min-w-[44px] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#881337] dark:focus:ring-[#FBBF24]"
+                ref={closeButtonRef}
+                aria-label={t("appNavigation.closeNavigation")}
               >
                 <X className="w-5 h-5" />
               </button>
