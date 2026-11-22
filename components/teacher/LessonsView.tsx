@@ -1,581 +1,264 @@
-import React, { useState } from "react";
-import useAuthStore from "../../store/authStore";
-import { 
-  BookOpen, 
-  Plus, 
-  Clock, 
-  Calendar, 
-  Check, 
-  Search, 
-  Filter, 
-  Printer, 
-  Layers, 
-  X, 
-  ChevronRight,
-  FileText,
-  Target,
-  Sparkles,
-  Users
-} from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { createLessonPlan, deleteLessonPlan, getLessonPlans, getTeacherAssignedPairs, updateLessonPlan } from "../../services/schoolService";
 import { useToast } from "../ui/Toast";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
 
-interface LessonBlock {
-  phase: string;
-  durationMins: number;
-  activity: string;
-  notes: string;
-}
-
-interface LessonPlanItem {
-  id: string;
-  code: string;
+type LessonPlan = {
+  id: number | string;
   title: string;
-  unit: number;
-  unitName: string;
-  sections: string[];
-  durationMins: number;
-  competencyOutcome: string;
-  textbookReference: string;
-  status: "Ready" | "In progress" | "Draft";
-  scheduledDate: string;
-  structure: LessonBlock[];
-  differentiation: {
-    scaffolding: string;
-    extension: string;
-  };
-}
+  subject: string;
+  duration: number;
+  unitNumber?: number | null;
+  overview?: string;
+  learningObjectives: string[];
+  activities: string[];
+  materials?: string;
+  assessment?: string;
+  teacherName?: string;
+  createdAt?: string;
+};
+
+type SubjectOption = { id: string; name: string };
+
+const unwrapList = (value: any): any[] => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.results)) return value.results;
+  return [];
+};
 
 export default function TeacherLessonsView(): React.ReactElement {
   const { showToast } = useToast();
-  const { user } = useAuthStore();
-  const teacherSubject = (user as any)?.subject || "Biology";
+  const [plans, setPlans] = useState<LessonPlan[]>([]);
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [search, setSearch] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState("all");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
+  const [duration, setDuration] = useState(3);
+  const [unitNumber, setUnitNumber] = useState("");
+  const [overview, setOverview] = useState("");
+  const [objectivesText, setObjectivesText] = useState("");
+  const [activitiesText, setActivitiesText] = useState("");
+  const [materials, setMaterials] = useState("");
+  const [assessment, setAssessment] = useState("");
 
-  const [selectedUnit, setSelectedUnit] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedLesson, setSelectedLesson] = useState<LessonPlanItem | null>(null);
-  const [isCreatingModalOpen, setIsCreatingModalOpen] = useState(false);
+  useEffect(() => {
+    let active = true;
+    Promise.all([getLessonPlans(), getTeacherAssignedPairs()])
+      .then(([plansResponse, assignmentsResponse]) => {
+        if (!active) return;
+        const planRows = unwrapList(plansResponse.data).filter((row) => row && row.title && row.subject);
+        setPlans(planRows.map((row) => ({
+          id: row.id,
+          title: String(row.title),
+          subject: String(row.subject),
+          duration: Number(row.duration) || 0,
+          unitNumber: row.unit_number == null ? null : Number(row.unit_number),
+          overview: String(row.overview || ""),
+          learningObjectives: Array.isArray(row.learning_objectives) ? row.learning_objectives.map(String) : [],
+          activities: Array.isArray(row.activities) ? row.activities.map(String) : [],
+          materials: String(row.materials || ""),
+          assessment: String(row.assessment || ""),
+          teacherName: row.teacherName ? String(row.teacherName) : undefined,
+          createdAt: row.createdAt ? String(row.createdAt) : undefined,
+        })));
 
-  // New lesson form state
-  const [newTitle, setNewTitle] = useState("");
-  const [newUnit, setNewUnit] = useState(4);
-  const [newCompetency, setNewCompetency] = useState("");
-  const [newTextbookRef, setNewTextbookRef] = useState("");
-  const [newSections, setNewSections] = useState<string[]>(["12-A", "12-B"]);
+        const pairs = Array.isArray(assignmentsResponse.data?.pairs) ? assignmentsResponse.data.pairs : [];
+        const byId = new Map<string, string>();
+        pairs.forEach((pair: any) => {
+          if (pair?.subject_id && pair?.subject_name) byId.set(String(pair.subject_id), String(pair.subject_name));
+        });
+        const options = Array.from(byId, ([id, name]) => ({ id, name }));
+        setSubjects(options);
+        setSubject(options[0]?.name || "");
+      })
+      .catch(() => { if (active) setLoadError(true); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
-  const [lessons, setLessons] = useState<LessonPlanItem[]>([
-    {
-      id: "l-1",
-      code: "BIO-12-4.1",
-      title: "Introduction to Cellular Energetics & ATP Structure",
-      unit: 4,
-      unitName: "Cell Physiology & Metabolism",
-      sections: ["12-A", "12-B"],
-      durationMins: 45,
-      competencyOutcome: "Explain the biochemical architecture of ATP and how phosphoanhydride bond hydrolysis drives endergonic cellular work.",
-      textbookReference: "MoE Grade 12 Biology, Chapter 4, pp. 112–119",
-      status: "Ready",
-      scheduledDate: "Today, Period 2",
-      structure: [
-        { phase: "Starter (00–05m)", durationMins: 5, activity: "Retrieval Quiz", notes: "Review endergonic vs exergonic reactions on whiteboard." },
-        { phase: "Direct Instruction (05–20m)", durationMins: 15, activity: "Biochemical Modeling", notes: "Demonstrate ATP hydrolysis stoichiometry (ATP + H2O -> ADP + Pi + 30.5 kJ/mol)." },
-        { phase: "Guided Practice (20–35m)", durationMins: 15, activity: "Phosphorylation Exercises", notes: "Pair students to calculate energy coupling in sodium-potassium ATPase pump." },
-        { phase: "Plenary & Exit Ticket (35–45m)", durationMins: 10, activity: "Formative Check", notes: "3-question rapid exit ticket on ATP synthesis mechanisms." }
-      ],
-      differentiation: {
-        scaffolding: "Provide annotated biochemical diagram templates for students scoring < 60%.",
-        extension: "Calculate thermodynamic free energy delta G in non-standard cellular conditions."
-      }
-    },
-    {
-      id: "l-2",
-      code: "BIO-12-4.2",
-      title: "Glycolysis & Cytoplasmic Fermentation Pathways",
-      unit: 4,
-      unitName: "Cell Physiology & Metabolism",
-      sections: ["12-A", "12-B"],
-      durationMins: 45,
-      competencyOutcome: "Trace the 10-step enzymatic sequence of glycolysis from glucose to pyruvate, identifying net ATP and NADH yield.",
-      textbookReference: "MoE Grade 12 Biology, Chapter 4, pp. 120–128",
-      status: "Ready",
-      scheduledDate: "Tomorrow, Period 4",
-      structure: [
-        { phase: "Starter (00–05m)", durationMins: 5, activity: "ATP Yield Flash Recall", notes: "Quick question on substrate-level phosphorylation." },
-        { phase: "Direct Instruction (05–20m)", durationMins: 15, activity: "Pathway Mapping", notes: "Energy investment phase vs energy payoff phase diagrams." },
-        { phase: "Guided Practice (20–35m)", durationMins: 15, activity: "Enzyme Regulation Analysis", notes: "Phosphofructokinase allosteric regulation problem set in small groups." },
-        { phase: "Plenary & Exit Ticket (35–45m)", durationMins: 10, activity: "Pathway Summary", notes: "Summarize lactate vs ethanol fermentation in oxygen-depleted environments." }
-      ],
-      differentiation: {
-        scaffolding: "Step-by-step flowchart with missing cofactor blanks.",
-        extension: "Analyze Pasteur effect and Warburg effect in rapid tumor glycolysis."
-      }
-    },
-    {
-      id: "l-3",
-      code: "BIO-12-4.3",
-      title: "Citric Acid Cycle & Oxidative Phosphorylation",
-      unit: 4,
-      unitName: "Cell Physiology & Metabolism",
-      sections: ["12-A"],
-      durationMins: 45,
-      competencyOutcome: "Diagram mitochondrial electron transport chain complexes I–IV, proton motive force, and chemiosmotic ATP synthase action.",
-      textbookReference: "MoE Grade 12 Biology, Chapter 4, pp. 129–137",
-      status: "In progress",
-      scheduledDate: "Thursday, Period 1",
-      structure: [
-        { phase: "Starter (00–05m)", durationMins: 5, activity: "Mitochondrial Anatomy Recall", notes: "Label inner mitochondrial membrane and matrix cristae." },
-        { phase: "Direct Instruction (05–20m)", durationMins: 15, activity: "ETC Flow Mechanics", notes: "Detail NADH and FADH2 electron donation and proton pumping." },
-        { phase: "Guided Practice (20–35m)", durationMins: 15, activity: "Uncoupler Analysis", notes: "Predict effect of DNP uncoupling chemical on ATP yield and thermogenesis." },
-        { phase: "Plenary & Exit Ticket (35–45m)", durationMins: 10, activity: "Calculation Check", notes: "Calculate theoretical maximum 30–32 ATP yield per glucose molecule." }
-      ],
-      differentiation: {
-        scaffolding: "Physical paper models representing protons crossing through ATP synthase channel.",
-        extension: "Research cyanide poison inhibition on Cytochrome c oxidase (Complex IV)."
-      }
-    },
-    {
-      id: "l-4",
-      code: "BIO-12-3.4",
-      title: "Mendelian Genetics: Dihybrid Crosses & Gene Linkage",
-      unit: 3,
-      unitName: "Genetics & Molecular Inheritance",
-      sections: ["12-B"],
-      durationMins: 45,
-      competencyOutcome: "Calculate 9:3:3:1 phenotypic ratios, testcross outcomes, and identify recombinant frequencies indicative of autosomal linkage.",
-      textbookReference: "MoE Grade 12 Biology, Chapter 3, pp. 84–95",
-      status: "Ready",
-      scheduledDate: "Friday, Period 3",
-      structure: [
-        { phase: "Starter (00–05m)", durationMins: 5, activity: "Monohybrid 3:1 Check", notes: "Quick review of law of segregation." },
-        { phase: "Direct Instruction (05–20m)", durationMins: 15, activity: "Punnett Grid Modeling", notes: "Demonstrate independent assortment with seed shape and color." },
-        { phase: "Guided Practice (20–35m)", durationMins: 15, activity: "Problem Set", notes: "Students solve 3 complex inheritance scenarios individually." },
-        { phase: "Plenary & Exit Ticket (35–45m)", durationMins: 10, activity: "Self-Check", notes: "Swap and peer grade practice calculations." }
-      ],
-      differentiation: {
-        scaffolding: "Pre-printed 4x4 Punnett grids with gamete headers filled in.",
-        extension: "Chi-square goodness-of-fit test on experimental offspring counts."
-      }
-    }
-  ]);
+  const filteredPlans = useMemo(() => plans.filter((plan) => {
+    const matchesSubject = subjectFilter === "all" || plan.subject === subjectFilter;
+    const term = search.trim().toLowerCase();
+    const matchesSearch = !term || plan.title.toLowerCase().includes(term) || plan.subject.toLowerCase().includes(term);
+    return matchesSubject && matchesSearch;
+  }), [plans, search, subjectFilter]);
 
-  const handleCreateLesson = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
-
-    const newLesson: LessonPlanItem = {
-      id: `l-${Date.now()}`,
-      code: `BIO-12-${newUnit}.${lessons.length + 1}`,
-      title: newTitle.trim(),
-      unit: newUnit,
-      unitName: newUnit === 4 ? "Cell Physiology & Metabolism" : newUnit === 3 ? "Genetics & Molecular Inheritance" : "Unit Studies",
-      sections: newSections,
-      durationMins: 45,
-      competencyOutcome: newCompetency || "Explain core subject competencies aligned with MoE national secondary standards.",
-      textbookReference: newTextbookRef || `MoE Grade 12 Biology, Chapter ${newUnit}`,
-      status: "Ready",
-      scheduledDate: "Next week",
-      structure: [
-        { phase: "Starter (00–05m)", durationMins: 5, activity: "Prior knowledge recall", notes: "Bellringer question." },
-        { phase: "Direct Instruction (05–20m)", durationMins: 15, activity: "Core concept lecture", notes: "Instruction and whiteboard modeling." },
-        { phase: "Guided Practice (20–35m)", durationMins: 15, activity: "Structured problem set", notes: "Collaborative student tasks." },
-        { phase: "Plenary & Exit Ticket (35–45m)", durationMins: 10, activity: "Exit ticket check", notes: "Formative verification check." }
-      ],
-      differentiation: {
-        scaffolding: "Provide structured study guide and visual vocabulary bank.",
-        extension: "Higher-order analytical problem solving."
-      }
-    };
-
-    setLessons([newLesson, ...lessons]);
-    setIsCreatingModalOpen(false);
-    setNewTitle("");
-    setNewCompetency("");
-    setNewTextbookRef("");
-    showToast({
-      title: "Lesson plan created",
-      message: `Lesson "${newLesson.title}" has been saved to your scheme of work.`,
-      type: "success"
-    });
+  const resetForm = () => {
+    setEditingPlanId(null);
+    setTitle("");
+    setDuration(3);
+    setUnitNumber("");
+    setOverview("");
+    setObjectivesText("");
+    setActivitiesText("");
+    setMaterials("");
+    setAssessment("");
   };
 
-  const filteredLessons = lessons.filter((l) => {
-    if (selectedUnit !== "all" && String(l.unit) !== selectedUnit) return false;
-    if (searchQuery.trim() && !l.title.toLowerCase().includes(searchQuery.toLowerCase()) && !l.code.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
+  const openNewPlan = () => {
+    resetForm();
+    setSubject(subjects[0]?.name || "");
+    setModalOpen(true);
+  };
+
+  const openEditPlan = (plan: LessonPlan) => {
+    setEditingPlanId(String(plan.id));
+    setTitle(plan.title);
+    setSubject(plan.subject);
+    setDuration(plan.duration || 1);
+    setUnitNumber(plan.unitNumber == null ? "" : String(plan.unitNumber));
+    setOverview(plan.overview || "");
+    setObjectivesText(plan.learningObjectives.join("\n"));
+    setActivitiesText(plan.activities.join("\n"));
+    setMaterials(plan.materials || "");
+    setAssessment(plan.assessment || "");
+    setModalOpen(true);
+  };
+
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!title.trim() || !subject || saving) return;
+    setSaving(true);
+    try {
+      const payload = {
+        title: title.trim(),
+        subject,
+        duration,
+        unit_number: unitNumber ? Number(unitNumber) : null,
+        overview: overview.trim(),
+        learning_objectives: objectivesText.split("\n").map((line) => line.trim()).filter(Boolean),
+        activities: activitiesText.split("\n").map((line) => line.trim()).filter(Boolean),
+        materials: materials.trim(),
+        assessment: assessment.trim(),
+      };
+      const response = editingPlanId
+        ? await updateLessonPlan(editingPlanId, payload)
+        : await createLessonPlan(payload);
+      const created = response.data?.data || response.data;
+      if (response.data?.success === false || (!created?.id && !editingPlanId)) throw new Error(response.data?.error || "The lesson plan could not be saved.");
+      const newPlan: LessonPlan = {
+        id: created.id || editingPlanId,
+        title: String(created.title || payload.title),
+        subject: String(created.subject || payload.subject),
+        duration: Number(created.duration ?? payload.duration),
+        unitNumber: created.unit_number ?? payload.unit_number,
+        overview: created.overview ?? payload.overview,
+        learningObjectives: created.learning_objectives ?? payload.learning_objectives,
+        activities: created.activities ?? payload.activities,
+        materials: created.materials ?? payload.materials,
+        assessment: created.assessment ?? payload.assessment,
+        createdAt: created.createdAt ? String(created.createdAt) : undefined,
+      };
+      setPlans((current) => editingPlanId
+        ? current.map((plan) => String(plan.id) === editingPlanId ? { ...plan, ...newPlan } : plan)
+        : [newPlan, ...current]);
+      resetForm();
+      setModalOpen(false);
+      showToast({ title: editingPlanId ? "Lesson plan updated" : "Lesson plan created", message: "The school curriculum plan is up to date.", type: "success" });
+    } catch (error: any) {
+      showToast({ title: "Could not save lesson plan", message: error?.response?.data?.error || error?.message || "Try again in a moment.", type: "error" });
+    } finally {
+      setSaving(false);
     }
-    return true;
-  });
+  };
+
+  const handleDelete = async (plan: LessonPlan) => {
+    if (!window.confirm(`Delete "${plan.title}"? This cannot be undone.`)) return;
+    try {
+      await deleteLessonPlan(String(plan.id));
+      setPlans((current) => current.filter((item) => String(item.id) !== String(plan.id)));
+      showToast({ title: "Lesson plan deleted", message: "The plan was removed from the curriculum.", type: "success" });
+    } catch (error: any) {
+      showToast({ title: "Could not delete lesson plan", message: error?.response?.data?.error || "Try again.", type: "error" });
+    }
+  };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-[#0F172A] tracking-tight">Lessons</h1>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
-              {teacherSubject}
-            </span>
-          </div>
-          <p className="text-xs text-[#475569] mt-0.5">
-            Lesson plans, textbook alignments, and pacing guides for assigned sections.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsCreatingModalOpen(true)}
-          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs cursor-pointer min-h-[40px]"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New lesson plan</span>
-        </button>
-      </div>
+    <PortalPage className="max-w-6xl space-y-6">
+      <PageHeader
+        title="Lesson plans"
+        description="Create and review curriculum plans for your classes."
+        primaryAction={{ label: "New lesson plan", onClick: openNewPlan, icon: Plus, disabled: subjects.length === 0 }}
+      />
 
-      {/* Telemetry Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-white border border-[#E2E8F0] rounded-[8px] shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Planned lessons</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-[#0F172A] font-mono">{lessons.length}</span>
-            <span className="text-xs text-slate-500 font-medium">Semester 1</span>
-          </div>
+      <section className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-[#E7E0D6] bg-white p-4 dark:border-white/10 dark:bg-[#261E1A]">
+          <p className="text-xs font-medium text-stone-500 dark:text-[#A89C90]">Lesson plans</p>
+          <p className="mt-1 text-2xl font-semibold text-stone-900 dark:text-[#FDFBF7]">{loading ? "—" : plans.length}</p>
         </div>
-        <div className="p-4 bg-white border border-[#E2E8F0] rounded-[8px] shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Ready to teach</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-emerald-700 font-mono">
-              {lessons.filter((l) => l.status === "Ready").length}
-            </span>
-            <span className="text-xs text-emerald-600 font-medium">Materials verified</span>
-          </div>
+        <div className="rounded-xl border border-[#E7E0D6] bg-white p-4 dark:border-white/10 dark:bg-[#261E1A]">
+          <p className="text-xs font-medium text-stone-500 dark:text-[#A89C90]">Assigned subjects</p>
+          <p className="mt-1 text-2xl font-semibold text-stone-900 dark:text-[#FDFBF7]">{loading ? "—" : subjects.length}</p>
         </div>
-        <div className="p-4 bg-white border border-[#E2E8F0] rounded-[8px] shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Pacing</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-[#1D4ED8] font-mono">Unit 4</span>
-            <span className="text-xs text-blue-600 font-medium">On schedule</span>
-          </div>
-        </div>
-        <div className="p-4 bg-white border border-[#E2E8F0] rounded-[8px] shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Teaching load</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-slate-700 font-mono">12 hrs</span>
-            <span className="text-xs text-slate-500 font-medium">16 periods</span>
-          </div>
-        </div>
-      </div>
+      </section>
 
-      {/* Search & Unit Filter */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 border border-[#E2E8F0] rounded-[8px] shadow-xs text-xs">
-        <div className="flex items-center gap-2 flex-1">
-          <div className="relative flex-1 sm:max-w-xs">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by lesson code or topic..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 border border-[#E2E8F0] rounded-[6px] text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-            />
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={selectedUnit}
-              onChange={(e) => setSelectedUnit(e.target.value)}
-              className="px-2.5 py-1.5 border border-[#E2E8F0] rounded-[6px] bg-white text-xs cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-            >
-              <option value="all">All curriculum units</option>
-              <option value="3">Unit 3: Genetics & Molecular Inheritance</option>
-              <option value="4">Unit 4: Cell Physiology & Metabolism</option>
-              <option value="5">Unit 5: Human Systems</option>
-            </select>
+      <section className="overflow-hidden rounded-xl border border-[#E7E0D6] bg-white dark:border-white/10 dark:bg-[#261E1A]">
+        <div className="flex flex-col gap-3 border-b border-[#E7E0D6] p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+          <div><h2 className="text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">Your plans</h2></div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <label className="relative block"><span className="sr-only">Search plans</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" aria-hidden="true" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search" className="min-h-10 w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7] sm:w-52" /></label>
+            <label><span className="sr-only">Filter by subject</span><select value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)} className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm outline-none focus:border-[#881337] dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7] sm:w-48"><option value="all">All subjects</option>{Array.from(new Set(plans.map((plan) => plan.subject))).map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
           </div>
         </div>
 
-        <div className="text-slate-500 text-[11px] self-center">
-          Period duration: 45 minutes
-        </div>
-      </div>
-
-      {/* Lessons Table */}
-      <div className="bg-white border border-[#E2E8F0] rounded-[8px] overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
-                <th className="py-3 px-4">Lesson code & topic</th>
-                <th className="py-3 px-4">Curriculum unit</th>
-                <th className="py-3 px-4">Sections</th>
-                <th className="py-3 px-4">Scheduled window</th>
-                <th className="py-3 px-4">Textbook alignment</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E2E8F0] text-[#0F172A]">
-              {filteredLessons.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
-                    No lesson plans found for the selected unit filter.
-                  </td>
-                </tr>
-              ) : (
-                filteredLessons.map((les) => (
-                  <tr key={les.id} className="hover:bg-[#F8FAFC] transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-[#0F172A]">{les.title}</div>
-                      <div className="text-[11px] text-slate-500 font-mono mt-0.5">{les.code}</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] bg-slate-100 text-slate-700 font-semibold text-[11px]">
-                        Unit {les.unit}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-1">
-                        {les.sections.map((s) => (
-                          <span key={s} className="px-1.5 py-0.5 bg-[#EFF6FF] text-[#1D4ED8] rounded font-semibold text-[10px] border border-[#BFDBFE]">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span>{les.scheduledDate}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-slate-500 max-w-xs truncate text-[11px]">
-                      {les.textbookReference}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                        les.status === "Ready"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-amber-50 text-amber-700 border-amber-200"
-                      }`}>
-                        {les.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedLesson(les)}
-                        className="px-2.5 py-1.5 rounded-[6px] border border-[#E2E8F0] hover:bg-[#EFF6FF] text-[#1D4ED8] font-semibold text-xs cursor-pointer inline-flex items-center gap-1"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>View plan</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Lesson Plan Detail Drawer / Modal */}
-      {selectedLesson && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                    {selectedLesson.code}
-                  </span>
-                  <h2 className="text-base font-semibold text-[#0F172A]">{selectedLesson.title}</h2>
-                </div>
-                <p className="text-xs text-[#475569] mt-0.5">
-                  Unit {selectedLesson.unit}: {selectedLesson.unitName} • 45 Minutes
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedLesson(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 text-xs">
-              {/* Target Learning Outcome */}
-              <div className="p-3.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] space-y-1">
-                <div className="font-semibold text-[#1D4ED8] flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5" />
-                  <span>Learning outcome</span>
-                </div>
-                <p className="text-[#0F172A] leading-relaxed">
-                  {selectedLesson.competencyOutcome}
-                </p>
-                <div className="text-[11px] text-slate-500 pt-1">
-                  Textbook: <span className="font-medium text-slate-700">{selectedLesson.textbookReference}</span>
-                </div>
-              </div>
-
-              {/* 45-Minute Lesson Breakdown Timeline */}
-              <div>
-                <h3 className="font-semibold text-[#0F172A] mb-2">Instructional structure</h3>
-                <div className="space-y-2">
-                  {selectedLesson.structure.map((phase, idx) => (
-                    <div key={idx} className="p-3 border border-[#E2E8F0] rounded-[6px] bg-[#F8FAFC]">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-[#0F172A]">{phase.phase}</span>
-                        <span className="font-mono text-[11px] text-slate-500 font-semibold px-2 py-0.5 rounded bg-white border border-[#E2E8F0]">
-                          {phase.activity}
-                        </span>
-                      </div>
-                      <p className="text-slate-600 text-[11px] mt-1">
-                        {phase.notes}
-                      </p>
+        {loading ? <div role="status" className="p-10 text-center text-sm text-stone-500 dark:text-[#A89C90]">Loading lesson plans…</div>
+          : loadError ? <div role="alert" className="p-8 text-center text-sm text-rose-700 dark:text-rose-200">Lesson plans could not be loaded. Refresh and try again.</div>
+            : filteredPlans.length === 0 ? <div className="p-10 text-center"><p className="text-sm font-semibold text-stone-800 dark:text-[#FDFBF7]">{plans.length ? "No plans match your search" : "No lesson plans yet"}</p><p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">{plans.length ? "Clear the search or choose another subject." : "Create a plan to get started."}</p></div>
+              : <ul className="divide-y divide-[#E7E0D6] dark:divide-white/10">
+                {filteredPlans.map((plan) => <li key={plan.id} className="space-y-3 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{plan.title}</h3>
+                      <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">{plan.subject}{plan.unitNumber ? ` | Unit ${plan.unitNumber}` : ""}{plan.teacherName ? ` | ${plan.teacherName}` : ""}</p>
+                      <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">{plan.duration} {plan.duration === 1 ? "week" : "weeks"}{plan.createdAt ? ` | Created ${plan.createdAt}` : ""}</p>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Pedagogical Differentiation */}
-              <div>
-                <h3 className="font-semibold text-[#0F172A] mb-2">Differentiation</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-3 border border-amber-200 bg-amber-50/40 rounded-[6px]">
-                    <div className="font-semibold text-amber-800 text-[11px]">Scaffolding</div>
-                    <p className="text-slate-600 text-[11px] mt-1">{selectedLesson.differentiation.scaffolding}</p>
+                    <div className="flex shrink-0 gap-2">
+                      <button type="button" onClick={() => openEditPlan(plan)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-stone-300 px-3 text-xs font-semibold text-stone-700 hover:border-[#881337] hover:text-[#881337] dark:border-white/15 dark:text-[#E7E0D6]"><Pencil className="h-3.5 w-3.5" aria-hidden="true" />Edit</button>
+                      <button type="button" onClick={() => void handleDelete(plan)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-900/40 dark:text-rose-200"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Delete</button>
+                    </div>
                   </div>
-                  <div className="p-3 border border-blue-200 bg-blue-50/40 rounded-[6px]">
-                    <div className="font-semibold text-blue-800 text-[11px]">Extension</div>
-                    <p className="text-slate-600 text-[11px] mt-1">{selectedLesson.differentiation.extension}</p>
-                  </div>
-                </div>
-              </div>
+                  {(plan.overview || plan.learningObjectives.length || plan.activities.length || plan.materials || plan.assessment) && <details className="rounded-lg bg-[#FAF8F5] px-3 py-2 dark:bg-[#1C1512]"><summary className="cursor-pointer text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">View details</summary><div className="mt-3 space-y-3 text-xs leading-5 text-stone-600 dark:text-[#A89C90]">
+                      {plan.overview && <p>{plan.overview}</p>}
+                      {plan.learningObjectives.length > 0 && <div><h4 className="font-semibold text-stone-800 dark:text-[#FDFBF7]">Learning objectives</h4><ul className="mt-1 list-disc space-y-1 pl-5">{plan.learningObjectives.map((item, index) => <li key={`${plan.id}-objective-${index}`}>{item}</li>)}</ul></div>}
+                      {plan.activities.length > 0 && <div><h4 className="font-semibold text-stone-800 dark:text-[#FDFBF7]">Lesson activities</h4><ol className="mt-1 list-decimal space-y-1 pl-5">{plan.activities.map((item, index) => <li key={`${plan.id}-activity-${index}`}>{item}</li>)}</ol></div>}
+                      {plan.materials && <p><strong>Materials:</strong> {plan.materials}</p>}
+                      {plan.assessment && <p><strong>Assessment:</strong> {plan.assessment}</p>}
+                    </div></details>}
+                </li>)}
+              </ul>}
+      </section>
+
+      {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/45 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) { setModalOpen(false); resetForm(); } }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="lesson-dialog-title" className="w-full max-w-2xl rounded-2xl border border-[#E7E0D6] bg-white shadow-2xl dark:border-white/10 dark:bg-[#261E1A]">
+          <header className="flex items-start justify-between border-b border-[#E7E0D6] p-5 dark:border-white/10">
+            <div><h2 id="lesson-dialog-title" className="text-lg font-semibold text-stone-900 dark:text-[#FDFBF7]">{editingPlanId ? "Edit lesson plan" : "New lesson plan"}</h2></div>
+            <button type="button" onClick={() => { setModalOpen(false); resetForm(); }} className="rounded-md p-2 text-stone-500 hover:bg-stone-100 dark:hover:bg-white/5" aria-label="Close dialog"><X className="h-4 w-4" /></button>
+          </header>
+          <form onSubmit={handleSave} className="max-h-[75vh] space-y-4 overflow-y-auto p-5">
+            <label className="block space-y-1.5"><span className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Plan title</span><input autoFocus required maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="For example, Introduction to cell division" className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm outline-none focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" /></label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5"><span className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Assigned subject</span><select required value={subject} onChange={(event) => setSubject(event.target.value)} className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]">{subjects.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label>
+              <label className="block space-y-1.5"><span className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Duration in weeks</span><input required type="number" min={1} max={52} value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" /></label>
+              <label className="block space-y-1.5"><span className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Curriculum unit <span className="font-normal text-stone-500">(optional)</span></span><input type="number" min={1} max={99} value={unitNumber} onChange={(event) => setUnitNumber(event.target.value)} className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" /></label>
             </div>
-
-            {/* Footer */}
-            <div className="px-5 py-3 border-t border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  window.print();
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] border border-[#E2E8F0] bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print lesson plan</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedLesson(null)}
-                className="px-3.5 py-1.5 rounded-[6px] border border-[#E2E8F0] bg-white hover:bg-slate-50 text-xs font-semibold cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* New Lesson Modal */}
-      {isCreatingModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-xl w-full max-w-lg">
-            <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-[#0F172A]">Create new lesson plan</h2>
-                <p className="text-xs text-[#475569]">{teacherSubject} curriculum</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCreatingModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateLesson} className="p-5 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Lesson Topic & Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Enzyme Catalysis and Substrate Specificity"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Curriculum Unit</label>
-                  <select
-                    value={newUnit}
-                    onChange={(e) => setNewUnit(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-                  >
-                    <option value={1}>Unit 1: Biochemical Fundamentals</option>
-                    <option value={2}>Unit 2: Cellular Structures</option>
-                    <option value={3}>Unit 3: Genetics & Molecular Inheritance</option>
-                    <option value={4}>Unit 4: Cell Physiology & Metabolism</option>
-                    <option value={5}>Unit 5: Human Systems</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Assigned Sections</label>
-                  <input
-                    type="text"
-                    disabled
-                    value="12-A, 12-B"
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] bg-slate-50 text-slate-600 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Target Competency Outcome</label>
-                <textarea
-                  rows={2}
-                  placeholder="What should students master by the end of this 45-minute lesson?"
-                  value={newCompetency}
-                  onChange={(e) => setNewCompetency(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">MoE Textbook Reference</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Grade 12 Biology, Chapter 4, pp. 138–146"
-                  value={newTextbookRef}
-                  onChange={(e) => setNewTextbookRef(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingModalOpen(false)}
-                  className="px-3 py-2 rounded-[6px] border border-[#E2E8F0] bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-[6px] bg-[#1D4ED8] hover:bg-[#1E40AF] text-white font-semibold cursor-pointer"
-                >
-                  Save lesson plan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+            <label className="block space-y-1.5"><span className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Overview</span><textarea rows={3} maxLength={3000} value={overview} onChange={(event) => setOverview(event.target.value)} placeholder="Summarize the topic and connect it to prior learning." className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm leading-5 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" /></label>
+            <label className="block space-y-1.5"><span className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Learning objectives <span className="font-normal text-stone-500">(one per line)</span></span><textarea rows={3} maxLength={5000} value={objectivesText} onChange={(event) => setObjectivesText(event.target.value)} placeholder={"Explain the key concept\nSolve a representative problem"} className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm leading-5 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" /></label>
+            <label className="block space-y-1.5"><span className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Teaching sequence <span className="font-normal text-stone-500">(one activity per line)</span></span><textarea rows={4} maxLength={7000} value={activitiesText} onChange={(event) => setActivitiesText(event.target.value)} placeholder={"Prior knowledge check\nWorked example\nGuided and independent practice"} className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm leading-5 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" /></label>
+            <label className="block space-y-1.5"><span className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Materials and references</span><textarea rows={2} maxLength={3000} value={materials} onChange={(event) => setMaterials(event.target.value)} placeholder="Textbook pages, equipment, or links" className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" /></label>
+            <label className="block space-y-1.5"><span className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Assessment and evidence of learning</span><textarea rows={2} maxLength={3000} value={assessment} onChange={(event) => setAssessment(event.target.value)} placeholder="Describe checks for understanding, an assignment, or a rubric." className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" /></label>
+            <div className="flex justify-end gap-2 border-t border-[#E7E0D6] pt-4 dark:border-white/10"><button type="button" onClick={() => { setModalOpen(false); resetForm(); }} className="min-h-10 rounded-lg border border-stone-300 px-4 text-sm font-medium text-stone-700 hover:bg-stone-50 dark:border-white/15 dark:text-[#E7E0D6] dark:hover:bg-white/5">Cancel</button><button type="submit" disabled={saving || !subjects.length} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#881337] px-4 text-sm font-semibold text-white hover:bg-[#9F1239] disabled:opacity-60">{saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}{saving ? "Saving..." : editingPlanId ? "Save changes" : "Create lesson plan"}</button></div>
+          </form>
+        </section>
+      </div>}
+    </PortalPage>
   );
 }

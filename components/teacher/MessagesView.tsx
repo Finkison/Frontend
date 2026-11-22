@@ -1,265 +1,166 @@
-import React, { useState } from "react";
-import useAuthStore from "../../store/authStore";
-import { MessageSquare, Send, User, ChevronRight, Search, CheckCheck, Clock, Sparkles } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { AlertCircle, Clock, MessageSquare, Search, Send, UserRound } from "lucide-react";
+import { getSchoolMessages, replySchoolMessage } from "../../services/schoolService";
 import { useToast } from "../ui/Toast";
+import PortalPage from "../shared/PortalPage";
 
-interface ChatMessage {
-  sender: "Teacher" | "Parent" | "Student";
-  text: string;
-  time: string;
-}
-
-interface MessageThread {
+type ParentInquiry = {
   id: string;
-  recipient: string;
-  role: "Parent" | "Student";
-  studentName?: string;
-  section: string;
-  lastMessage: string;
-  time: string;
-  unread: boolean;
-  messages: ChatMessage[];
-}
+  sender_name?: string;
+  recipient_role?: string;
+  student_name?: string;
+  student_id?: string;
+  student_grade?: string;
+  student_section?: string;
+  subject?: string;
+  content?: string;
+  created_at?: string;
+};
 
 export default function TeacherMessagesView(): React.ReactElement {
   const { showToast } = useToast();
-  const { user } = useAuthStore();
-  const teacherSubject = (user as any)?.subject || "Biology";
-
-  const [activeTab, setActiveTab] = useState<"all" | "parents" | "students">("all");
+  const [messages, setMessages] = useState<ParentInquiry[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
+  const [messagesError, setMessagesError] = useState(false);
+  const [selectedMessageId, setSelectedMessageId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-
-  const [threads, setThreads] = useState<MessageThread[]>([
-    {
-      id: "th-1",
-      recipient: "Almaz Kebede",
-      role: "Parent",
-      studentName: "Natnael Girma",
-      section: "Section 12-A",
-      lastMessage: "Thank you Dr. Aster, we reviewed the genetic cross problem set at home.",
-      time: "10:30 AM",
-      unread: false,
-      messages: [
-        { sender: "Teacher", text: "Hello Mrs. Almaz, Natnael showed strong understanding in ecology, but needs review on Mendelian genetics.", time: "Yesterday, 4:15 PM" },
-        { sender: "Parent", text: "Thank you Dr. Aster, we reviewed the genetic cross problem set at home.", time: "10:30 AM" }
-      ]
-    },
-    {
-      id: "th-2",
-      recipient: "Bethlehem Alemu",
-      role: "Student",
-      section: "Section 12-A",
-      lastMessage: "Dr. Aster, will the Unit 4 practical include microscope slide calibration?",
-      time: "Yesterday",
-      unread: false,
-      messages: [
-        { sender: "Student", text: "Dr. Aster, will the Unit 4 practical include microscope slide calibration?", time: "Yesterday, 5:20 PM" },
-        { sender: "Teacher", text: "Yes Bethlehem, ensure you review the magnification calculations from laboratory handout 2.", time: "Yesterday, 6:00 PM" }
-      ]
-    },
-    {
-      id: "th-3",
-      recipient: "Tadesse Woldemariam",
-      role: "Parent",
-      studentName: "Bethlehem Alemu",
-      section: "Section 12-A",
-      lastMessage: "We received the academic recognition letter. Thank you for your guidance.",
-      time: "Oct 14",
-      unread: false,
-      messages: [
-        { sender: "Teacher", text: "Good afternoon Mr. Tadesse, Bethlehem achieved 98% in the practical assessment.", time: "Oct 14, 2:10 PM" },
-        { sender: "Parent", text: "We received the academic recognition letter. Thank you for your guidance.", time: "Oct 14, 4:45 PM" }
-      ]
-    }
-  ]);
-
-  const [selectedThread, setSelectedThread] = useState<MessageThread>(threads[0]);
   const [replyText, setReplyText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sentMessageId, setSentMessageId] = useState<string | null>(null);
 
-  const quickTemplates = [
-    "Thank you for the update. We will follow up during office hours.",
-    "Please review the practice problem set uploaded under Unit 4.",
-    "Candidate showed excellent improvement in recent formative checks."
-  ];
+  useEffect(() => {
+    let isCurrent = true;
+    getSchoolMessages()
+      .then((response) => {
+        if (!isCurrent) return;
+        const data = Array.isArray(response.data) ? response.data : response.data?.messages || [];
+        const inquiries = Array.isArray(data) ? data : [];
+        setMessages(inquiries);
+        setSelectedMessageId(inquiries[0]?.id || "");
+      })
+      .catch(() => {
+        if (isCurrent) setMessagesError(true);
+      })
+      .finally(() => {
+        if (isCurrent) setMessagesLoading(false);
+      });
+    return () => { isCurrent = false; };
+  }, []);
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyText.trim()) return;
-    const updated: MessageThread = {
-      ...selectedThread,
-      lastMessage: replyText.trim(),
-      time: "Just now",
-      messages: [...selectedThread.messages, { sender: "Teacher", text: replyText.trim(), time: "Just now" }]
-    };
-    setSelectedThread(updated);
-    setThreads(threads.map((t) => (t.id === updated.id ? updated : t)));
-    setReplyText("");
-    showToast({ title: "Message sent", message: "Response delivered to recipient.", type: "success" });
+  const visibleMessages = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return messages;
+    return messages.filter((message) => [message.sender_name, message.student_name, message.subject, message.content, message.student_section]
+      .some((value) => String(value || "").toLowerCase().includes(query)));
+  }, [messages, searchQuery]);
+
+  const selectedMessage = visibleMessages.find((message) => String(message.id) === String(selectedMessageId)) || visibleMessages[0] || null;
+
+  const handleSend = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedMessage || !replyText.trim()) return;
+    setSending(true);
+    setSentMessageId(null);
+    try {
+      const response = await replySchoolMessage({ message_id: String(selectedMessage.id), reply_content: replyText.trim() });
+      if (response.data?.success === false) throw new Error(response.data?.error || "The reply could not be sent.");
+      setSentMessageId(String(selectedMessage.id));
+      setReplyText("");
+      showToast({ title: "Reply sent", message: response.data?.message || "The response was delivered to the parent.", type: "success" });
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.response?.data?.message || err?.message || "The reply could not be sent. Try again.";
+      showToast({ title: "Reply failed", message, type: "error" });
+    } finally {
+      setSending(false);
+    }
   };
 
-  const filteredThreads = threads.filter((t) => {
-    if (activeTab === "parents" && t.role !== "Parent") return false;
-    if (activeTab === "students" && t.role !== "Student") return false;
-    if (searchQuery.trim()) {
-      const matchRecipient = t.recipient.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchSection = t.section.toLowerCase().includes(searchQuery.toLowerCase());
-      if (!matchRecipient && !matchSection) return false;
-    }
-    return true;
-  });
-
   return (
-    <div className="max-w-6xl mx-auto space-y-6 font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
+    <PortalPage className="max-w-6xl space-y-6">
+      <header className="flex flex-col gap-4 border-b border-[#E7E0D6] pb-5 dark:border-white/10 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-[#0F172A] tracking-tight">Messages</h1>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
-              {teacherSubject}
-            </span>
-          </div>
-          <p className="text-xs text-[#475569] mt-0.5">
-            Direct messaging with parents and students in your assigned sections.
-          </p>
+          <div className="inline-flex items-center gap-2 text-sm font-semibold text-[#881337] dark:text-[#FBBF24]"><MessageSquare className="h-4 w-4" aria-hidden="true" />School communication</div>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-stone-900 dark:text-[#FDFBF7]">Parent messages</h1>
+          <p className="mt-1 text-sm text-stone-600 dark:text-[#E7E0D6]">Review parent inquiries and send a response.</p>
         </div>
+        {!messagesLoading && !messagesError && <p className="text-xs text-stone-500 dark:text-[#A89C90]">{messages.length} recent message{messages.length === 1 ? "" : "s"}</p>}
+      </header>
+
+      <div className="flex gap-3 rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs leading-5 text-sky-950 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-100">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        <p>Replies are delivered to the parent as alerts.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 bg-white border border-[#E2E8F0] rounded-[8px] min-h-[520px] overflow-hidden shadow-xs">
-        {/* Threads sidebar */}
-        <div className="border-r border-[#E2E8F0] flex flex-col">
-          {/* Filter and search */}
-          <div className="p-3 bg-[#F8FAFC] border-b border-[#E2E8F0] space-y-2">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search conversations..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 border border-[#E2E8F0] rounded-[6px] text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-              />
-            </div>
-            <div className="flex gap-1">
-              {(["all", "parents", "students"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-1 rounded text-[11px] font-semibold cursor-pointer capitalize transition-colors ${
-                    activeTab === tab
-                      ? "bg-[#1D4ED8] text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="divide-y divide-[#E2E8F0] overflow-y-auto flex-1">
-            {filteredThreads.map((t) => {
-              const isSelected = selectedThread.id === t.id;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setSelectedThread(t)}
-                  className={`w-full p-3.5 text-left transition-colors cursor-pointer text-xs ${
-                    isSelected ? "bg-[#EFF6FF] border-l-3 border-[#1D4ED8]" : "hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-[#0F172A] truncate">{t.recipient}</span>
-                    <span className="text-[10px] text-slate-400 shrink-0">{t.time}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    {t.role === "Parent" ? `Parent of ${t.studentName}` : "Student"} • {t.section}
-                  </div>
-                  <div className="text-slate-600 truncate mt-1 text-[11px]">{t.lastMessage}</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Conversation details */}
-        <div className="md:col-span-2 flex flex-col p-5">
-          <div className="border-b border-[#E2E8F0] pb-3 mb-4 flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-[#0F172A]">{selectedThread.recipient}</h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
-                  {selectedThread.role}
-                </span>
-              </div>
-              <div className="text-[11px] text-[#475569] mt-0.5">
-                {selectedThread.section} • {teacherSubject} Department
+      {messagesLoading ? (
+        <div role="status" className="rounded-2xl border border-stone-200 bg-white p-10 text-center text-sm text-stone-500 dark:border-white/10 dark:bg-[#261E1A] dark:text-[#A89C90]">Loading parent messages...</div>
+      ) : messagesError ? (
+        <section role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center dark:border-rose-900/40 dark:bg-rose-950/20">
+          <p className="text-sm text-rose-800 dark:text-rose-200">Parent messages could not be loaded. Refresh the page and try again.</p>
+        </section>
+      ) : messages.length === 0 ? (
+        <section className="rounded-2xl border border-dashed border-stone-300 bg-white p-10 text-center dark:border-white/15 dark:bg-[#261E1A]">
+          <UserRound className="mx-auto h-9 w-9 text-stone-300 dark:text-stone-600" aria-hidden="true" />
+          <h2 className="mt-3 text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">No parent messages yet</h2>
+          <p className="mt-1 text-sm text-stone-600 dark:text-[#A89C90]">New inquiries will appear here when a parent contacts the school.</p>
+        </section>
+      ) : (
+        <section className="grid min-h-[34rem] overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xs dark:border-white/10 dark:bg-[#261E1A] md:grid-cols-[18rem_minmax(0,1fr)]" aria-label="Parent message inbox">
+          <aside className="flex min-h-64 flex-col border-b border-stone-200 dark:border-white/10 md:border-b-0 md:border-r" aria-label="Message list">
+            <div className="border-b border-stone-200 bg-[#FAF8F5] p-3 dark:border-white/10 dark:bg-[#1C1512]">
+              <label htmlFor="parent-message-search" className="sr-only">Search parent messages</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400 dark:text-[#A89C90]" aria-hidden="true" />
+                <input id="parent-message-search" type="search" placeholder="Search messages" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="min-h-10 w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-sm text-stone-800 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/10 dark:bg-[#261E1A] dark:text-[#FDFBF7]" />
               </div>
             </div>
-          </div>
+            <div className="max-h-80 flex-1 divide-y divide-stone-100 overflow-y-auto dark:divide-white/10 md:max-h-none">
+              {visibleMessages.length === 0 ? <p className="p-5 text-sm text-stone-500 dark:text-[#A89C90]">No messages match your search.</p> : visibleMessages.map((message) => {
+                const active = String(message.id) === String(selectedMessage?.id);
+                return (
+                  <button key={message.id} type="button" onClick={() => { setSelectedMessageId(String(message.id)); setSentMessageId(null); }} aria-current={active ? "true" : undefined} className={`w-full p-4 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#881337] ${active ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40" : "hover:bg-[#FAF8F5] dark:hover:bg-white/5"}`}>
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="truncate text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{message.sender_name || "Parent"}</span>
+                      {message.created_at && <span className="shrink-0 text-[10px] text-stone-500 dark:text-[#A89C90]">{message.created_at}</span>}
+                    </span>
+                    <span className="mt-1 block truncate text-xs font-medium text-[#881337] dark:text-[#FBBF24]">{message.subject || "No subject"}</span>
+                    <span className="mt-1 block truncate text-xs text-stone-600 dark:text-[#A89C90]">{message.student_name || "Linked student"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
 
-          {/* Messages scroll pane */}
-          <div className="flex-1 space-y-3 overflow-y-auto max-h-[320px] mb-4 pr-2">
-            {selectedThread.messages.map((m, idx) => (
-              <div
-                key={idx}
-                className={`p-3 rounded-[8px] max-w-md text-xs space-y-1 ${
-                  m.sender === "Teacher"
-                    ? "bg-[#EFF6FF] border border-[#BFDBFE] text-[#0F172A] ml-auto"
-                    : "bg-[#F8FAFC] border border-[#E2E8F0] text-[#0F172A] mr-auto"
-                }`}
-              >
-                <div className="text-[10px] text-slate-400 flex items-center justify-between gap-3">
-                  <span>{m.sender}</span>
-                  <span className="flex items-center gap-1 font-mono">
-                    <Clock className="w-2.5 h-2.5" />
-                    {m.time}
-                  </span>
+          {selectedMessage ? (
+            <article className="flex min-w-0 flex-col p-5 sm:p-6" aria-labelledby="selected-message-subject">
+              <header className="border-b border-stone-200 pb-4 dark:border-white/10">
+                <h2 id="selected-message-subject" className="text-lg font-semibold text-stone-900 dark:text-[#FDFBF7]">{selectedMessage.subject || "Parent inquiry"}</h2>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500 dark:text-[#A89C90]">
+                  <span>From {selectedMessage.sender_name || "Parent"}</span>
+                  {selectedMessage.student_name && <span>Student: {selectedMessage.student_name}</span>}
+                  {(selectedMessage.student_grade || selectedMessage.student_section) && <span>{[selectedMessage.student_grade, selectedMessage.student_section ? `Section ${selectedMessage.student_section}` : ""].filter(Boolean).join(" · ")}</span>}
+                  {selectedMessage.created_at && <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" aria-hidden="true" />{selectedMessage.created_at}</span>}
                 </div>
-                <div className="leading-relaxed">{m.text}</div>
+              </header>
+
+              <div className="flex-1 py-6">
+                <p className="whitespace-pre-wrap text-sm leading-7 text-stone-800 dark:text-[#E7E0D6]">{selectedMessage.content || "No message content was provided."}</p>
+                {sentMessageId === String(selectedMessage.id) && <p role="status" className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-100">Your response was sent to the parent.</p>}
               </div>
-            ))}
-          </div>
 
-          {/* Quick template responses */}
-          <div className="mb-3 pt-2 border-t border-[#E2E8F0]">
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5 font-semibold">
-              Quick responses
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {quickTemplates.map((template, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setReplyText(template)}
-                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] rounded cursor-pointer transition-colors"
-                >
-                  {template}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <form onSubmit={handleSend} className="flex gap-2">
-            <input
-              type="text"
-              required
-              placeholder="Type message..."
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              className="flex-1 px-3 py-2 border border-[#E2E8F0] rounded-[6px] text-xs focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-[6px] text-xs font-semibold cursor-pointer min-h-[38px] flex items-center gap-1.5"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Send</span>
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
+              <form onSubmit={handleSend} className="space-y-3 border-t border-stone-200 pt-4 dark:border-white/10">
+                <label htmlFor="parent-message-reply" className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Reply to parent</label>
+                <textarea id="parent-message-reply" value={replyText} onChange={(event) => setReplyText(event.target.value)} rows={4} maxLength={4000} required placeholder="Write a clear, helpful response..." className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-800 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/10 dark:bg-[#1C1512] dark:text-[#FDFBF7]" />
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[11px] text-stone-500 dark:text-[#A89C90]">{replyText.length}/4000</span>
+                  <button type="submit" disabled={sending || !replyText.trim()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#881337] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#9F1239] focus:outline-none focus:ring-2 focus:ring-[#881337] disabled:cursor-wait disabled:opacity-60"><Send className="h-4 w-4" aria-hidden="true" />{sending ? "Sending..." : "Send reply"}</button>
+                </div>
+              </form>
+            </article>
+          ) : (
+            <div className="flex items-center justify-center p-8 text-sm text-stone-500 dark:text-[#A89C90]">Select a message to read it.</div>
+          )}
+        </section>
+      )}
+    </PortalPage>
   );
 }

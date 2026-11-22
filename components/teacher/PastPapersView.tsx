@@ -1,499 +1,342 @@
-import React, { useState } from "react";
-import useAuthStore from "../../store/authStore";
-import { uploadPastPaper } from "../../services/schoolService";
-import { 
-  GraduationCap, 
-  Upload, 
-  Check, 
-  FileText, 
-  AlertCircle, 
-  ArrowRight, 
-  Calendar, 
-  Download, 
-  Eye, 
-  Search, 
-  Sparkles,
-  Layers,
-  CheckCircle2,
-  X
-} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { AlertCircle, CheckCircle2, Download, Plus, Trash2, Upload } from "lucide-react";
+import {
+  downloadSchoolPastPaperFile,
+  getSchoolPastPaperUploads,
+  getTeacherAssignedPairs,
+  uploadPastPaperQuestionSet,
+} from "../../services/schoolService";
 import { useToast } from "../ui/Toast";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
 
-interface PastPaperArchiveItem {
+type AssignedPair = {
+  section_id: string | number;
+  section_name?: string;
+  grade?: string;
+  grade_level?: number;
+  subject_id: string;
+  subject_name: string;
+};
+
+type PaperQuestion = {
   id: string;
-  year: string;
-  subject: string;
-  totalQuestions: number;
-  mappedUnits: string[];
-  uploadDate: string;
-  fileSizeMb: number;
-  source: string;
-}
-
-interface ExtractedQuestion {
-  number: number;
   text: string;
   options: string[];
   correctAnswer: number;
-  unit: number; // 0 means unmapped
+  unit: number;
   topic: string;
+};
+
+type PastPaperUpload = {
+  id: string;
+  subject: string;
+  year: string;
+  source: string;
+  file_name: string;
+  file_size_bytes: number;
+  has_source_file: boolean;
+  uploaded_by: string;
+  created_at: string;
+};
+
+const pairKey = (pair: AssignedPair) => `${pair.subject_id}:${pair.section_id}`;
+const createQuestion = (): PaperQuestion => ({
+  id: `${Date.now()}-${Math.random()}`,
+  text: "",
+  options: ["", "", "", ""],
+  correctAnswer: 0,
+  unit: 0,
+  topic: "",
+});
+
+function isGradeTwelve(pair: AssignedPair): boolean {
+  return Number(pair.grade_level) === 12 || /(?:^|\D)12(?:\D|$)/.test(String(pair.grade || pair.section_name || ""));
 }
 
 export default function TeacherPastPapersView(): React.ReactElement {
   const { showToast } = useToast();
-  const { user } = useAuthStore();
-  const teacherSubject = (user as any)?.subject || "Biology";
+  const [assignedPairs, setAssignedPairs] = useState<AssignedPair[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(true);
+  const [assignmentsError, setAssignmentsError] = useState(false);
+  const [selectedPairKey, setSelectedPairKey] = useState("");
+  const [year, setYear] = useState("");
+  const [source, setSource] = useState("");
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [questions, setQuestions] = useState<PaperQuestion[]>([createQuestion()]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [recentUploads, setRecentUploads] = useState<PastPaperUpload[]>([]);
+  const [uploadsLoading, setUploadsLoading] = useState(true);
+  const [uploadsError, setUploadsError] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"archive" | "upload">("archive");
-  const [step, setStep] = useState<"upload" | "extracting" | "mapping" | "saved">("upload");
-  const [selectedYear, setSelectedYear] = useState("");
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
-
-  // Existing Past Paper Archive
-  const [archive, setArchive] = useState<PastPaperArchiveItem[]>([]);
-
-  // Extracted items for mapping step
-  const [extractedItems, setExtractedItems] = useState<ExtractedQuestion[]>([]);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setValidationError(null);
-    if (!selectedYear) {
-      setValidationError("Select a year");
-      return;
-    }
-
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      // 25 MB limit check
-      if (file.size > 25 * 1024 * 1024) {
-        setValidationError("File exceeds 25 MB");
-        return;
-      }
-
-      setFileName(file.name);
-      setStep("extracting");
-      setTimeout(() => {
-        setStep("mapping");
-      }, 1200);
+  const loadRecentUploads = async () => {
+    try {
+      const response = await getSchoolPastPaperUploads();
+      setRecentUploads(Array.isArray(response.data?.uploads) ? response.data.uploads : []);
+      setUploadsError(false);
+    } catch {
+      setUploadsError(true);
+    } finally {
+      setUploadsLoading(false);
     }
   };
 
-  const unmappedCount = extractedItems.filter((item) => item.unit === 0).length;
-
-  const handleConfirmSave = async () => {
-    if (unmappedCount > 0) {
-      setValidationError(`${unmappedCount} questions need a unit.`);
-      showToast({
-        title: "Validation error",
-        message: `${unmappedCount} questions need a unit.`,
-        type: "error"
+  useEffect(() => {
+    let isCurrent = true;
+    getTeacherAssignedPairs()
+      .then((response) => {
+        if (!isCurrent) return;
+        const pairs = Array.isArray(response.data?.pairs) ? response.data.pairs : [];
+        const eligiblePairs = pairs.filter(isGradeTwelve);
+        setAssignedPairs(eligiblePairs);
+        setSelectedPairKey(eligiblePairs[0] ? pairKey(eligiblePairs[0]) : "");
+      })
+      .catch(() => {
+        if (isCurrent) setAssignmentsError(true);
+      })
+      .finally(() => {
+        if (isCurrent) setAssignmentsLoading(false);
       });
+    return () => { isCurrent = false; };
+  }, []);
+
+  useEffect(() => {
+    void loadRecentUploads();
+  }, []);
+
+  const selectedPair = assignedPairs.find((pair) => pairKey(pair) === selectedPairKey);
+
+  const updateQuestion = (id: string, update: (question: PaperQuestion) => PaperQuestion) => {
+    setQuestions((current) => current.map((question) => question.id === id ? update(question) : question));
+  };
+
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setSavedMessage(null);
+
+    if (!selectedPair) {
+      setError("Choose a Grade 12 class and subject assigned to you.");
+      return;
+    }
+    if (!rightsConfirmed) {
+      setError("Confirm that you have permission to share these questions with students.");
+      return;
+    }
+    if (sourceFile && sourceFile.size > 25 * 1024 * 1024) {
+      setError("The source PDF must be 25 MB or smaller.");
+      return;
+    }
+    if (sourceFile && !sourceFile.name.toLowerCase().endsWith(".pdf")) {
+      setError("Choose a PDF source file.");
+      return;
+    }
+    if (questions.some((question) => !question.text.trim() || question.options.some((option) => !option.trim()) || question.unit < 1)) {
+      setError("Complete each question, all four answer choices, and its curriculum unit before saving.");
       return;
     }
 
+    setSaving(true);
     try {
-      await uploadPastPaper({
-        subject_id: teacherSubject.toLowerCase(),
-        year: selectedYear,
-        file_name: fileName || "euee_paper.pdf",
-        file_size_bytes: 409600,
+      const response = await uploadPastPaperQuestionSet({
+        subject_id: selectedPair.subject_id,
+        year: year.trim(),
+        source: source.trim(),
         rights_confirmed: true,
-        questions: extractedItems.map((item) => ({
-          question_text: item.text,
-          options: item.options,
-          correct_answer: item.correctAnswer,
-          unit: item.unit,
-          topic: item.topic
-        }))
+        source_file: sourceFile,
+        questions: questions.map((question) => ({
+          question_text: question.text.trim(),
+          options: question.options.map((option) => option.trim()),
+          correct_answer: question.correctAnswer,
+          unit: question.unit,
+          topic: question.topic.trim() || "Entrance Revision",
+          marks: 1,
+        })),
       });
-      setStep("saved");
-      setArchive(prev => [
-        {
-          id: `pp-${Date.now()}`,
-          year: selectedYear,
-          subject: teacherSubject,
-          totalQuestions: extractedItems.length,
-          mappedUnits: Array.from(new Set(extractedItems.map(i => `Unit ${i.unit}`))),
-          uploadDate: "Just now",
-          fileSizeMb: Number((409600 / (1024 * 1024)).toFixed(1)),
-          source: "Uploaded & Verified by Faculty"
-        },
-        ...prev
-      ]);
-      showToast({
-        title: "Past paper mapped",
-        message: "Questions mapped to units and saved to past paper archive.",
-        type: "success"
-      });
+      if (response.data?.success === false) throw new Error(response.data?.error || "The question set could not be saved.");
+      const message = response.data?.message || `Saved ${questions.length} questions to the student past-paper bank.`;
+      setSavedMessage(message);
+      showToast({ title: "Past-paper material saved", message, type: "success" });
+      await loadRecentUploads();
     } catch (err: any) {
-      showToast({
-        title: "Save Failed",
-        message: err?.response?.data?.message || err?.message || "Failed to save past paper. Please try again.",
-        type: "error"
-      });
+      const message = err?.response?.data?.error || err?.response?.data?.message || err?.message || "The question set could not be saved. Try again.";
+      setError(message);
+      showToast({ title: "Save failed", message, type: "error" });
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const startAnotherSet = () => {
+    setYear("");
+    setSource("");
+    setRightsConfirmed(false);
+    setSourceFile(null);
+    setQuestions([createQuestion()]);
+    setError(null);
+    setSavedMessage(null);
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-[#0F172A] tracking-tight">Past papers</h1>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
-              {teacherSubject}
-            </span>
-          </div>
-          <p className="text-xs text-[#475569] mt-0.5">
-            Grade 12 national examination archive and curriculum unit mappings.
-          </p>
-        </div>
+    <PortalPage className="max-w-4xl space-y-6">
+      <PageHeader
+        eyebrow="Grade 12 question bank"
+        title="Add past-paper questions"
+        description="Enter questions and map each one to a unit for your Grade 12 students."
+      />
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("archive");
-              setStep("upload");
-            }}
-            className={`px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors cursor-pointer min-h-[40px] ${
-              activeTab === "archive"
-                ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
-                : "bg-white text-slate-700 border-[#E2E8F0] hover:bg-slate-50"
-            }`}
-          >
-            Past paper archive
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("upload");
-              setStep("upload");
-            }}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] text-xs font-semibold border transition-colors cursor-pointer min-h-[40px] ${
-              activeTab === "upload"
-                ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
-                : "bg-white text-slate-700 border-[#E2E8F0] hover:bg-slate-50"
-            }`}
-          >
-            <Upload className="w-4 h-4" />
-            <span>Upload past paper</span>
-          </button>
-        </div>
+      <div className="flex gap-3 rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-700 dark:border-white/10 dark:bg-[#261E1A] dark:text-[#E7E0D6]">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />
+        <p className="text-xs leading-5">Add questions, answer choices, and a curriculum unit. A source PDF is optional.</p>
       </div>
 
-      {activeTab === "archive" ? (
-        /* Archive View */
-        <div className="space-y-4">
-          {archive.length === 0 ? (
-            <div className="bg-white border border-[#E2E8F0] rounded-[8px] p-12 text-center text-slate-500 space-y-3">
-              <GraduationCap className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
-              <p className="text-sm font-semibold text-slate-700">No past papers archived yet.</p>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Upload official national examinations to index past questions and calibrate curriculum unit mappings.
-              </p>
-              <button
-                type="button"
-                onClick={() => setActiveTab("upload")}
-                className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-xs font-semibold cursor-pointer"
-              >
-                <Upload className="w-4 h-4" />
-                <span>Upload past paper</span>
+      {assignmentsLoading ? (
+        <div role="status" className="rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-500 dark:border-white/10 dark:bg-[#261E1A] dark:text-[#A89C90]">Loading your Grade 12 assignments...</div>
+      ) : assignmentsError ? (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200">Your teaching assignments could not be loaded. Refresh the page and try again.</div>
+      ) : assignedPairs.length === 0 ? (
+        <section className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center dark:border-white/15 dark:bg-[#261E1A]">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">A Grade 12 assignment is required</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-stone-600 dark:text-[#E7E0D6]">Ask your administrator to assign you to a Grade 12 subject before adding questions.</p>
+        </section>
+      ) : (
+        <form onSubmit={handleSave} className="space-y-5">
+          <section className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#261E1A] sm:p-6" aria-labelledby="paper-details-heading">
+            <div>
+              <h2 id="paper-details-heading" className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">Question set details</h2>
+              <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">Choose the assigned subject and provide the paper year and source.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <label htmlFor="past-paper-assignment" className="text-xs font-semibold text-stone-800 dark:text-[#E7E0D6]">Grade 12 assignment</label>
+                <select id="past-paper-assignment" value={selectedPairKey} onChange={(event) => setSelectedPairKey(event.target.value)} required className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-800 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]">
+                  {assignedPairs.map((pair) => (
+                    <option key={pairKey(pair)} value={pairKey(pair)}>
+                      {[pair.section_name || pair.grade || `Class ${pair.section_id}`, pair.subject_name].filter(Boolean).join(" · ")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="past-paper-year" className="text-xs font-semibold text-stone-800 dark:text-[#E7E0D6]">Exam year</label>
+                <input id="past-paper-year" value={year} onChange={(event) => setYear(event.target.value)} placeholder="e.g. 2017 E.C." required className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-800 placeholder:text-stone-400 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="past-paper-source" className="text-xs font-semibold text-stone-800 dark:text-[#E7E0D6]">Source or paper title</label>
+                <input id="past-paper-source" value={source} onChange={(event) => setSource(event.target.value)} placeholder="e.g. National entrance examination" required className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-800 placeholder:text-stone-400 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <label htmlFor="past-paper-source-file" className="text-xs font-semibold text-stone-800 dark:text-[#E7E0D6]">Source PDF <span className="font-normal text-stone-500 dark:text-[#A89C90]">(optional)</span></label>
+                <input id="past-paper-source-file" type="file" accept="application/pdf,.pdf" onChange={(event) => setSourceFile(event.target.files?.[0] || null)} className="block min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 file:mr-3 file:rounded-md file:border-0 file:bg-stone-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold dark:border-white/15 dark:bg-[#1C1512] dark:text-[#E7E0D6] dark:file:bg-white/10" />
+                <p className="text-xs leading-5 text-stone-500 dark:text-[#A89C90]">PDF only, up to 25 MB. Students do not see the source file.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#261E1A] sm:p-6" aria-labelledby="paper-questions-heading">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 id="paper-questions-heading" className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">Questions</h2>
+                <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">Add the question, four choices, answer, and unit mapping.</p>
+              </div>
+              <button type="button" onClick={() => setQuestions((current) => [...current, createQuestion()])} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-300 px-3 text-xs font-semibold text-stone-700 transition-colors hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#881337] dark:border-white/15 dark:text-[#E7E0D6] dark:hover:bg-white/5">
+                <Plus className="h-4 w-4" aria-hidden="true" /> Add question
               </button>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {archive.map((paper) => (
-                <div
-                  key={paper.id}
-                  className="p-5 bg-white border border-[#E2E8F0] rounded-[8px] shadow-xs space-y-4 hover:border-blue-300 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1D4ED8] font-bold text-xs border border-[#BFDBFE]">
-                        {paper.year}
-                      </span>
-                      <h3 className="font-semibold text-sm text-[#0F172A] mt-2">
-                        Grade 12 national examination
-                      </h3>
-                      <p className="text-[11px] text-slate-500">{paper.source}</p>
-                    </div>
-                    <GraduationCap className="w-5 h-5 text-[#1D4ED8]" />
+
+            <div className="space-y-4">
+              {questions.map((question, index) => (
+                <article key={question.id} className="space-y-4 rounded-xl border border-stone-200 bg-[#FAF8F5] p-4 dark:border-white/10 dark:bg-[#1C1512] sm:p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">Question {index + 1}</h3>
+                    {questions.length > 1 && <button type="button" onClick={() => setQuestions((current) => current.filter((item) => item.id !== question.id))} aria-label={`Remove question ${index + 1}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-rose-700 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-600 dark:text-rose-200 dark:hover:bg-rose-950/30"><Trash2 className="h-4 w-4" aria-hidden="true" />Remove</button>}
                   </div>
-
-                  <div className="space-y-1.5 text-xs text-slate-600 border-t border-[#E2E8F0] pt-3">
-                    <div className="flex justify-between">
-                      <span>Items indexed:</span>
-                      <span className="font-mono font-semibold text-[#0F172A]">{paper.totalQuestions} questions</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>File size:</span>
-                      <span className="font-mono text-slate-500">{paper.fileSizeMb} MB</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Mapped units:</span>
-                      <span className="font-medium text-slate-700">{paper.mappedUnits.join(", ")}</span>
-                    </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor={`question-text-${question.id}`} className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Question text</label>
+                    <textarea id={`question-text-${question.id}`} rows={3} value={question.text} onChange={(event) => updateQuestion(question.id, (item) => ({ ...item, text: event.target.value }))} required className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-800 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#261E1A] dark:text-[#FDFBF7]" />
                   </div>
-
-                  <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400">Added {paper.uploadDate}</span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          showToast({
-                            title: "Exam opened",
-                            message: `Viewing ${paper.year} national paper questions.`,
-                            type: "info"
-                          });
-                        }}
-                        className="px-2.5 py-1 rounded-[6px] border border-[#E2E8F0] hover:bg-[#EFF6FF] text-[#1D4ED8] font-semibold text-xs cursor-pointer inline-flex items-center gap-1"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Inspect</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          showToast({
-                            title: "Download started",
-                            message: `Downloading ${paper.year} official exam PDF.`,
-                            type: "success"
-                          });
-                        }}
-                        className="p-1 rounded-[6px] border border-[#E2E8F0] hover:bg-slate-50 text-slate-600 cursor-pointer"
-                        title="Download PDF"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        /* Upload & OCR Mapping View */
-        <div className="space-y-6">
-          {step === "upload" && (
-            <div className="bg-white border border-[#E2E8F0] rounded-[8px] p-8 max-w-xl mx-auto shadow-xs space-y-5">
-              <div className="w-12 h-12 rounded-full bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] flex items-center justify-center mx-auto">
-                <Upload className="w-6 h-6" />
-              </div>
-              <div className="text-center">
-                <h2 className="text-base font-semibold text-[#0F172A]">Upload Grade 12 exam paper</h2>
-                <p className="text-xs text-[#475569] mt-1">
-                  Upload official examination papers. OCR extracts questions for syllabus unit mapping.
-                </p>
-              </div>
-
-              {validationError && (
-                <div className="p-3 rounded-[6px] bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{validationError}</span>
-                </div>
-              )}
-
-              <div className="space-y-4 text-xs">
-                <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">
-                    Examination Year <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => {
-                      setSelectedYear(e.target.value);
-                      setValidationError(null);
-                    }}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-                  >
-                    <option value="">Select a year</option>
-                    <option value="2017 E.C.">2017 E.C.</option>
-                    <option value="2016 E.C.">2016 E.C.</option>
-                    <option value="2015 E.C.">2015 E.C.</option>
-                    <option value="2014 E.C.">2014 E.C.</option>
-                    <option value="2013 E.C.">2013 E.C.</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">
-                    Exam PDF document (Max 25 MB)
-                  </label>
-                  <label className="border-2 border-dashed border-[#E2E8F0] hover:border-[#1D4ED8] rounded-[8px] p-6 text-center cursor-pointer block transition-colors bg-[#F8FAFC]">
-                    <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                    <span className="block font-semibold text-[#1D4ED8] text-xs">
-                      Click to choose exam PDF
-                    </span>
-                    <span className="block text-[11px] text-slate-400 mt-1">
-                      PDF documents up to 25 MB
-                    </span>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {step === "extracting" && (
-            <div className="bg-white border border-[#E2E8F0] rounded-[8px] p-12 text-center space-y-4 max-w-lg mx-auto shadow-xs">
-              <div className="w-10 h-10 border-3 border-slate-200 border-t-[#1D4ED8] rounded-full animate-spin mx-auto" />
-              <div>
-                <h2 className="text-sm font-semibold text-[#0F172A]">Processing OCR extraction from {fileName}...</h2>
-                <p className="text-xs text-[#475569] mt-1">
-                  Parsing mathematical notation, scientific diagrams, and question stems for {selectedYear}.
-                </p>
-              </div>
-              <div className="w-48 bg-slate-100 h-1.5 rounded-full mx-auto overflow-hidden">
-                <div className="bg-[#1D4ED8] h-full w-3/4 animate-pulse rounded-full" />
-              </div>
-            </div>
-          )}
-
-          {step === "mapping" && (
-            <div className="bg-white border border-[#E2E8F0] rounded-[8px] p-5 space-y-4 shadow-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
-                <div>
-                  <h2 className="text-base font-semibold text-[#0F172A]">
-                    Review extracted questions
-                  </h2>
-                  <p className="text-xs text-[#475569] mt-0.5">
-                    {selectedYear} • {fileName} • {extractedItems.length} items extracted
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleConfirmSave}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-xs font-semibold rounded-[6px] cursor-pointer shadow-xs"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Save mapped questions</span>
-                  </button>
-                </div>
-              </div>
-
-              {unmappedCount > 0 && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-[6px] text-amber-800 text-xs flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-                    <span className="font-semibold">{unmappedCount} questions need a unit.</span>
-                  </div>
-                  <span className="text-[11px] text-amber-700">Assign all items to proceed</span>
-                </div>
-              )}
-
-              {/* Items List */}
-              <div className="space-y-3 text-xs">
-                {extractedItems.map((item, idx) => (
-                  <div
-                    key={item.number}
-                    className={`p-3.5 border rounded-[6px] space-y-2 transition-colors ${
-                      item.unit === 0 ? "bg-amber-50/40 border-amber-300" : "bg-[#F8FAFC] border-[#E2E8F0]"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="font-semibold text-[#0F172A] text-sm">
-                          Question {item.number}: {item.text}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          Auto-mapped topic: <span className="font-medium text-slate-700">{item.topic}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-semibold text-slate-600">Unit:</span>
-                        <select
-                          value={item.unit}
-                          onChange={(e) => {
-                            const updated = [...extractedItems];
-                            updated[idx].unit = Number(e.target.value);
-                            setExtractedItems(updated);
-                            setValidationError(null);
-                          }}
-                          className={`px-2.5 py-1.5 border rounded-[6px] bg-white text-xs font-semibold ${
-                            item.unit === 0 ? "border-amber-400 text-amber-700" : "border-[#E2E8F0] text-slate-700"
-                          }`}
-                        >
-                          <option value={0}>Unassigned (needs unit)</option>
-                          <option value={1}>Unit 1: Biochemical Fundamentals</option>
-                          <option value={2}>Unit 2: Cellular Structures</option>
-                          <option value={3}>Unit 3: Genetics & Molecular Inheritance</option>
-                          <option value={4}>Unit 4: Cell Physiology & Metabolism</option>
-                          <option value={5}>Unit 5: Human Organ Systems</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 pt-1 text-slate-600 text-[11px]">
-                      {item.options.map((opt, oIdx) => (
-                        <div
-                          key={oIdx}
-                          className={`p-1.5 rounded ${
-                            oIdx === item.correctAnswer
-                              ? "bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200"
-                              : "bg-white border border-[#E2E8F0]"
-                          }`}
-                        >
-                          <span className="font-mono mr-1.5 font-bold">
-                            {String.fromCharCode(65 + oIdx)}.
-                          </span>
-                          {opt}
+                  <fieldset className="space-y-3">
+                    <legend className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Answer choices</legend>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {question.options.map((option, optionIndex) => (
+                        <div key={optionIndex} className="space-y-1">
+                          <label htmlFor={`question-${question.id}-option-${optionIndex}`} className="text-[11px] font-medium text-stone-500 dark:text-[#A89C90]">Choice {String.fromCharCode(65 + optionIndex)}</label>
+                          <input id={`question-${question.id}-option-${optionIndex}`} value={option} onChange={(event) => updateQuestion(question.id, (item) => ({ ...item, options: item.options.map((value, itemIndex) => itemIndex === optionIndex ? event.target.value : value) }))} required className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-800 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#261E1A] dark:text-[#FDFBF7]" />
                         </div>
                       ))}
                     </div>
+                  </fieldset>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="space-y-1">
+                      <label htmlFor={`question-${question.id}-answer`} className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Correct choice</label>
+                      <select id={`question-${question.id}-answer`} value={question.correctAnswer} onChange={(event) => updateQuestion(question.id, (item) => ({ ...item, correctAnswer: Number(event.target.value) }))} className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-800 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#261E1A] dark:text-[#FDFBF7]">{question.options.map((_, optionIndex) => <option key={optionIndex} value={optionIndex}>Choice {String.fromCharCode(65 + optionIndex)}</option>)}</select>
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor={`question-${question.id}-unit`} className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Curriculum unit</label>
+                      <input id={`question-${question.id}-unit`} type="number" min={1} max={99} value={question.unit || ""} onChange={(event) => updateQuestion(question.id, (item) => ({ ...item, unit: Number(event.target.value) || 0 }))} required placeholder="Unit number" className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-800 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#261E1A] dark:text-[#FDFBF7]" />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor={`question-${question.id}-topic`} className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Topic <span className="font-normal text-stone-500">(optional)</span></label>
+                      <input id={`question-${question.id}-topic`} value={question.topic} onChange={(event) => updateQuestion(question.id, (item) => ({ ...item, topic: event.target.value }))} className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-800 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#261E1A] dark:text-[#FDFBF7]" />
+                    </div>
                   </div>
-                ))}
-              </div>
+                </article>
+              ))}
             </div>
-          )}
 
-          {step === "saved" && (
-            <div className="bg-white border border-emerald-200 rounded-[8px] p-8 text-center space-y-3 max-w-lg mx-auto shadow-xs">
-              <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center mx-auto">
-                <Check className="w-6 h-6" />
-              </div>
-              <h2 className="text-base font-semibold text-[#0F172A]">Past paper successfully processed & saved</h2>
-              <p className="text-xs text-[#475569] max-w-md mx-auto">
-                Questions have been indexed into the question bank and mapped to curriculum units for Grade 12 students.
-              </p>
-              <div className="pt-3 flex justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("archive");
-                    setStep("upload");
-                  }}
-                  className="px-3.5 py-2 border border-[#E2E8F0] rounded-[6px] text-xs font-semibold hover:bg-slate-50 cursor-pointer min-h-[38px]"
-                >
-                  View archive
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep("upload");
-                    setSelectedYear("");
-                    setFileName(null);
-                  }}
-                  className="px-3.5 py-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-[6px] text-xs font-semibold cursor-pointer min-h-[38px]"
-                >
-                  Upload another paper
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-stone-200 p-3 dark:border-white/10">
+              <input type="checkbox" checked={rightsConfirmed} onChange={(event) => setRightsConfirmed(event.target.checked)} required className="mt-0.5 h-4 w-4 accent-[#881337]" />
+              <span className="text-xs leading-5 text-stone-700 dark:text-[#E7E0D6]">I have permission to share these questions with students.</span>
+            </label>
+          </section>
+
+          {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200">{error}</p>}
+          {savedMessage && <div role="status" className="flex gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-100"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /><div><p className="font-semibold">Past-paper material saved</p><p className="mt-1 text-xs leading-5">{savedMessage}</p><button type="button" onClick={startAnotherSet} className="mt-3 min-h-9 rounded-lg px-2 text-xs font-semibold underline">Add another question set</button></div></div>}
+
+          {!savedMessage && <div className="flex flex-col gap-3 border-t border-stone-200 pt-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-stone-500 dark:text-[#A89C90]">Each question is saved with one mark and its selected unit.</p>
+            <button type="submit" disabled={saving || !selectedPair} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#881337] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#9F1239] focus:outline-none focus:ring-2 focus:ring-[#881337] disabled:cursor-wait disabled:opacity-60">
+              <Upload className="h-4 w-4" aria-hidden="true" />{saving ? "Saving questions..." : `Save ${questions.length} question${questions.length === 1 ? "" : "s"}`}
+            </button>
+          </div>}
+        </form>
       )}
-    </div>
+
+      <section aria-labelledby="past-paper-history-heading" className="space-y-3">
+        <div>
+          <h2 id="past-paper-history-heading" className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">Recent school past-paper material</h2>
+          <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">Visible to educators in your active school.</p>
+        </div>
+        {uploadsLoading ? (
+          <div role="status" className="rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-500 dark:border-white/10 dark:bg-[#261E1A] dark:text-[#A89C90]">Loading recent material…</div>
+        ) : uploadsError ? (
+          <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200 sm:flex-row sm:items-center sm:justify-between">
+            <span>School past-paper history could not be loaded.</span>
+            <button type="button" onClick={() => void loadRecentUploads()} className="min-h-9 rounded-lg border border-rose-300 px-3 text-xs font-semibold hover:bg-rose-100 dark:border-rose-800 dark:hover:bg-rose-900/30">Try again</button>
+          </div>
+        ) : recentUploads.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-500 dark:border-white/15 dark:bg-[#261E1A] dark:text-[#A89C90]">No past-paper material has been added by your school yet.</div>
+        ) : (
+          <ul className="divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white dark:divide-white/10 dark:border-white/10 dark:bg-[#261E1A]">
+            {recentUploads.slice(0, 10).map((item) => (
+              <li key={item.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{item.subject} · {item.year}</p>
+                  <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">{item.source} · added by {item.uploaded_by}</p>
+                </div>
+                {item.has_source_file && (
+                  <button type="button" onClick={() => void downloadSchoolPastPaperFile(item.id, item.file_name)} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-stone-300 px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#881337] dark:border-white/15 dark:text-[#E7E0D6] dark:hover:bg-white/5">
+                    <Download className="h-4 w-4" aria-hidden="true" /> Download source PDF
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </PortalPage>
   );
 }

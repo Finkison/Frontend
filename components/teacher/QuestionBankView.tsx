@@ -1,700 +1,163 @@
-import React, { useState } from "react";
-import useAuthStore from "../../store/authStore";
-import { 
-  Sparkles, 
-  Plus, 
-  Share2, 
-  Check, 
-  BookOpen, 
-  Filter, 
-  Search, 
-  Tag, 
-  BarChart2, 
-  Printer, 
-  Copy, 
-  Trash2, 
-  X,
-  Layers,
-  CheckCircle2,
-  AlertCircle
-} from "lucide-react";
-import { useToast } from "../ui/Toast";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Search, Upload } from "lucide-react";
+import { getStudentPastPapers, getTeacherAssignedPairs } from "../../services/schoolService";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
 
-interface QuestionItem {
-  id: string;
-  code: string;
-  unit: number;
-  unitName: string;
-  topic: string;
-  text: string;
+type AssignedPair = {
+  section_id: string | number;
+  section_name?: string;
+  grade?: string;
+  grade_level?: number;
+  subject_id: string;
+  subject_name: string;
+};
+
+type PastPaperQuestion = {
+  id: string | number;
+  subject?: string;
+  year?: string;
+  unit?: number;
+  topic?: string;
+  difficulty?: string;
+  question_text: string;
   options: string[];
-  correctIndex: number;
-  explanation: string;
-  bloomLevel: "Recall" | "Understand" | "Apply" | "Analyze";
-  difficulty: "Foundational" | "Moderate" | "Challenging";
-  studentAccuracy: number; // percentage
-  attemptsCount: number;
-  shared: boolean;
-  author: string;
-}
+  source?: string;
+};
+
+const pairKey = (pair: AssignedPair) => `${pair.subject_id}:${pair.section_id}`;
+const isGradeTwelve = (pair: AssignedPair) => Number(pair.grade_level) === 12 || /(?:^|\D)12(?:\D|$)/.test(String(pair.grade || pair.section_name || ""));
 
 export default function TeacherQuestionBankView(): React.ReactElement {
-  const { showToast } = useToast();
-  const { user } = useAuthStore();
-  const teacherSubject = (user as any)?.subject || "Biology";
+  const [assignments, setAssignments] = useState<AssignedPair[]>([]);
+  const [selectedPairKey, setSelectedPairKey] = useState("");
+  const [questions, setQuestions] = useState<PastPaperQuestion[]>([]);
+  const [query, setQuery] = useState("");
+  const [assignmentsLoading, setAssignmentsLoading] = useState(true);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [assignmentsError, setAssignmentsError] = useState(false);
 
-  const [selectedUnit, setSelectedUnit] = useState<string>("all");
-  const [selectedBloom, setSelectedBloom] = useState<string>("all");
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
-  const [selectedShareFilter, setSelectedShareFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-  // Selected for bulk test export
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  // Add question form state
-  const [newText, setNewText] = useState("");
-  const [newUnit, setNewUnit] = useState(4);
-  const [newTopic, setNewTopic] = useState("");
-  const [newBloom, setNewBloom] = useState<"Recall" | "Understand" | "Apply" | "Analyze">("Apply");
-  const [newDifficulty, setNewDifficulty] = useState<"Foundational" | "Moderate" | "Challenging">("Moderate");
-  const [newOptions, setNewOptions] = useState(["", "", "", ""]);
-  const [newCorrectIndex, setNewCorrectIndex] = useState(0);
-  const [newExplanation, setNewExplanation] = useState("");
-
-  const [questions, setQuestions] = useState<QuestionItem[]>([
-    {
-      id: "qb-1",
-      code: "QB-BIO-401",
-      unit: 4,
-      unitName: "Cell Physiology & Metabolism",
-      topic: "Cellular Respiration & ATP Synthesis",
-      text: "Which organelle in eukaryotic cells is responsible for cellular ATP synthesis during aerobic respiration, and what is the primary role of its inner mitochondrial cristae?",
-      options: [
-        "Ribosome: Peptide bond synthesis",
-        "Mitochondria: Maximizing surface area for the electron transport chain",
-        "Golgi apparatus: Protein glycosylation and sorting",
-        "Endoplasmic reticulum: Calcium ion sequestration"
-      ],
-      correctIndex: 1,
-      explanation: "Mitochondrial cristae provide extensive surface area accommodating high concentrations of ETC Complexes I–IV and ATP synthase enzymes.",
-      bloomLevel: "Understand",
-      difficulty: "Foundational",
-      studentAccuracy: 88,
-      attemptsCount: 142,
-      shared: true,
-      author: "Dr. Aster Bekele"
-    },
-    {
-      id: "qb-2",
-      code: "QB-BIO-304",
-      unit: 3,
-      unitName: "Genetics & Molecular Inheritance",
-      topic: "Meiosis & Chromosomal Recombination",
-      text: "During which specific sub-stage of Prophase I do homologous chromosome non-sister chromatids form chiasmata and undergo crossing over?",
-      options: [
-        "Leptotene: Condensation of chromatin",
-        "Pachytene: Crossing over and genetic recombination",
-        "Diplotene: Dissolution of synaptonemal complex",
-        "Diakinesis: Terminalization of chiasmata"
-      ],
-      correctIndex: 1,
-      explanation: "Crossing over occurs during pachytene when the synaptonemal complex stabilizes tetrad pairs.",
-      bloomLevel: "Recall",
-      difficulty: "Moderate",
-      studentAccuracy: 72,
-      attemptsCount: 120,
-      shared: true,
-      author: "Dr. Aster Bekele"
-    },
-    {
-      id: "qb-3",
-      code: "QB-BIO-508",
-      unit: 5,
-      unitName: "Human Organ Systems & Homeostasis",
-      topic: "Renal Physiology",
-      text: "What primary biophysical mechanism accounts for the ultrafiltration of blood plasma within the glomerulus into Bowman's capsule?",
-      options: [
-        "Active sodium pumping via ATP hydrolysis",
-        "Glomerular capillary hydrostatic pressure exceeding opposing osmotic and capsular pressures",
-        "Facilitated diffusion through aquaporin channels",
-        "Endocytosis of plasma macromolecules by podocytes"
-      ],
-      correctIndex: 1,
-      explanation: "Net filtration pressure (NFP ~ 10 mmHg) is driven by afferent arteriole glomerular hydrostatic pressure overcoming colloid osmotic and capsular pressures.",
-      bloomLevel: "Analyze",
-      difficulty: "Challenging",
-      studentAccuracy: 54,
-      attemptsCount: 96,
-      shared: false,
-      author: "Dr. Aster Bekele"
-    },
-    {
-      id: "qb-4",
-      code: "QB-BIO-412",
-      unit: 4,
-      unitName: "Cell Physiology & Metabolism",
-      topic: "Enzyme Kinetics & Regulation",
-      text: "In the presence of a competitive inhibitor, what changes are observed in the Michaelis constant (Km) and maximal velocity (Vmax) of an enzymatic reaction?",
-      options: [
-        "Km increases while Vmax remains unchanged",
-        "Km decreases while Vmax increases",
-        "Both Km and Vmax decrease proportionally",
-        "Km remains unchanged while Vmax decreases"
-      ],
-      correctIndex: 0,
-      explanation: "Competitive inhibitors bind reversibly to the active site, requiring higher substrate concentration to reach half-maximal velocity (Km increases), but high substrate can still saturate the enzyme (Vmax unchanged).",
-      bloomLevel: "Apply",
-      difficulty: "Challenging",
-      studentAccuracy: 61,
-      attemptsCount: 110,
-      shared: true,
-      author: "Dr. Aster Bekele"
-    }
-  ]);
-
-  const handleToggleShare = (id: string) => {
-    setQuestions(
-      questions.map((q) => (q.id === id ? { ...q, shared: !q.shared } : q))
-    );
-    showToast({
-      title: "Sharing updated",
-      message: "Item sharing permissions with department faculty have been updated.",
-      type: "success"
-    });
-  };
-
-  const handleDuplicate = (q: QuestionItem) => {
-    const duplicated: QuestionItem = {
-      ...q,
-      id: `qb-${Date.now()}`,
-      code: `QB-BIO-${Math.floor(100 + Math.random() * 900)}`,
-      shared: false,
-      studentAccuracy: 0,
-      attemptsCount: 0
-    };
-    setQuestions([duplicated, ...questions]);
-    showToast({
-      title: "Question duplicated",
-      message: `Created duplicate item "${duplicated.code}".`,
-      type: "success"
-    });
-  };
-
-  const handleSelectToggle = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedIds.length === filteredQuestions.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredQuestions.map((q) => q.id));
-    }
-  };
-
-  const handleExportSelected = () => {
-    if (selectedIds.length === 0) {
-      showToast({
-        title: "No questions selected",
-        message: "Select at least one question to export a printable assessment.",
-        type: "info"
+  useEffect(() => {
+    let isCurrent = true;
+    getTeacherAssignedPairs()
+      .then((response) => {
+        if (!isCurrent) return;
+        const pairs = Array.isArray(response.data?.pairs) ? response.data.pairs.filter(isGradeTwelve) : [];
+        setAssignments(pairs);
+        setSelectedPairKey(pairs[0] ? pairKey(pairs[0]) : "");
+      })
+      .catch(() => {
+        if (isCurrent) setAssignmentsError(true);
+      })
+      .finally(() => {
+        if (isCurrent) setAssignmentsLoading(false);
       });
+    return () => { isCurrent = false; };
+  }, []);
+
+  const selectedPair = assignments.find((pair) => pairKey(pair) === selectedPairKey);
+
+  useEffect(() => {
+    if (!selectedPair) {
+      setQuestions([]);
       return;
     }
-    showToast({
-      title: "Assessment exported",
-      message: `Generated printable test sheet with ${selectedIds.length} items and answer keys.`,
-      type: "success"
-    });
-  };
-
-  const handleCreateQuestion = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newText.trim() || newOptions.some((opt) => !opt.trim())) {
-      showToast({
-        title: "Incomplete item",
-        message: "Please fill in the question text and all 4 response choices.",
-        type: "error"
+    let isCurrent = true;
+    setQuestionsLoading(true);
+    setError(null);
+    getStudentPastPapers(selectedPair.subject_id)
+      .then((response) => {
+        if (!isCurrent) return;
+        const items = response.data?.questions;
+        setQuestions(Array.isArray(items) ? items : []);
+      })
+      .catch((err: any) => {
+        if (!isCurrent) return;
+        setQuestions([]);
+        setError(err?.response?.data?.error || "Past-paper questions could not be loaded. Try again.");
+      })
+      .finally(() => {
+        if (isCurrent) setQuestionsLoading(false);
       });
-      return;
-    }
+    return () => { isCurrent = false; };
+  }, [selectedPair?.subject_id]);
 
-    const newItem: QuestionItem = {
-      id: `qb-${Date.now()}`,
-      code: `QB-BIO-${Math.floor(100 + Math.random() * 900)}`,
-      unit: newUnit,
-      unitName: newUnit === 4 ? "Cell Physiology & Metabolism" : newUnit === 3 ? "Genetics & Molecular Inheritance" : "Curriculum Unit",
-      topic: newTopic || "General Topic",
-      text: newText.trim(),
-      options: [...newOptions],
-      correctIndex: newCorrectIndex,
-      explanation: newExplanation || "Standard textbook rationale aligned with national syllabus.",
-      bloomLevel: newBloom,
-      difficulty: newDifficulty,
-      studentAccuracy: 0,
-      attemptsCount: 0,
-      shared: true,
-      author: "Dr. Aster Bekele"
-    };
-
-    setQuestions([newItem, ...questions]);
-    setIsAddModalOpen(false);
-    setNewText("");
-    setNewTopic("");
-    setNewOptions(["", "", "", ""]);
-    setNewExplanation("");
-    showToast({
-      title: "Question drafted",
-      message: `Item ${newItem.code} added to question bank.`,
-      type: "success"
-    });
-  };
-
-  const filteredQuestions = questions.filter((q) => {
-    if (selectedUnit !== "all" && String(q.unit) !== selectedUnit) return false;
-    if (selectedBloom !== "all" && q.bloomLevel !== selectedBloom) return false;
-    if (selectedDifficulty !== "all" && q.difficulty !== selectedDifficulty) return false;
-    if (selectedShareFilter === "shared" && !q.shared) return false;
-    if (selectedShareFilter === "private" && q.shared) return false;
-    if (searchQuery.trim()) {
-      const qLower = searchQuery.toLowerCase();
-      const matchText = q.text.toLowerCase().includes(qLower);
-      const matchTopic = q.topic.toLowerCase().includes(qLower);
-      const matchCode = q.code.toLowerCase().includes(qLower);
-      if (!matchText && !matchTopic && !matchCode) return false;
-    }
-    return true;
-  });
-
-  const sharedCount = questions.filter((q) => q.shared).length;
+  const visibleQuestions = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return questions;
+    return questions.filter((question) => [question.question_text, question.topic, question.year, question.source]
+      .some((value) => String(value || "").toLowerCase().includes(normalized)));
+  }, [questions, query]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-[#0F172A] tracking-tight">Question bank</h1>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
-              {teacherSubject}
-            </span>
-          </div>
-          <p className="text-xs text-[#475569] mt-0.5">
-            Subject question bank with cognitive levels, difficulty ratings, and discrimination metrics.
-          </p>
+    <PortalPage className="max-w-5xl space-y-6">
+      <PageHeader
+        eyebrow="Teacher resources"
+        title="Grade 12 past papers"
+        description="Browse past-paper questions available for your assigned Grade 12 subjects."
+        primaryAction={{ label: "Manage past-paper uploads", href: "/teacher/past-papers", icon: Upload }}
+      />
+
+      {assignmentsLoading ? (
+        <div role="status" className="rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-500 dark:border-white/10 dark:bg-[#261E1A] dark:text-[#A89C90]">Loading your Grade 12 assignments...</div>
+      ) : assignmentsError ? (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200">Your assignments could not be loaded. Refresh the page and try again.</div>
+      ) : assignments.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center dark:border-white/15 dark:bg-[#261E1A]">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">A Grade 12 assignment is required</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-stone-600 dark:text-[#E7E0D6]">Ask your administrator to assign you to a Grade 12 class.</p>
         </div>
-        <div className="flex items-center gap-2">
-          {selectedIds.length > 0 && (
-            <button
-              type="button"
-              onClick={handleExportSelected}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-[#BFDBFE] bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#1D4ED8] text-xs font-semibold shadow-xs cursor-pointer min-h-[40px]"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Export {selectedIds.length} items to test</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs cursor-pointer min-h-[40px]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add question</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Telemetry Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-white border border-[#E2E8F0] rounded-[8px] shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total items in bank</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-[#0F172A] font-mono">{questions.length}</span>
-            <span className="text-xs text-slate-500 font-medium">Verified items</span>
-          </div>
-        </div>
-        <div className="p-4 bg-white border border-[#E2E8F0] rounded-[8px] shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Department shared</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-emerald-700 font-mono">{sharedCount}</span>
-            <span className="text-xs text-emerald-600 font-medium">Faculty visible</span>
-          </div>
-        </div>
-        <div className="p-4 bg-white border border-[#E2E8F0] rounded-[8px] shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">National EUEE aligned</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-[#1D4ED8] font-mono">100%</span>
-            <span className="text-xs text-blue-600 font-medium">MoE syllabus</span>
-          </div>
-        </div>
-        <div className="p-4 bg-white border border-[#E2E8F0] rounded-[8px] shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Average accuracy</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-slate-700 font-mono">71.2%</span>
-            <span className="text-xs text-slate-500 font-medium">Cohort attempts</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter and Search Console */}
-      <div className="bg-white border border-[#E2E8F0] rounded-[8px] p-3 shadow-xs space-y-3 text-xs">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search question stem, keywords, topic, or code..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 border border-[#E2E8F0] rounded-[6px] text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleSelectAll}
-              className="px-2.5 py-1.5 rounded-[6px] border border-[#E2E8F0] hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer"
-            >
-              {selectedIds.length === filteredQuestions.length && filteredQuestions.length > 0
-                ? "Deselect all"
-                : "Select all"}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E2E8F0]">
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-medium">Unit:</span>
-            <select
-              value={selectedUnit}
-              onChange={(e) => setSelectedUnit(e.target.value)}
-              className="px-2 py-1 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-            >
-              <option value="all">All units</option>
-              <option value="3">Unit 3: Genetics</option>
-              <option value="4">Unit 4: Cell Physiology</option>
-              <option value="5">Unit 5: Human Systems</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-medium">Cognitive Level:</span>
-            <select
-              value={selectedBloom}
-              onChange={(e) => setSelectedBloom(e.target.value)}
-              className="px-2 py-1 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-            >
-              <option value="all">All Bloom levels</option>
-              <option value="Recall">Recall</option>
-              <option value="Understand">Understand</option>
-              <option value="Apply">Apply</option>
-              <option value="Analyze">Analyze</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-medium">Difficulty:</span>
-            <select
-              value={selectedDifficulty}
-              onChange={(e) => setSelectedDifficulty(e.target.value)}
-              className="px-2 py-1 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-            >
-              <option value="all">All difficulties</option>
-              <option value="Foundational">Foundational</option>
-              <option value="Moderate">Moderate</option>
-              <option value="Challenging">Challenging</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-medium">Sharing:</span>
-            <select
-              value={selectedShareFilter}
-              onChange={(e) => setSelectedShareFilter(e.target.value)}
-              className="px-2 py-1 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-            >
-              <option value="all">All items</option>
-              <option value="shared">Department shared</option>
-              <option value="private">Private items</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Questions Item List */}
-      <div className="space-y-3">
-        {filteredQuestions.length === 0 ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] p-8 text-center text-slate-500 text-xs shadow-xs">
-            No questions match your current search and filter settings.
-          </div>
-        ) : (
-          filteredQuestions.map((q) => {
-            const isSelected = selectedIds.includes(q.id);
-            return (
-              <div
-                key={q.id}
-                className={`p-4 bg-white border rounded-[8px] space-y-3 text-xs shadow-xs transition-colors ${
-                  isSelected ? "border-[#1D4ED8] bg-blue-50/10" : "border-[#E2E8F0]"
-                }`}
-              >
-                {/* Item Meta Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E2E8F0] pb-2.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => handleSelectToggle(q.id)}
-                      className="rounded border-[#E2E8F0] text-[#1D4ED8] focus:ring-0 cursor-pointer"
-                    />
-                    <span className="font-mono font-semibold text-slate-700">{q.code}</span>
-                    <span className="px-2 py-0.5 rounded-[4px] bg-slate-100 text-slate-700 font-semibold text-[10px]">
-                      Unit {q.unit} • {q.topic}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-[4px] bg-slate-100 text-slate-700 font-semibold text-[10px] border border-slate-200">
-                      Bloom: {q.bloomLevel}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-[4px] font-semibold text-[10px] border ${
-                      q.difficulty === "Foundational"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : q.difficulty === "Moderate"
-                        ? "bg-blue-50 text-blue-700 border-blue-200"
-                        : "bg-rose-50 text-rose-700 border-rose-200"
-                    }`}>
-                      {q.difficulty}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {q.attemptsCount > 0 && (
-                      <div className="text-[11px] text-slate-500 flex items-center gap-1 font-mono">
-                        <BarChart2 className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{q.studentAccuracy}% accuracy ({q.attemptsCount} attempts)</span>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleToggleShare(q.id)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] text-[11px] font-semibold border cursor-pointer ${
-                        q.shared
-                          ? "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]"
-                          : "bg-slate-100 text-slate-600 border-slate-200"
-                      }`}
-                    >
-                      <Share2 className="w-3 h-3" />
-                      <span>{q.shared ? "Department shared" : "Private"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDuplicate(q)}
-                      title="Duplicate item"
-                      className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Question Stem */}
-                <div className="font-medium text-[#0F172A] text-sm leading-relaxed">
-                  {q.text}
-                </div>
-
-                {/* Options Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700 pt-1">
-                  {q.options.map((opt, optIdx) => {
-                    const isCorrect = optIdx === q.correctIndex;
-                    const letter = String.fromCharCode(65 + optIdx);
-                    return (
-                      <div
-                        key={optIdx}
-                        className={`p-2.5 rounded-[6px] border text-xs flex items-start gap-2 ${
-                          isCorrect
-                            ? "bg-emerald-50 text-emerald-900 border-emerald-300 font-semibold"
-                            : "bg-[#F8FAFC] border-[#E2E8F0] text-slate-700"
-                        }`}
-                      >
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
-                          isCorrect ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"
-                        }`}>
-                          {letter}
-                        </span>
-                        <span className="leading-snug">{opt}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Pedagogical Explanation */}
-                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-[6px] text-[11px] text-slate-600">
-                  <span className="font-semibold text-slate-700">Curriculum Rationale:</span> {q.explanation}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Add Question Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-            <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-[#0F172A]">Add question to item bank</h2>
-                <p className="text-xs text-[#475569]">{teacherSubject} curriculum</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      ) : (
+        <>
+          <section className="flex flex-col gap-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-[#261E1A] sm:flex-row sm:items-end sm:justify-between" aria-label="Question filters">
+            <div className="w-full space-y-1.5 sm:max-w-sm">
+              <label htmlFor="question-bank-assignment" className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Assigned subject and class</label>
+              <select id="question-bank-assignment" value={selectedPairKey} onChange={(event) => setSelectedPairKey(event.target.value)} className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-800 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]">
+                {assignments.map((pair) => <option key={pairKey(pair)} value={pairKey(pair)}>{[pair.section_name || pair.grade || `Class ${pair.section_id}`, pair.subject_name].filter(Boolean).join(" · ")}</option>)}
+              </select>
             </div>
-
-            <form onSubmit={handleCreateQuestion} className="p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Curriculum Unit</label>
-                  <select
-                    value={newUnit}
-                    onChange={(e) => setNewUnit(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-                  >
-                    <option value={1}>Unit 1: Biochemical Fundamentals</option>
-                    <option value={2}>Unit 2: Cellular Structures</option>
-                    <option value={3}>Unit 3: Genetics & Molecular Inheritance</option>
-                    <option value={4}>Unit 4: Cell Physiology & Metabolism</option>
-                    <option value={5}>Unit 5: Human Systems</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Topic Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Enzyme Catalysis"
-                    value={newTopic}
-                    onChange={(e) => setNewTopic(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] text-xs bg-white"
-                  />
-                </div>
+            <div className="w-full space-y-1.5 sm:max-w-sm">
+              <label htmlFor="question-bank-search" className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">Search questions</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400 dark:text-[#A89C90]" aria-hidden="true" />
+                <input id="question-bank-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search text, topic, or year" className="min-h-11 w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-sm text-stone-800 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" />
               </div>
+            </div>
+          </section>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Bloom's Taxonomy Tier</label>
-                  <select
-                    value={newBloom}
-                    onChange={(e) => setNewBloom(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-                  >
-                    <option value="Recall">Recall</option>
-                    <option value="Understand">Understand</option>
-                    <option value="Apply">Apply</option>
-                    <option value="Analyze">Analyze</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Difficulty Level</label>
-                  <select
-                    value={newDifficulty}
-                    onChange={(e) => setNewDifficulty(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-                  >
-                    <option value="Foundational">Foundational</option>
-                    <option value="Moderate">Moderate</option>
-                    <option value="Challenging">Challenging</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Question Stem</label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="Enter the complete question stem with precision..."
-                  value={newText}
-                  onChange={(e) => setNewText(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-                />
-              </div>
-
-              {/* Options */}
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">
-                  Response Options & Correct Answer Key
-                </label>
-                <div className="space-y-2">
-                  {newOptions.map((opt, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="correctAnswerKey"
-                        checked={newCorrectIndex === idx}
-                        onChange={() => setNewCorrectIndex(idx)}
-                        className="text-[#1D4ED8] focus:ring-0 cursor-pointer"
-                        title="Mark as correct answer"
-                      />
-                      <span className="font-mono font-semibold text-slate-500 w-4">
-                        {String.fromCharCode(65 + idx)}
-                      </span>
-                      <input
-                        type="text"
-                        required
-                        placeholder={`Option ${String.fromCharCode(65 + idx)} text`}
-                        value={opt}
-                        onChange={(e) => {
-                          const updated = [...newOptions];
-                          updated[idx] = e.target.value;
-                          setNewOptions(updated);
-                        }}
-                        className="flex-1 px-3 py-1.5 border border-[#E2E8F0] rounded-[6px] text-xs bg-white"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">
-                  Pedagogical Rationale / Explanation
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Explanation provided to students in answer keys..."
-                  value={newExplanation}
-                  onChange={(e) => setNewExplanation(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-3 py-2 rounded-[6px] border border-[#E2E8F0] bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-[6px] bg-[#1D4ED8] hover:bg-[#1E40AF] text-white font-semibold cursor-pointer"
-                >
-                  Save question
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+          {questionsLoading ? (
+            <div role="status" className="rounded-2xl border border-stone-200 bg-white p-8 text-center text-sm text-stone-500 dark:border-white/10 dark:bg-[#261E1A] dark:text-[#A89C90]">Loading questions...</div>
+          ) : error ? (
+            <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200">{error}</div>
+          ) : visibleQuestions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center dark:border-white/15 dark:bg-[#261E1A]">
+              <h2 className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">{query ? "No matching questions" : "No past-paper questions yet"}</h2>
+              <p className="mt-2 text-sm text-stone-600 dark:text-[#A89C90]">{query ? "Try a different search term." : "Add mapped questions to make them available for student practice."}</p>
+              {!query && <Link to="/teacher/past-papers" className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#881337] px-4 text-sm font-semibold text-white hover:bg-[#9F1239]">Add questions</Link>}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-stone-500 dark:text-[#A89C90]">{visibleQuestions.length} question{visibleQuestions.length === 1 ? "" : "s"} available for this subject.</p>
+              {visibleQuestions.map((question, index) => (
+                <article key={question.id} className="rounded-2xl border border-stone-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#261E1A]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {question.year && <span className="rounded-full bg-[#FFF1F2] px-2.5 py-1 text-[11px] font-semibold text-[#881337] dark:bg-[#4C0519]/40 dark:text-[#FBBF24]">{question.year}</span>}
+                    {question.unit != null && <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-stone-600 dark:bg-[#201815] dark:text-[#E7E0D6]">Unit {question.unit}</span>}
+                    {question.topic && <span className="text-xs text-stone-500 dark:text-[#A89C90]">{question.topic}</span>}
+                  </div>
+                  <h2 className="mt-3 text-sm font-semibold leading-6 text-stone-900 dark:text-[#FDFBF7]">{index + 1}. {question.question_text}</h2>
+                  <ol className="mt-4 grid gap-2 sm:grid-cols-2" aria-label="Answer choices">
+                    {question.options.map((option, optionIndex) => <li key={optionIndex} className="rounded-lg border border-stone-200 bg-[#FAF8F5] px-3 py-2 text-xs leading-5 text-stone-700 dark:border-white/10 dark:bg-[#1C1512] dark:text-[#E7E0D6]"><span className="mr-2 font-semibold text-[#881337] dark:text-[#FBBF24]">{String.fromCharCode(65 + optionIndex)}.</span>{option}</li>)}
+                  </ol>
+                  <p className="mt-3 text-[11px] text-stone-500 dark:text-[#A89C90]">Answer keys are not returned by the student practice question service.</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </>
       )}
-    </div>
+    </PortalPage>
   );
 }

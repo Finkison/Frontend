@@ -1,596 +1,306 @@
-import React, { useEffect, useState } from "react";
-import useAuthStore from "../../store/authStore";
-import { getTeacherAssignedPairs } from "../../services/schoolService";
-import WaitingForAssignmentView from "./WaitingForAssignmentView";
-import { 
-  Layers, 
-  Users, 
-  BookOpen, 
-  Check, 
-  X, 
-  Calendar, 
-  ChevronRight, 
-  AlertTriangle,
-  Mail,
-  Phone,
-  FileCheck,
-  TrendingUp,
-  Plus,
-  Search,
-  Filter,
-  BarChart2,
-  Clock,
-  Send,
-  AlertCircle
-} from "lucide-react";
-import { useToast } from "../ui/Toast";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight, BookOpen, AlertCircle, ClipboardList, GraduationCap, Search, Target, Users } from "lucide-react";
+import { getSchoolStudents, getTeacherAssignedPairs } from "../../services/schoolService";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
+import { useI18n } from "../../i18n";
 
-interface AssignedSection {
-  id: string;
-  name: string;
-  grade: string;
-  section: string;
-  student_count: number;
-  average_score: number;
+interface TeachingAssignment {
+  assignment_id: string | number;
+  section_id: string | number;
+  section_name: string;
+  grade: string | number;
+  stream?: string | null;
+  subject_id: string | number;
+  subject_name: string;
+  is_substitute?: boolean;
+  can_publish?: boolean;
 }
 
-interface StudentSubjectDetail {
-  id: string;
+interface StudentRecord {
+  id: string | number;
   name: string;
-  grade: string;
+  grade: string | number;
   section: string;
-  subject_score: number;
-  subject_attendance: number;
-  task_completion_rate: number;
-  weak_units: string[];
-  topic_mastery: Record<string, number>;
-  recent_submissions: { taskTitle: string; score: number; maxScore: number; date: string }[];
-  parent_name: string;
-  parent_phone: string;
-  feedback_notes: string;
+  classroom_name?: string;
+  predicted_score?: number | null;
+  target_score?: number | null;
+  is_at_risk?: boolean;
+  streak_days?: number;
 }
+
+type RosterFilter = "all" | "support";
 
 export default function AssignedSectionsView(): React.ReactElement {
-  const { showToast } = useToast();
-  const { user } = useAuthStore();
-  const teacherSubject = (user as any)?.subject || "Biology";
-
-  const [sections, setSections] = useState<AssignedSection[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Selected Section
-  const [selectedSection, setSelectedSection] = useState<AssignedSection | null>(null);
-  const [sectionTab, setSectionTab] = useState<"students" | "tasks" | "exams" | "results" | "attendance">("students");
-  const [searchStudentQuery, setSearchStudentQuery] = useState("");
-  const [rosterFilter, setRosterFilter] = useState<"all" | "at_risk" | "mastery">("all");
-
-  // Selected Student Detail Modal (strictly teacher's own subject)
-  const [selectedStudent, setSelectedStudent] = useState<StudentSubjectDetail | null>(null);
-
-  // Quick message modal
-  const [messageRecipient, setMessageRecipient] = useState<StudentSubjectDetail | null>(null);
-  const [messageDraft, setMessageDraft] = useState("");
-
-  // Student roster strictly in this subject
-  const [studentsRoster, setStudentsRoster] = useState<StudentSubjectDetail[]>([]);
+  const navigate = useNavigate();
+  const { t } = useI18n();
+  const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>("");
+  const [assignmentLoading, setAssignmentLoading] = useState(true);
+  const [assignmentError, setAssignmentError] = useState(false);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterError, setRosterError] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<RosterFilter>("all");
+  const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const detailsDialogRef = useRef<HTMLDivElement | null>(null);
+  const detailsCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const detailsReturnFocusRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
+    let active = true;
+    setAssignmentLoading(true);
     getTeacherAssignedPairs()
-      .then((res) => {
-        const pairs = res.data?.pairs || (Array.isArray(res.data) ? res.data : []);
-        setSections(pairs);
-        if (pairs.length > 0) setSelectedSection(pairs[0]);
+      .then((response) => {
+        const pairs = response.data?.pairs;
+        if (!active) return;
+        const validPairs = Array.isArray(pairs) ? pairs as TeachingAssignment[] : [];
+        setAssignments(validPairs);
+        setSelectedAssignmentId((current) => current || String(validPairs[0]?.assignment_id ?? ""));
+        setAssignmentError(false);
       })
       .catch(() => {
-        setSections([]);
-        setSelectedSection(null);
+        if (!active) return;
+        setAssignments([]);
+        setAssignmentError(true);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (active) setAssignmentLoading(false);
+      });
+    return () => { active = false; };
+  }, [refreshKey]);
+
+  const selectedAssignment = assignments.find(
+    (assignment) => String(assignment.assignment_id) === selectedAssignmentId,
+  ) ?? assignments[0] ?? null;
+
+  useEffect(() => {
+    if (!selectedAssignment) {
+      setStudents([]);
+      return;
+    }
+
+    let active = true;
+    setRosterLoading(true);
+    setRosterError(false);
+    getSchoolStudents(true, false, String(selectedAssignment.section_id))
+      .then((response) => {
+        if (!active) return;
+        const records = Array.isArray(response.data) ? response.data : [];
+        setStudents(records as StudentRecord[]);
+      })
+      .catch(() => {
+        if (!active) return;
+        setStudents([]);
+        setRosterError(true);
+      })
+      .finally(() => {
+        if (active) setRosterLoading(false);
+      });
+    return () => { active = false; };
+  }, [selectedAssignment?.section_id, refreshKey]);
+
+  const filteredStudents = useMemo(() => students.filter((student) => {
+    const matchesSearch = student.name.toLowerCase().includes(search.trim().toLowerCase());
+    return matchesSearch && (filter === "all" || student.is_at_risk === true);
+  }), [students, search, filter]);
+
+  const closeSelectedStudent = useCallback(() => {
+    setSelectedStudent(null);
+    window.requestAnimationFrame(() => detailsReturnFocusRef.current?.focus());
   }, []);
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!messageDraft.trim() || !messageRecipient) return;
+  useEffect(() => {
+    if (!selectedStudent) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    detailsCloseButtonRef.current?.focus();
+    const handleDialogKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSelectedStudent();
+        return;
+      }
+      if (event.key !== "Tab" || !detailsDialogRef.current) return;
+      const focusable = Array.from(detailsDialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !detailsDialogRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !detailsDialogRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleDialogKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleDialogKeyDown);
+    };
+  }, [selectedStudent, closeSelectedStudent]);
 
-    showToast({
-      title: "Message dispatched",
-      message: `Message sent to ${messageRecipient.parent_name} regarding ${messageRecipient.name}.`,
-      type: "success"
-    });
-    setMessageRecipient(null);
-    setMessageDraft("");
-  };
-
-  if (!loading && sections.length === 0) {
-    return <WaitingForAssignmentView />;
+  if (assignmentLoading) {
+    return <div role="status" className="mx-auto max-w-5xl rounded-2xl border border-[#E7E0D6] bg-white p-8 text-center text-sm text-stone-500 dark:border-white/10 dark:bg-[#261E1A] dark:text-[#A89C90]">{t("teacherClasses.loadingAssignments")}</div>;
   }
 
-  const filteredRoster = studentsRoster.filter((stu) => {
-    if (rosterFilter === "at_risk" && stu.subject_score >= 50) return false;
-    if (rosterFilter === "mastery" && stu.subject_score < 75) return false;
-    if (searchStudentQuery.trim() && !stu.name.toLowerCase().includes(searchStudentQuery.toLowerCase())) {
-      return false;
-    }
-    return true;
-  });
+  if (assignmentError) {
+    return (
+      <section className="mx-auto max-w-2xl rounded-2xl border border-rose-200 bg-rose-50 p-6 dark:border-rose-900/40 dark:bg-rose-950/20">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-700 dark:text-rose-300" aria-hidden="true" />
+          <div>
+            <h1 className="text-base font-semibold text-rose-950 dark:text-rose-100">{t("teacherClasses.assignmentErrorTitle")}</h1>
+            <p className="mt-1 text-sm text-rose-800 dark:text-rose-200">{t("teacherClasses.assignmentErrorDescription")}</p>
+            <button type="button" onClick={() => setRefreshKey((value) => value + 1)} className="mt-4 min-h-10 rounded-lg border border-rose-300 px-4 text-sm font-semibold text-rose-900 hover:bg-rose-100 dark:text-rose-200 dark:hover:bg-rose-950/40">{t("teacherClasses.tryAgain")}</button>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
-  const sectionAtRiskCount = studentsRoster.filter((s) => s.subject_score < 50).length;
-  const sectionMasteryCount = studentsRoster.filter((s) => s.subject_score >= 75).length;
+  if (assignments.length === 0) {
+    return (
+      <section className="mx-auto max-w-3xl rounded-2xl border border-[#E7E0D6] bg-white p-8 text-center dark:border-white/10 dark:bg-[#261E1A] sm:p-12">
+        <GraduationCap className="mx-auto h-10 w-10 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />
+        <h1 className="mt-4 text-xl font-semibold tracking-tight text-stone-900 dark:text-[#FDFBF7]">{t("teacherClasses.noAssignmentsTitle")}</h1>
+        <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-stone-600 dark:text-[#A89C90]">{t("teacherClasses.noAssignmentsDescription")}</p>
+        <button type="button" onClick={() => navigate("/teacher/messages")} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#881337] px-4 text-sm font-semibold text-white hover:bg-[#9F1239]">{t("teacherClasses.contactSchool")} <ArrowRight className="h-4 w-4" aria-hidden="true" /></button>
+      </section>
+    );
+  }
 
+  const supportCount = students.filter((student) => student.is_at_risk === true).length;
   return (
-    <div className="max-w-6xl mx-auto space-y-6 font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-[#0F172A] tracking-tight">My sections</h1>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
-              {teacherSubject}
-            </span>
-          </div>
-          <p className="text-xs text-[#475569] mt-0.5">
-            Classroom management, student profiles, and continuous performance tracking for assigned sections.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            showToast({
-              title: "Task created",
-              message: "Navigating to task creation workspace.",
-              type: "info"
-            });
-          }}
-          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs cursor-pointer min-h-[40px]"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Assign task</span>
-        </button>
-      </div>
+    <PortalPage className="space-y-6">
+      <PageHeader
+        eyebrow={t("teacherClasses.eyebrow")}
+        title={t("teacherClasses.title")}
+        description={t("teacherClasses.description")}
+        secondaryActions={[{ label: t("teacherClasses.createTask"), href: "/teacher/tasks", icon: ClipboardList }]}
+        primaryAction={{ label: t("teacherDashboard.buildAssessment"), href: "/teacher/assessment-builder", icon: BookOpen }}
+      />
 
-      {/* Section Selector Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {sections.map((sec) => {
-          const isSelected = selectedSection?.id === sec.id;
-          return (
-            <button
-              key={sec.id}
-              type="button"
-              onClick={() => setSelectedSection(sec)}
-              className={`p-4 rounded-[8px] border text-left transition-all cursor-pointer ${
-                isSelected
-                  ? "border-[#1D4ED8] bg-[#EFF6FF] shadow-xs ring-1 ring-[#1D4ED8]"
-                  : "border-[#E2E8F0] bg-white hover:border-slate-300"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm text-[#0F172A]">{sec.name}</span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-white border border-[#E2E8F0] text-slate-700">
-                  {sec.grade}
+      <section aria-labelledby="assigned-sections-heading">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2 id="assigned-sections-heading" className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("teacherClasses.assignedClasses")}</h2>
+            <p className="mt-0.5 text-xs text-stone-500 dark:text-[#A89C90]">{t("teacherClasses.chooseClass")}</p>
+          </div>
+          <span className="text-xs font-medium text-stone-500 dark:text-[#A89C90]">{assignments.length === 1 ? t("teacherClasses.oneClass") : t("teacherClasses.classCount", { count: assignments.length })}</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {assignments.map((assignment) => {
+            const selected = String(assignment.assignment_id) === String(selectedAssignment?.assignment_id);
+            return (
+              <button
+                key={assignment.assignment_id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => { setSelectedAssignmentId(String(assignment.assignment_id)); setSelectedStudent(null); }}
+                className={`rounded-xl border p-4 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] ${selected ? "border-[#881337] bg-[#FFF1F2] ring-1 ring-[#881337]/15 dark:border-[#FBBF24] dark:bg-[#4C0519]/30" : "border-[#E7E0D6] bg-white hover:border-[#881337]/40 dark:border-white/10 dark:bg-[#261E1A] dark:hover:border-[#FBBF24]/40"}`}
+              >
+                <span className="flex items-start justify-between gap-3">
+                  <span className="font-semibold text-stone-900 dark:text-[#FDFBF7]">{assignment.section_name || t("teacherClasses.classLabel", { id: assignment.section_id })}</span>
+                  <span className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[11px] font-medium text-stone-600 dark:border-white/10 dark:bg-[#1C1512] dark:text-[#E7E0D6]">{t("teacherClasses.gradeContext", { grade: assignment.grade })}</span>
                 </span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs text-[#475569]">
-                <span>{sec.student_count || 42} Students</span>
-                <span className="font-semibold text-[#0F172A]">{sec.average_score || 84}% Mean</span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Selected Section Detail Pane */}
-      {selectedSection && (
-        <div className="bg-white border border-[#E2E8F0] rounded-[8px] overflow-hidden shadow-xs space-y-0">
-          {/* Section Telemetry Strip */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-5 bg-[#F8FAFC] border-b border-[#E2E8F0]">
-            <div>
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Enrolled candidates</div>
-              <div className="text-xl font-bold text-[#0F172A] mt-0.5 font-mono">
-                {selectedSection.student_count || 42}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{teacherSubject} mean</div>
-              <div className="text-xl font-bold text-[#1D4ED8] mt-0.5 font-mono">
-                {selectedSection.average_score}%
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Mastery (&ge; 75%)</div>
-              <div className="text-xl font-bold text-emerald-700 mt-0.5 font-mono">
-                {sectionMasteryCount} students
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">At-risk (&lt; 50%)</div>
-              <div className="text-xl font-bold text-rose-700 mt-0.5 font-mono">
-                {sectionAtRiskCount} candidates
-              </div>
-            </div>
-          </div>
-
-          {/* Tabs Header */}
-          <div className="px-5 border-b border-[#E2E8F0] flex gap-6 text-xs font-semibold">
-            {(["students", "tasks", "exams", "results", "attendance"] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setSectionTab(tab)}
-                className={`py-3.5 capitalize cursor-pointer border-b-2 -mb-px transition-colors ${
-                  sectionTab === tab
-                    ? "border-[#1D4ED8] text-[#1D4ED8]"
-                    : "border-transparent text-[#475569] hover:text-[#0F172A]"
-                }`}
-              >
-                {tab === "students" ? "Student roster" : tab}
+                <span className="mt-2 block text-sm text-stone-600 dark:text-[#A89C90]">{assignment.subject_name}{assignment.stream ? ` · ${assignment.stream}` : ""}</span>
+                {assignment.is_substitute && <span className="mt-3 inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{t("teacherClasses.substituteAssignment")}</span>}
               </button>
-            ))}
-          </div>
-
-          <div className="p-5">
-            {sectionTab === "students" ? (
-              /* Students Roster (Strictly this teacher's subject) */
-              <div className="space-y-4">
-                {/* Search & Filter Bar */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
-                  <div className="relative flex-1 sm:max-w-xs">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search student by name..."
-                      value={searchStudentQuery}
-                      onChange={(e) => setSearchStudentQuery(e.target.value)}
-                      className="w-full pl-8 pr-3 py-1.5 border border-[#E2E8F0] rounded-[6px] text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500 font-medium">Filter cohort:</span>
-                    <button
-                      type="button"
-                      onClick={() => setRosterFilter("all")}
-                      className={`px-2.5 py-1 rounded-[6px] font-semibold cursor-pointer ${
-                        rosterFilter === "all" ? "bg-[#1D4ED8] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRosterFilter("at_risk")}
-                      className={`px-2.5 py-1 rounded-[6px] font-semibold cursor-pointer ${
-                        rosterFilter === "at_risk" ? "bg-rose-600 text-white" : "bg-rose-50 text-rose-700 hover:bg-rose-100"
-                      }`}
-                    >
-                      At-risk (&lt; 50%)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRosterFilter("mastery")}
-                      className={`px-2.5 py-1 rounded-[6px] font-semibold cursor-pointer ${
-                        rosterFilter === "mastery" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      }`}
-                    >
-                      Mastery (&ge; 75%)
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto border border-[#E2E8F0] rounded-[8px]">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
-                        <th className="py-3 px-4">Student Name</th>
-                        <th className="py-3 px-4">{teacherSubject} score</th>
-                        <th className="py-3 px-4">Attendance</th>
-                        <th className="py-3 px-4">Task completion</th>
-                        <th className="py-3 px-4">Focus areas</th>
-                        <th className="py-3 px-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E2E8F0] text-[#0F172A]">
-                      {filteredRoster.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-500 text-xs">
-                            No students match your filter criteria.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredRoster.map((stu) => (
-                          <tr key={stu.id} className="hover:bg-[#F8FAFC] transition-colors">
-                            <td className="py-3 px-4">
-                              <div className="font-semibold text-[#0F172A]">{stu.name}</div>
-                              <div className="text-[11px] text-slate-500">{stu.grade} • {stu.section}</div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono font-bold border ${
-                                  stu.subject_score < 50
-                                    ? "bg-rose-50 text-rose-700 border-rose-200"
-                                    : stu.subject_score >= 75
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                    : "bg-blue-50 text-blue-700 border-blue-200"
-                                }`}
-                              >
-                                {stu.subject_score}%
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 font-mono">
-                              {stu.subject_attendance}%
-                            </td>
-                            <td className="py-3 px-4 font-mono">
-                              {stu.task_completion_rate}%
-                            </td>
-                            <td className="py-3 px-4 text-[#475569]">
-                              {stu.weak_units.length > 0 ? (
-                                <span className="text-amber-800 text-[11px] font-medium bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                  {stu.weak_units[0]}
-                                </span>
-                              ) : (
-                                <span className="text-emerald-700 text-[11px] font-medium">Mastery on track</span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedStudent(stu)}
-                                  className="px-2.5 py-1.5 rounded-[6px] border border-[#E2E8F0] hover:bg-[#EFF6FF] text-[#1D4ED8] font-semibold text-xs cursor-pointer"
-                                >
-                                  View profile
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setMessageRecipient(stu);
-                                    setMessageDraft(`Hello ${stu.parent_name}, this is Dr. Aster concerning ${stu.name}'s progress in ${teacherSubject}. `);
-                                  }}
-                                  title="Contact parent"
-                                  className="p-1.5 rounded-[6px] border border-[#E2E8F0] hover:bg-slate-50 text-slate-600 cursor-pointer"
-                                >
-                                  <Mail className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : sectionTab === "tasks" ? (
-              /* Tasks Tab */
-              <div className="space-y-3 text-xs">
-                <div className="font-semibold text-[#0F172A]">Active Tasks & Homework for {selectedSection.name}</div>
-                <div className="p-8 text-center text-slate-500 border border-[#E2E8F0] rounded-[6px] bg-[#F8FAFC]">
-                  No active coursework tasks assigned to this section yet.
-                </div>
-              </div>
-            ) : sectionTab === "exams" ? (
-              /* Exams Tab */
-              <div className="space-y-3 text-xs">
-                <div className="font-semibold text-[#0F172A]">Exams Administered in {selectedSection.name}</div>
-                <div className="p-8 text-center text-slate-500 border border-[#E2E8F0] rounded-[6px] bg-[#F8FAFC]">
-                  No exams scheduled or administered for this section yet.
-                </div>
-              </div>
-            ) : sectionTab === "results" ? (
-              /* Results Tab */
-              <div className="space-y-4 text-xs">
-                <div className="font-semibold text-[#0F172A]">Diagnostic Results & Quartiles</div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px]">
-                    <div className="text-slate-500 text-[11px]">Section Mean</div>
-                    <div className="text-lg font-bold text-[#1D4ED8] mt-1">{selectedSection.average_score || 0}%</div>
-                  </div>
-                  <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px]">
-                    <div className="text-slate-500 text-[11px]">Highest Score</div>
-                    <div className="text-lg font-bold text-emerald-700 mt-1">—</div>
-                  </div>
-                  <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px]">
-                    <div className="text-slate-500 text-[11px]">Lowest Score</div>
-                    <div className="text-lg font-bold text-rose-700 mt-1">—</div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Attendance Tab */
-              <div className="space-y-3 text-xs">
-                <div className="font-semibold text-[#0F172A]">Subject Attendance Ledger</div>
-                <p className="text-slate-500 text-[11px]">
-                  Attendance tracking is active for {teacherSubject} in {selectedSection.name}.
-                </p>
-              </div>
-            )}
-          </div>
+            );
+          })}
         </div>
+      </section>
+
+      {selectedAssignment && (
+        <section className="overflow-hidden rounded-2xl border border-[#E7E0D6] bg-white shadow-xs dark:border-white/10 dark:bg-[#261E1A]" aria-labelledby="class-roster-heading">
+          <div className="flex flex-col gap-4 border-b border-[#E7E0D6] p-5 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-medium text-stone-500 dark:text-[#A89C90]">{selectedAssignment.stream ? t("teacherClasses.gradeStreamContext", { grade: selectedAssignment.grade, stream: selectedAssignment.stream }) : t("teacherClasses.gradeContext", { grade: selectedAssignment.grade })}</p>
+              <h2 id="class-roster-heading" className="mt-1 text-lg font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("teacherClasses.rosterTitle", { className: selectedAssignment.section_name })}</h2>
+              <p className="mt-1 text-sm text-stone-600 dark:text-[#A89C90]">{selectedAssignment.subject_name}</p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#FAF8F5] px-3 font-medium text-stone-700 dark:bg-[#1C1512] dark:text-[#E7E0D6]"><Users className="h-4 w-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />{rosterLoading ? t("teacherClasses.loadingRoster") : students.length === 1 ? t("teacherClasses.oneLearner") : t("teacherClasses.learnerCount", { count: students.length })}</span>
+              {supportCount > 0 && <span className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#FAF8F5] px-3 font-medium text-stone-700 dark:bg-[#1C1512] dark:text-[#E7E0D6]"><Target className="h-4 w-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />{supportCount === 1 ? t("teacherClasses.oneLearnerNeedsSupport") : t("teacherClasses.supportCount", { count: supportCount })}</span>}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 border-b border-[#E7E0D6] p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+            <label className="relative block w-full sm:max-w-sm">
+              <span className="sr-only">{t("teacherClasses.searchLabel")}</span>
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" aria-hidden="true" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("teacherClasses.searchPlaceholder")} className="min-h-11 w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-sm text-stone-800 outline-none focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" />
+            </label>
+            <div className="flex gap-2" role="group" aria-label={t("teacherClasses.filterLabel")}>
+              {(["all", "support"] as const).map((option) => (
+                <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)} className={`min-h-10 rounded-lg px-3 text-xs font-semibold transition-colors ${filter === option ? "bg-[#881337] text-white" : "border border-stone-300 text-stone-700 hover:bg-stone-50 dark:border-white/15 dark:text-[#E7E0D6] dark:hover:bg-white/5"}`}>{option === "all" ? t("teacherClasses.allLearners") : t("teacherClasses.needsSupport")}</button>
+              ))}
+            </div>
+          </div>
+
+          {rosterLoading ? (
+            <p role="status" className="p-10 text-center text-sm text-stone-500 dark:text-[#A89C90]">{t("teacherClasses.loadingRoster")}</p>
+          ) : rosterError ? (
+            <div className="p-6 text-center">
+              <p role="alert" className="text-sm text-rose-800 dark:text-rose-200">{t("teacherClasses.rosterError")}</p>
+              <button type="button" onClick={() => setRefreshKey((value) => value + 1)} className="mt-3 min-h-10 rounded-lg border border-rose-300 px-4 text-sm font-semibold text-rose-900 hover:bg-rose-100 dark:text-rose-200">{t("teacherClasses.tryAgain")}</button>
+            </div>
+          ) : students.length === 0 ? (
+            <div className="p-10 text-center">
+              <Users className="mx-auto h-8 w-8 text-stone-300 dark:text-stone-600" aria-hidden="true" />
+              <h3 className="mt-3 text-sm font-semibold text-stone-800 dark:text-[#FDFBF7]">{t("teacherClasses.noLearnersTitle")}</h3>
+              <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">{t("teacherClasses.noLearnersDescription")}</p>
+            </div>
+          ) : filteredStudents.length === 0 ? (
+            <p className="p-8 text-center text-sm text-stone-500 dark:text-[#A89C90]">{t("teacherClasses.noSearchResults")}</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[680px] text-left text-sm">
+                <thead className="bg-[#FAF8F5] text-xs font-semibold text-stone-500 dark:bg-[#1C1512] dark:text-[#A89C90]">
+                  <tr><th scope="col" className="px-5 py-3">{t("teacherClasses.learner")}</th><th scope="col" className="px-5 py-3">{t("teacherClasses.scoreEstimate")}</th><th scope="col" className="px-5 py-3">{t("teacherClasses.targetScore")}</th><th scope="col" className="px-5 py-3">{t("teacherClasses.learningStreak")}</th><th scope="col" className="px-5 py-3">{t("teacherClasses.status")}</th><th scope="col" className="px-5 py-3 text-right">{t("teacherClasses.details")}</th></tr>
+                </thead>
+                <tbody className="divide-y divide-[#E7E0D6] dark:divide-white/10">
+                  {filteredStudents.map((student) => (
+                    <tr key={student.id} className="hover:bg-[#FAF8F5]/70 dark:hover:bg-white/5">
+                      <td className="px-5 py-3"><span className="block font-semibold text-stone-900 dark:text-[#FDFBF7]">{student.name}</span><span className="mt-0.5 block text-xs text-stone-500 dark:text-[#A89C90]">{t("teacherClasses.learnerContext", { grade: student.grade, className: student.classroom_name || student.section })}</span></td>
+                      <td className="px-5 py-3 font-mono tabular-nums text-stone-700 dark:text-[#E7E0D6]">{student.predicted_score ?? "—"}<span className="text-xs text-stone-400">{student.predicted_score == null ? "" : " / 600"}</span></td>
+                      <td className="px-5 py-3 font-mono tabular-nums text-stone-700 dark:text-[#E7E0D6]">{student.target_score ?? "—"}</td>
+                      <td className="px-5 py-3 text-stone-700 dark:text-[#E7E0D6]">{typeof student.streak_days === "number" ? student.streak_days === 1 ? t("teacherClasses.oneDay") : t("teacherClasses.dayCount", { count: student.streak_days }) : "—"}</td>
+                      <td className="px-5 py-3">{student.is_at_risk ? <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{t("teacherClasses.needsSupport")}</span> : <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">{t("teacherClasses.onTrack")}</span>}</td>
+                      <td className="px-5 py-3 text-right"><button type="button" onClick={(event) => { detailsReturnFocusRef.current = event.currentTarget; setSelectedStudent(student); }} className="min-h-9 rounded-lg border border-stone-300 px-3 text-xs font-semibold text-stone-700 hover:border-[#881337] hover:text-[#881337] dark:border-white/15 dark:text-[#E7E0D6] dark:hover:border-[#FBBF24]">{t("teacherClasses.viewDetails")}</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
 
-      {/* Student Detail Modal (Strictly Own Subject Only) */}
       {selectedStudent && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold text-[#0F172A]">{selectedStudent.name}</h2>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
-                    {teacherSubject}
-                  </span>
-                </div>
-                <p className="text-xs text-[#475569] mt-0.5">
-                  {selectedStudent.grade} • Section {selectedStudent.section}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedStudent(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSelectedStudent(); }}>
+          <section ref={detailsDialogRef} id="learner-details-dialog" role="dialog" aria-modal="true" aria-labelledby="learner-details-heading" aria-describedby="learner-details-description" className="w-full max-w-lg rounded-2xl border border-[#E7E0D6] bg-white p-6 shadow-xl dark:border-white/10 dark:bg-[#261E1A]">
+            <div className="flex items-start justify-between gap-4">
+              <div><p className="text-xs font-semibold uppercase tracking-wide text-[#881337] dark:text-[#FBBF24]">{t("teacherClasses.learnerDetails")}</p><h2 id="learner-details-heading" className="mt-1 text-lg font-semibold text-stone-900 dark:text-[#FDFBF7]">{selectedStudent.name}</h2><p className="mt-1 text-sm text-stone-600 dark:text-[#A89C90]">{t("teacherClasses.learnerContext", { grade: selectedStudent.grade, className: selectedStudent.classroom_name || selectedStudent.section })}</p></div>
+              <button ref={detailsCloseButtonRef} type="button" onClick={closeSelectedStudent} className="min-h-10 rounded-lg px-3 text-sm font-semibold text-stone-600 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:text-[#E7E0D6] dark:hover:bg-white/5">{t("teacherClasses.close")}</button>
             </div>
-
-            <div className="p-5 space-y-4 text-xs">
-              {/* Metrics Row */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px]">
-                  <div className="text-slate-500 text-[11px]">Subject score</div>
-                  <div className={`text-xl font-bold mt-1 font-mono ${
-                    selectedStudent.subject_score < 50 ? "text-rose-700" : "text-[#0F172A]"
-                  }`}>
-                    {selectedStudent.subject_score}%
-                  </div>
-                </div>
-                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px]">
-                  <div className="text-slate-500 text-[11px]">Subject attendance</div>
-                  <div className="text-xl font-bold text-[#0F172A] mt-1 font-mono">
-                    {selectedStudent.subject_attendance}%
-                  </div>
-                </div>
-                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px]">
-                  <div className="text-slate-500 text-[11px]">Task completion</div>
-                  <div className="text-xl font-bold text-[#0F172A] mt-1 font-mono">
-                    {selectedStudent.task_completion_rate}%
-                  </div>
-                </div>
-              </div>
-
-              {/* Topic Mastery */}
-              <div>
-                <div className="font-semibold text-[#0F172A] mb-2">Topic mastery</div>
-                <div className="space-y-2 border border-[#E2E8F0] rounded-[6px] p-3 bg-[#F8FAFC]">
-                  {Object.entries(selectedStudent.topic_mastery).map(([topic, score]) => (
-                    <div key={topic} className="space-y-1">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="font-medium text-[#0F172A]">{topic}</span>
-                        <span className="font-mono text-slate-700 font-bold">{score}%</span>
-                      </div>
-                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${score >= 75 ? "bg-[#1D4ED8]" : score >= 50 ? "bg-amber-600" : "bg-rose-600"}`}
-                          style={{ width: `${score}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Recent Submissions */}
-              <div>
-                <div className="font-semibold text-[#0F172A] mb-2">Recent submissions</div>
-                <div className="space-y-1.5 border border-[#E2E8F0] rounded-[6px] p-3 bg-[#F8FAFC]">
-                  {selectedStudent.recent_submissions.map((sub, i) => (
-                    <div key={i} className="flex justify-between items-center text-[11px] py-1 border-b border-[#E2E8F0] last:border-b-0">
-                      <div>
-                        <div className="font-semibold text-[#0F172A]">{sub.taskTitle}</div>
-                        <div className="text-slate-400">{sub.date}</div>
-                      </div>
-                      <div className="font-mono font-bold text-slate-700">
-                        {sub.score}/{sub.maxScore} pts ({Math.round((sub.score / sub.maxScore) * 100)}%)
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Parent Contact Information */}
-              <div>
-                <div className="font-semibold text-[#0F172A] mb-1">Parent contact</div>
-                <div className="p-3 border border-[#E2E8F0] rounded-[6px] flex items-center justify-between text-xs">
-                  <div>
-                    <div className="font-semibold text-[#0F172A]">{selectedStudent.parent_name}</div>
-                    <div className="text-slate-500 text-[11px] font-mono">{selectedStudent.parent_phone}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMessageRecipient(selectedStudent);
-                      setMessageDraft(`Hello ${selectedStudent.parent_name}, this is Dr. Aster concerning ${selectedStudent.name}'s progress in ${teacherSubject}. `);
-                    }}
-                    className="px-2.5 py-1.5 rounded-[6px] bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] font-semibold text-xs cursor-pointer inline-flex items-center gap-1"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Send message</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Teacher Remarks & Notes */}
-              <div>
-                <div className="font-semibold text-[#0F172A] mb-1">Teacher notes</div>
-                <div className="p-3 border border-[#E2E8F0] rounded-[6px] bg-[#F8FAFC] text-slate-700 text-[11px] leading-relaxed">
-                  {selectedStudent.feedback_notes}
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-[#E2E8F0] bg-[#F8FAFC] flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedStudent(null)}
-                className="px-3.5 py-1.5 rounded-[6px] border border-[#E2E8F0] bg-white text-xs font-semibold cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+            <dl className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-[#FAF8F5] p-4 dark:bg-[#1C1512]"><dt className="text-xs text-stone-500 dark:text-[#A89C90]">{t("teacherClasses.scoreEstimate")}</dt><dd className="mt-1 font-mono text-lg font-semibold text-stone-900 dark:text-[#FDFBF7]">{selectedStudent.predicted_score ?? t("teacherClasses.notAvailable")}{selectedStudent.predicted_score != null && <span className="ml-1 text-xs font-normal text-stone-500">/ 600</span>}</dd></div>
+              <div className="rounded-xl bg-[#FAF8F5] p-4 dark:bg-[#1C1512]"><dt className="text-xs text-stone-500 dark:text-[#A89C90]">{t("teacherClasses.targetScore")}</dt><dd className="mt-1 font-mono text-lg font-semibold text-stone-900 dark:text-[#FDFBF7]">{selectedStudent.target_score ?? t("teacherClasses.notSet")}</dd></div>
+              <div className="rounded-xl bg-[#FAF8F5] p-4 dark:bg-[#1C1512]"><dt className="text-xs text-stone-500 dark:text-[#A89C90]">{t("teacherClasses.learningStreak")}</dt><dd className="mt-1 text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{typeof selectedStudent.streak_days === "number" ? selectedStudent.streak_days === 1 ? t("teacherClasses.oneDay") : t("teacherClasses.dayCount", { count: selectedStudent.streak_days }) : t("teacherClasses.noRecentActivity")}</dd></div>
+              <div className="rounded-xl bg-[#FAF8F5] p-4 dark:bg-[#1C1512]"><dt className="text-xs text-stone-500 dark:text-[#A89C90]">{t("teacherClasses.supportStatus")}</dt><dd className="mt-1 text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{selectedStudent.is_at_risk ? t("teacherClasses.needsSupport") : t("teacherClasses.onTrack")}</dd></div>
+            </dl>
+            <p id="learner-details-description" className="mt-4 text-xs leading-5 text-stone-500 dark:text-[#A89C90]">{t("teacherClasses.scoreDisclaimer")}</p>
+          </section>
         </div>
       )}
-
-      {/* Parent Quick Message Modal */}
-      {messageRecipient && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-xl w-full max-w-md">
-            <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-[#0F172A]">Direct message to parent</h2>
-                <p className="text-xs text-[#475569]">{messageRecipient.parent_name} ({messageRecipient.parent_phone})</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMessageRecipient(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSendMessage} className="p-5 space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Message content</label>
-                <textarea
-                  rows={4}
-                  required
-                  value={messageDraft}
-                  onChange={(e) => setMessageDraft(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMessageRecipient(null)}
-                  className="px-3 py-1.5 rounded-[6px] border border-[#E2E8F0] bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-3.5 py-1.5 rounded-[6px] bg-[#1D4ED8] hover:bg-[#1E40AF] text-white font-semibold cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Send</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+    </PortalPage>
   );
 }

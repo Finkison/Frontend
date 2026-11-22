@@ -1,32 +1,33 @@
 import React from "react";
-import { Clock, ShieldAlert, BookOpen } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
+import { Link } from "react-router-dom";
 import useAuthStore from "../../store/authStore";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
 
 export default function WaitingForAssignmentView(): React.ReactElement {
   const { user } = useAuthStore();
-  const subject = (user as any)?.subject || "Subject";
+  const subject = user?.subject || "Subject";
 
   return (
-    <div className="max-w-2xl mx-auto py-16 px-4 text-center font-sans">
-      <div className="w-14 h-14 rounded-full bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] flex items-center justify-center mx-auto mb-4">
-        <Clock className="w-7 h-7" />
-      </div>
-      <h1 className="text-xl font-semibold text-[#0F172A] tracking-tight">
-        Waiting for assignment
-      </h1>
-      <p className="text-xs text-[#475569] mt-2 max-w-md mx-auto leading-relaxed">
-        Your school director has registered your account as a <span className="font-semibold text-[#0F172A]">{subject}</span> teacher, but has not assigned you to active grade sections for the current academic year yet.
-      </p>
+    <PortalPage className="max-w-2xl space-y-6 px-4 py-10">
+      <PageHeader
+        title="Your classes are not assigned yet"
+        description={`${subject} teaching tools will appear after your class is assigned.`}
+      />
 
-      <div className="mt-8 p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[8px] text-left text-xs space-y-2">
-        <div className="font-semibold text-[#0F172A] flex items-center gap-1.5">
-          <BookOpen className="w-4 h-4 text-[#1D4ED8]" />
-          <span>Data isolation policy</span>
+      <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF8F5] p-5 text-center dark:border-white/10 dark:bg-[#1C1512]">
+        <div className="flex items-center justify-center gap-2 text-sm font-semibold text-[#261E1A] dark:text-[#FDFBF7]">
+          <ShieldAlert className="h-4 w-4 text-[#881337]" aria-hidden="true" />
+          <span>Waiting for class assignment</span>
         </div>
-        <p className="text-slate-600 text-[11px] leading-relaxed">
-          In accordance with institutional data isolation policies, teachers cannot view student rosters, grades, or dispatch classroom assessments until an active teaching assignment is confirmed by the school administration.
+        <p className="mt-2 text-xs leading-5 text-stone-600 dark:text-[#E7E0D6]">
+          Student rosters, grades, and classwork stay private until your assignment is confirmed.
         </p>
+        <Link to="/contact" className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#881337] px-4 text-sm font-semibold text-white hover:bg-[#9F1239] focus:outline-none focus:ring-2 focus:ring-[#881337]">
+          Contact school support
+        </Link>
       </div>
-    </div>
+    </PortalPage>
   );
 }

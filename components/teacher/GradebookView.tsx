@@ -1,373 +1,249 @@
-import React, { useState } from "react";
-import useAuthStore from "../../store/authStore";
-import { saveGradeEntries } from "../../services/schoolService";
-import { 
-  FileSpreadsheet, 
-  Download, 
-  Save, 
-  Search, 
-  Filter, 
-  AlertTriangle, 
-  Check, 
-  ChevronRight,
-  TrendingUp,
-  Award,
-  Layers,
-  Sparkles
-} from "lucide-react";
-import { useToast } from "../ui/Toast";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowRight, BookOpenCheck, CheckCircle2, Clock3, RefreshCw, Search, Users, type LucideIcon } from "lucide-react";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
+import { useI18n } from "../../i18n";
+import { getSchoolTaskSubmissions, getSchoolTasks, type SchoolTaskSubmission } from "../../services/schoolService";
 
-interface GradeRow {
-  student_id: string;
-  rollNo: number;
-  name: string;
-  quiz_score: number;       // 15%
-  lab_score: number;        // 20%
-  midterm_score: number;    // 25%
-  final_exam_score: number; // 40%
-  composite_score: number;  // 100%
-  is_synced: boolean;
-}
+type TeacherTask = {
+  id: string;
+  title: string;
+  subject: string;
+  sections: string[];
+  due_date: string;
+  status: string;
+  max_marks: number;
+  total_assigned: number;
+  submitted_count: number;
+  needs_review_count: number;
+};
+
+const statusTranslationKey: Record<string, string> = {
+  Assigned: "statusAssigned",
+  Overdue: "statusOverdue",
+  Submitted: "statusSubmitted",
+  Graded: "statusGraded",
+};
 
 export default function TeacherGradebookView(): React.ReactElement {
-  const { showToast } = useToast();
-  const { user } = useAuthStore();
-  const teacherSubject = (user as any)?.subject || "Biology";
+  const { t, language } = useI18n();
+  const [searchParams] = useSearchParams();
+  const requestedTaskId = searchParams.get("task") || "";
+  const [tasks, setTasks] = useState<TeacherTask[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState(requestedTaskId);
+  const [selectedClass, setSelectedClass] = useState("all");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [submissions, setSubmissions] = useState<SchoolTaskSubmission[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [tasksError, setTasksError] = useState(false);
+  const [submissionsError, setSubmissionsError] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const [selectedSection, setSelectedSection] = useState("12-A");
-  const [selectedTerm, setSelectedTerm] = useState("Term 1: Continuous assessment");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // Roster continuous assessment data
-  const [gradeRows, setGradeRows] = useState<GradeRow[]>([]);
-
-  const updateStudentScore = (
-    id: string, 
-    field: "quiz_score" | "lab_score" | "midterm_score" | "final_exam_score", 
-    value: number
-  ) => {
-    setGradeRows((prev) =>
-      prev.map((row) => {
-        if (row.student_id !== id) return row;
-        const updated = { ...row, [field]: value };
-        // Dynamic continuous weighted recalculation
-        const composite = Math.round(
-          updated.quiz_score + 
-          updated.lab_score + 
-          updated.midterm_score + 
-          updated.final_exam_score
-        );
-        return { ...updated, composite_score: composite, is_synced: false };
-      })
-    );
-  };
-
-  const handleFillEmptyZeros = () => {
-    setGradeRows((prev) =>
-      prev.map((r) => ({
-        ...r,
-        quiz_score: r.quiz_score || 0,
-        lab_score: r.lab_score || 0,
-        midterm_score: r.midterm_score || 0,
-        final_exam_score: r.final_exam_score || 0,
-        is_synced: false,
-      }))
-    );
-    showToast({
-      title: "Scores adjusted",
-      message: "Empty grade entries populated with 0.",
-      type: "info",
-    });
-  };
-
-  const handleExportCSV = () => {
-    const headers = ["Roll", "Student Name", "Quiz 15%", "Lab 20%", "Midterm 25%", "Final 40%", "Total Score"];
-    const rows = gradeRows.map((r) => [
-      r.rollNo,
-      `"${r.name}"`,
-      r.quiz_score,
-      r.lab_score,
-      r.midterm_score,
-      r.final_exam_score,
-      r.composite_score,
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Gradebook_${teacherSubject}_${selectedSection}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    showToast({
-      title: "Transcript exported",
-      message: `Gradebook downloaded for Section ${selectedSection}.`,
-      type: "success",
-    });
-  };
-
-  const handleSaveGrades = async () => {
-    setSaving(true);
+  const loadTasks = useCallback(async () => {
+    setTasksLoading(true);
+    setTasksError(false);
     try {
-      const entries = gradeRows.map((r) => ({
-        student_id: r.student_id,
-        name: r.name,
-        score: r.composite_score,
-      }));
-      await saveGradeEntries(entries);
-      showToast({
-        title: "Grades saved",
-        message: "Continuous assessment records saved.",
-        type: "success",
-      });
-    } catch (err: any) {
-      showToast({
-        title: "Save Failed",
-        message: err?.response?.data?.message || err?.message || "Failed to save grades. Please try again.",
-        type: "error",
-      });
+      const response = await getSchoolTasks();
+      const rows = Array.isArray(response.data?.tasks) ? response.data.tasks : [];
+      const normalized: TeacherTask[] = rows.map((row: Record<string, unknown>) => ({
+        id: String(row.id ?? ""),
+        title: String(row.title ?? ""),
+        subject: String(row.subject ?? ""),
+        sections: Array.isArray(row.sections) ? row.sections.map(String) : [],
+        due_date: String(row.due_date ?? ""),
+        status: String(row.status ?? "Assigned"),
+        max_marks: Number(row.max_marks) || 0,
+        total_assigned: Number(row.total_assigned) || 0,
+        submitted_count: Number(row.submitted_count) || 0,
+        needs_review_count: Number(row.needs_review_count) || 0,
+      })).filter((task) => task.id);
+      setTasks(normalized);
+      setSelectedTaskId((current) => normalized.some((task) => task.id === current)
+        ? current
+        : normalized.some((task) => task.id === requestedTaskId)
+          ? requestedTaskId
+          : normalized[0]?.id || "");
+    } catch {
+      setTasksError(true);
+      setTasks([]);
+      setSelectedTaskId("");
     } finally {
-      setSaving(false);
+      setTasksLoading(false);
     }
-  };
+  }, [requestedTaskId]);
 
-  // Telemetry Calculations
-  const totalStudents = gradeRows.length;
-  const averageScore = totalStudents > 0
-    ? Math.round(gradeRows.reduce((acc, r) => acc + r.composite_score, 0) / totalStudents)
-    : 0;
-  const passingStudents = gradeRows.filter((r) => r.composite_score >= 50).length;
-  const passingRate = totalStudents > 0
-    ? Math.round((passingStudents / totalStudents) * 100)
-    : 0;
-  const distinctionStudents = gradeRows.filter((r) => r.composite_score >= 75).length;
-  const filteredRows = gradeRows.filter((r) => r.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  useEffect(() => { void loadTasks(); }, [loadTasks, refreshKey]);
+
+  const classes = useMemo(() => [...new Set(tasks.flatMap((task) => task.sections))].sort((a, b) => a.localeCompare(b)), [tasks]);
+  const visibleTasks = useMemo(() => tasks.filter((task) => selectedClass === "all" || task.sections.includes(selectedClass)), [tasks, selectedClass]);
+  const activeTask = visibleTasks.find((task) => task.id === selectedTaskId) || visibleTasks[0] || null;
+
+  useEffect(() => {
+    if (activeTask && activeTask.id !== selectedTaskId) setSelectedTaskId(activeTask.id);
+  }, [activeTask, selectedTaskId]);
+
+  useEffect(() => {
+    if (!activeTask) {
+      setSubmissions([]);
+      setSubmissionsLoading(false);
+      setSubmissionsError(false);
+      return;
+    }
+    let current = true;
+    setSubmissionsLoading(true);
+    setSubmissionsError(false);
+    getSchoolTaskSubmissions(activeTask.id)
+      .then((response) => {
+        if (current) setSubmissions(Array.isArray(response.data?.submissions) ? response.data.submissions : []);
+      })
+      .catch(() => {
+        if (current) {
+          setSubmissions([]);
+          setSubmissionsError(true);
+        }
+      })
+      .finally(() => {
+        if (current) setSubmissionsLoading(false);
+      });
+    return () => { current = false; };
+  }, [activeTask, refreshKey]);
+
+  const filteredSubmissions = useMemo(() => {
+    const query = studentSearch.trim().toLocaleLowerCase();
+    return submissions.filter((submission) => !query || submission.student_name.toLocaleLowerCase().includes(query));
+  }, [studentSearch, submissions]);
+
+  const gradedCount = submissions.filter((item) => item.status === "Graded").length;
+  const reviewCount = submissions.filter((item) => item.status === "Submitted").length;
+  const formatDate = (value: string | null) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    const locale = language === "am" ? "am-ET" : language === "om" ? "om-ET" : "en-ET";
+    return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
+  };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 font-sans animate-fade-in text-start pb-12">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-[#0F172A] tracking-tight">Gradebook</h1>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
-              {teacherSubject}
-            </span>
+    <PortalPage className="max-w-7xl space-y-6">
+      <PageHeader
+        title={t("appNavigation.items.grades")}
+        description={t("teacherGradebook.description")}
+        primaryAction={{ label: t("teacherGradebook.browseAssignments"), href: "/teacher/tasks", icon: ArrowRight }}
+        secondaryActions={[{ label: t("teacherGradebook.refresh"), onClick: () => setRefreshKey((value) => value + 1), icon: RefreshCw, loading: tasksLoading || submissionsLoading }]}
+      />
+
+      <div className="grid gap-3 sm:grid-cols-3" aria-label={t("teacherGradebook.description")}>
+        <SummaryCard icon={BookOpenCheck} label={t("teacherGradebook.assessments")} value={visibleTasks.length} />
+        <SummaryCard icon={CheckCircle2} label={t("teacherGradebook.gradedCount")} value={gradedCount} />
+        <SummaryCard icon={Clock3} label={t("teacherGradebook.needsReview")} value={reviewCount} />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(16rem,0.75fr)_minmax(0,1.75fr)]">
+        <section className="overflow-hidden rounded-2xl border border-[#E7E0D6] bg-white dark:border-white/10 dark:bg-[#261E1A]" aria-label={t("teacherGradebook.assessments")}>
+          <div className="border-b border-[#E7E0D6] p-4 dark:border-white/10">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">{t("teacherGradebook.classFilter")}</span>
+              <select value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-900 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/15 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]">
+                <option value="all">{t("teacherGradebook.allClasses")}</option>
+                {classes.map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </label>
           </div>
-          <p className="text-xs text-[#475569] mt-0.5">
-            Continuous assessment ledger, weighted evaluations, and term records.
-          </p>
-        </div>
+          {tasksLoading ? (
+            <p role="status" className="p-8 text-center text-sm text-stone-500 dark:text-[#A89C90]">{t("teacherAssignments.loading")}</p>
+          ) : tasksError ? (
+            <div className="p-6 text-center">
+              <p role="alert" className="text-sm text-rose-800 dark:text-rose-200">{t("teacherAssignments.loadError")}</p>
+              <button type="button" onClick={() => setRefreshKey((value) => value + 1)} className="mt-3 min-h-10 rounded-lg border border-stone-300 px-3 text-sm font-semibold dark:border-white/15">{t("teacherGradebook.refresh")}</button>
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="p-8 text-center">
+              <Users className="mx-auto h-7 w-7 text-stone-400" aria-hidden="true" />
+              <h2 className="mt-3 text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("teacherGradebook.noAssignmentsTitle")}</h2>
+              <p className="mt-1 text-xs leading-5 text-stone-500 dark:text-[#A89C90]">{t("teacherGradebook.noAssignmentsBody")}</p>
+              <Link to="/teacher/tasks" className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#881337] px-4 text-xs font-semibold text-white dark:bg-[#FBBF24] dark:text-[#1C1512]">{t("teacherGradebook.browseAssignments")}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+            </div>
+          ) : visibleTasks.length === 0 ? (
+            <p className="p-8 text-center text-sm text-stone-500 dark:text-[#A89C90]">{t("teacherGradebook.noMatchingAssignments")}</p>
+          ) : (
+            <ul className="divide-y divide-[#E7E0D6] dark:divide-white/10">
+              {visibleTasks.map((task) => {
+                const selected = activeTask?.id === task.id;
+                return <li key={task.id}>
+                  <button type="button" aria-pressed={selected} onClick={() => setSelectedTaskId(task.id)} className={`w-full p-4 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#881337] ${selected ? "bg-rose-50 dark:bg-[#4C0519]/30" : "hover:bg-stone-50 dark:hover:bg-white/5"}`}>
+                    <span className="block truncate text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{task.title || t("teacherAssignments.untitledAssignment")}</span>
+                    <span className="mt-1 block text-xs text-stone-500 dark:text-[#A89C90]">{[task.subject, task.sections.join(", ")].filter(Boolean).join(" · ")}</span>
+                    <span className="mt-2 flex flex-wrap gap-3 text-[11px] text-stone-600 dark:text-[#E7E0D6]">
+                      <span>{task.submitted_count} / {task.total_assigned} {t("teacherGradebook.submissions").toLocaleLowerCase()}</span>
+                      <span>{task.needs_review_count} {t("teacherGradebook.needsReview").toLocaleLowerCase()}</span>
+                    </span>
+                  </button>
+                </li>;
+              })}
+            </ul>
+          )}
+        </section>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer min-h-[40px] shadow-xs"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-600" />
-            <span>Export CSV</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSaveGrades}
-            disabled={saving}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[8px] bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs cursor-pointer min-h-[40px] disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            <span>{saving ? "Saving..." : "Save grades"}</span>
-          </button>
-        </div>
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-[#E7E0D6] bg-white dark:border-white/10 dark:bg-[#261E1A]" aria-live="polite">
+          {!activeTask ? (
+            <div className="p-10 text-center text-sm text-stone-500 dark:text-[#A89C90]">{t("teacherGradebook.selectAssignment")}</div>
+          ) : <>
+            <div className="flex flex-col gap-3 border-b border-[#E7E0D6] p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">{activeTask.title || t("teacherAssignments.untitledAssignment")}</h2>
+                <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">{activeTask.subject} · {activeTask.max_marks} {t("teacherAssignments.pointsValue", { points: activeTask.max_marks })}</p>
+              </div>
+              <label className="relative block w-full sm:max-w-xs">
+                <span className="sr-only">{t("teacherGradebook.searchStudents")}</span>
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" aria-hidden="true" />
+                <input value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} className="min-h-10 w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-sm dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" />
+              </label>
+            </div>
+            {submissionsLoading ? (
+              <p role="status" className="p-10 text-center text-sm text-stone-500 dark:text-[#A89C90]">{t("teacherAssignments.loadingSubmissions")}</p>
+            ) : submissionsError ? (
+              <div className="p-8 text-center"><p role="alert" className="text-sm text-rose-800 dark:text-rose-200">{t("teacherAssignments.submissionsError")}</p><button type="button" onClick={() => setRefreshKey((value) => value + 1)} className="mt-3 min-h-10 rounded-lg border border-stone-300 px-3 text-sm font-semibold dark:border-white/15">{t("teacherGradebook.refresh")}</button></div>
+            ) : submissions.length === 0 ? (
+              <div className="p-10 text-center"><h3 className="text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("teacherGradebook.noSubmissionsTitle")}</h3><p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">{t("teacherGradebook.noSubmissionsBody")}</p></div>
+            ) : filteredSubmissions.length === 0 ? (
+              <p className="p-8 text-center text-sm text-stone-500 dark:text-[#A89C90]">{t("teacherGradebook.noMatchingStudents")}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[650px] text-left text-sm">
+                  <caption className="sr-only">{activeTask.title} — {t("teacherGradebook.submissions")}</caption>
+                  <thead className="bg-[#FAF8F5] text-xs font-semibold text-stone-600 dark:bg-[#1C1512] dark:text-[#A89C90]"><tr>
+                    <th scope="col" className="px-4 py-3">{t("teacherGradebook.student")}</th>
+                    <th scope="col" className="px-4 py-3">{t("teacherGradebook.status")}</th>
+                    <th scope="col" className="px-4 py-3">{t("teacherGradebook.mark")}</th>
+                    <th scope="col" className="px-4 py-3">{t("teacherGradebook.feedback")}</th>
+                    <th scope="col" className="px-4 py-3">{t("teacherGradebook.action")}</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-[#E7E0D6] dark:divide-white/10">{filteredSubmissions.map((submission) => {
+                    const statusKey = statusTranslationKey[submission.status] || "statusAssigned";
+                    const statusLabel = t(`teacherGradebook.${statusKey}`);
+                    return <tr key={submission.id}>
+                      <th scope="row" className="px-4 py-3 font-medium text-stone-900 dark:text-[#FDFBF7]">{submission.student_name}<span className="mt-0.5 block text-[11px] font-normal text-stone-500 dark:text-[#A89C90]">{submission.classroom}</span></th>
+                      <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${submission.status === "Graded" ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200" : submission.status === "Submitted" ? "bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100" : "bg-stone-100 text-stone-700 dark:bg-white/10 dark:text-[#E7E0D6]"}`}>{statusLabel}{submission.submitted_late ? ` · ${t("teacherGradebook.late")}` : ""}</span>{submission.submitted_at && <span className="mt-1 block text-[11px] text-stone-500 dark:text-[#A89C90]">{t("teacherGradebook.submittedAt", { date: formatDate(submission.submitted_at) })}</span>}</td>
+                      <td className="px-4 py-3 font-semibold tabular-nums text-stone-900 dark:text-[#FDFBF7]">{submission.mark == null ? t("teacherGradebook.notGraded") : `${submission.mark} / ${activeTask.max_marks}`}</td>
+                      <td className="max-w-56 px-4 py-3 text-xs leading-5 text-stone-600 dark:text-[#E7E0D6]">{submission.feedback || t("teacherGradebook.notProvided")}</td>
+                      <td className="px-4 py-3"><Link to={`/teacher/tasks?task=${encodeURIComponent(activeTask.id)}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-stone-300 px-3 text-xs font-semibold text-stone-800 hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:border-white/15 dark:text-[#FDFBF7] dark:hover:bg-white/5">{t("teacherGradebook.reviewSubmission")}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link></td>
+                    </tr>;
+                  })}</tbody>
+                </table>
+              </div>
+            )}
+          </>}
+        </section>
       </div>
-
-      {/* Summary Telemetry */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-[8px] border border-[#E2E8F0] shadow-xs space-y-1">
-          <span className="text-xs text-slate-500 font-medium">Class average</span>
-          <div className="text-2xl font-bold font-mono text-[#0F172A]">{averageScore}%</div>
-          <p className="text-[11px] text-slate-500 font-medium">Section {selectedSection}</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-[8px] border border-[#E2E8F0] shadow-xs space-y-1">
-          <span className="text-xs text-slate-500 font-medium">Passing rate</span>
-          <div className="text-2xl font-bold font-mono text-emerald-700">{passingRate}%</div>
-          <p className="text-[11px] text-slate-500">{passingStudents} of {totalStudents} passing</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-[8px] border border-[#E2E8F0] shadow-xs space-y-1">
-          <span className="text-xs text-slate-500 font-medium">Distinction</span>
-          <div className="text-2xl font-bold font-mono text-blue-700">{distinctionStudents}</div>
-          <p className="text-[11px] text-slate-500">&ge; 75% standing</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-[8px] border border-rose-100 bg-rose-50/20 shadow-xs space-y-1">
-          <span className="text-xs text-rose-700 font-medium">At risk</span>
-          <div className="text-2xl font-bold font-mono text-rose-700">{totalStudents - passingStudents}</div>
-          <p className="text-[11px] text-rose-600 font-medium">&lt; 50% passing threshold</p>
-        </div>
-      </div>
-
-      {/* Control Strip */}
-      <div className="bg-white border border-[#E2E8F0] rounded-[8px] p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-slate-700">Section:</span>
-            <select
-              value={selectedSection}
-              onChange={(e) => setSelectedSection(e.target.value)}
-              className="px-2.5 py-1.5 border border-slate-200 rounded-[6px] bg-slate-50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
-            >
-              <option value="12-A">Section 12-A</option>
-              <option value="12-B">Section 12-B</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-slate-700">Term:</span>
-            <select
-              value={selectedTerm}
-              onChange={(e) => setSelectedTerm(e.target.value)}
-              className="px-2.5 py-1.5 border border-slate-200 rounded-[6px] bg-slate-50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
-            >
-              <option value="Term 1: Continuous assessment">Term 1: Continuous assessment</option>
-              <option value="Term 2: Mid-year diagnostic">Term 2: Mid-year diagnostic</option>
-              <option value="National EUEE Mock Exam">National mock exam</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleFillEmptyZeros}
-            className="text-xs text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded border border-slate-200 bg-slate-50 cursor-pointer"
-          >
-            Fill empty with 0
-          </button>
-          <span className="text-[11px] text-slate-400">
-            Weights: 15% Quiz, 20% Lab, 25% Midterm, 40% Final
-          </span>
-        </div>
-      </div>
-
-      {/* Spreadsheet Table */}
-      <div className="bg-white border border-[#E2E8F0] rounded-[8px] overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
-                <th className="py-3 px-4 w-12 text-center">#</th>
-                <th className="py-3 px-4">Student</th>
-                <th className="py-3 px-4 text-center">Quiz 15%</th>
-                <th className="py-3 px-4 text-center">Lab 20%</th>
-                <th className="py-3 px-4 text-center">Midterm 25%</th>
-                <th className="py-3 px-4 text-center">Final 40%</th>
-                <th className="py-3 px-4 text-center font-bold text-[#0F172A]">Total</th>
-                <th className="py-3 px-4 text-end">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E2E8F0] text-[#0F172A]">
-              {filteredRows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500">
-                    No student grade records found for this section.
-                  </td>
-                </tr>
-              ) : (
-                filteredRows.map((r) => {
-                  const isAtRisk = r.composite_score < 50;
-                const isDistinction = r.composite_score >= 75;
-
-                return (
-                  <tr key={r.student_id} className={`hover:bg-slate-50/70 transition-colors ${
-                    isAtRisk ? "bg-rose-50/30" : ""
-                  }`}>
-                    <td className="py-3 px-4 font-mono text-slate-400 text-center font-semibold">
-                      {String(r.rollNo).padStart(2, "0")}
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-[#0F172A]">
-                      {r.name}
-                    </td>
-
-                    {/* Quiz 1 Input */}
-                    <td className="py-2.5 px-3 text-center">
-                      <input
-                        type="number"
-                        min={0}
-                        max={15}
-                        value={r.quiz_score}
-                        onChange={(e) => updateStudentScore(r.student_id, "quiz_score", Number(e.target.value))}
-                        className="w-14 text-center py-1 border border-slate-200 rounded-[4px] font-mono text-xs focus:ring-1 focus:ring-[#1D4ED8]"
-                      />
-                    </td>
-
-                    {/* Lab Work Input */}
-                    <td className="py-2.5 px-3 text-center">
-                      <input
-                        type="number"
-                        min={0}
-                        max={20}
-                        value={r.lab_score}
-                        onChange={(e) => updateStudentScore(r.student_id, "lab_score", Number(e.target.value))}
-                        className="w-14 text-center py-1 border border-slate-200 rounded-[4px] font-mono text-xs focus:ring-1 focus:ring-[#1D4ED8]"
-                      />
-                    </td>
-
-                    {/* Midterm Input */}
-                    <td className="py-2.5 px-3 text-center">
-                      <input
-                        type="number"
-                        min={0}
-                        max={25}
-                        value={r.midterm_score}
-                        onChange={(e) => updateStudentScore(r.student_id, "midterm_score", Number(e.target.value))}
-                        className="w-14 text-center py-1 border border-slate-200 rounded-[4px] font-mono text-xs focus:ring-1 focus:ring-[#1D4ED8]"
-                      />
-                    </td>
-
-                    {/* Final Exam Input */}
-                    <td className="py-2.5 px-3 text-center">
-                      <input
-                        type="number"
-                        min={0}
-                        max={40}
-                        value={r.final_exam_score}
-                        onChange={(e) => updateStudentScore(r.student_id, "final_exam_score", Number(e.target.value))}
-                        className="w-14 text-center py-1 border border-slate-200 rounded-[4px] font-mono text-xs focus:ring-1 focus:ring-[#1D4ED8]"
-                      />
-                    </td>
-
-                    {/* Calculated Composite Score */}
-                    <td className="py-3 px-4 text-center">
-                      <span className={`font-mono font-bold text-xs ${
-                        isAtRisk ? "text-rose-700" : isDistinction ? "text-[#1D4ED8]" : "text-[#0F172A]"
-                      }`}>
-                        {r.composite_score}%
-                      </span>
-                    </td>
-
-                    {/* Standing Pill */}
-                    <td className="py-3 px-4 text-end">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                        isDistinction
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : isAtRisk
-                          ? "bg-rose-50 text-rose-700 border-rose-200"
-                          : "bg-blue-50 text-blue-700 border-blue-200"
-                      }`}>
-                        {isDistinction ? "Distinction" : isAtRisk ? "At risk" : "Passing"}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              }))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    </PortalPage>
   );
+}
+
+function SummaryCard({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }): React.ReactElement {
+  return <article className="rounded-xl border border-[#E7E0D6] bg-white p-4 dark:border-white/10 dark:bg-[#261E1A]">
+    <div className="flex items-center justify-between text-xs font-medium text-stone-600 dark:text-[#A89C90]">{label}<Icon className="h-4 w-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /></div>
+    <p className="mt-3 font-mono text-2xl font-semibold tabular-nums text-stone-900 dark:text-[#FDFBF7]">{value}</p>
+  </article>;
 }
