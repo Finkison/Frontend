@@ -80,16 +80,15 @@ describe("Finkison Design System & Accessibility Audit", () => {
     expect(content).toContain("PASS");
   });
 
-  it("verifies Hero Carousel meets WCAG 2.2.2 requirements with pause/play controls", () => {
+  it("verifies the static home hero has a labelled heading and no auto-rotating carousel", () => {
     const carouselPath = path.join(componentsDir, "landing", "HeroCarousel.tsx");
     expect(fs.existsSync(carouselPath)).toBe(true);
 
     const content = fs.readFileSync(carouselPath, "utf-8");
-    expect(content).toContain('role="region"');
-    expect(content).toContain('aria-roledescription="carousel"');
-    expect(content).toContain("Pause automatic slide rotation");
-    expect(content).toContain("Start automatic slide rotation");
-    expect(content).toContain("prefers-reduced-motion");
+    expect(content).toContain('aria-labelledby="home-hero-title"');
+    expect(content).toContain('id="home-hero-title"');
+    expect(content).not.toContain('aria-roledescription="carousel"');
+    expect(content).not.toContain("setInterval");
   });
 
   it("verifies Slide-over Drawer implements aria-modal and focus trapping", () => {

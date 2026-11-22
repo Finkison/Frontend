@@ -2,7 +2,7 @@
   "name": "finkison-frontend",
   "version": "1.0.0",
   "type": "module",
-  "description": "Finkison EdTech Platform - EUEE Exam Preparation System",
+  "description": "Finkison AI-enabled learning platform for students, educators, schools, and families",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

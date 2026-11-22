@@ -2,7 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-export default defineConfig({
+export default defineConfig(() => {
+  return {
   plugins: [react()],
   resolve: {
     alias: {
@@ -21,7 +22,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // Do not publish source maps with the public production bundle.
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -32,5 +34,6 @@ export default defineConfig({
       }
     },
     chunkSizeWarningLimit: 600
+  }
   }
 })

@@ -114,7 +114,12 @@ describe("Academic Blue Theme and Enterprise Design Standardization Test Suite",
       const content = fs.readFileSync(filePath, "utf-8");
       const lines = content.split("\n");
       lines.forEach((line, index) => {
-        if ((line.includes("bg-[#FBBF24]") || line.includes("bg-brand")) && (line.includes("text-white") || line.includes("text-[#FFFFFF]"))) {
+        // Ignore dark: variants when checking base colors: dark gold is paired with dark espresso text.
+        const hasBaseGold = /(?:^|[\s"'])bg-\[#FBBF24\](?:\s|["']|$)/.test(line);
+        const hasBaseBrand = /(?:^|[\s"'])bg-brand(?:\s|["']|$)/.test(line);
+        const hasBaseWhiteText = /(?:^|[\s"'])text-white(?:\s|["']|$)/.test(line);
+        const hasBaseWhiteHexText = /(?:^|[\s"'])text-\[#FFFFFF\](?:\s|["']|$)/.test(line);
+        if ((hasBaseGold || hasBaseBrand) && (hasBaseWhiteText || hasBaseWhiteHexText)) {
           violations.push({
             file: path.relative(frontendDir, filePath),
             line: index + 1,
@@ -129,7 +134,8 @@ describe("Academic Blue Theme and Enterprise Design Standardization Test Suite",
   it("verifies index.html has theme-color set to #FFFFFF", () => {
     const indexPath = path.join(frontendDir, "index.html");
     const content = fs.readFileSync(indexPath, "utf-8");
-    expect(content).toContain('<meta name="theme-color" content="#FFFFFF" />');
+    expect(content).toContain('<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />');
+    expect(content).toContain('name="theme-color" content="#1d71d8ff" media="(prefers-color-scheme: dark)"');
   });
 
   it("verifies Academic Crimson used as brand primary in tailwind config", () => {
@@ -146,13 +152,11 @@ describe("Academic Blue Theme and Enterprise Design Standardization Test Suite",
     expect(fs.existsSync(landingPath)).toBe(true);
 
     const content = fs.readFileSync(landingPath, "utf-8");
-    expect(content).toContain("Score calibration");
-    expect(content).toContain("Knowledge mapping");
-    expect(content).toContain("Spaced review");
-    expect(content).toContain("Curriculum alignment");
-    expect(content).toContain("Bayesian regression calibrated against historical university cutoffs");
-    expect(content).toContain("prerequisite foundational concepts across Grades 9 through 12");
-    expect(content).toContain("Zero ungrounded hallucinations");
+    const copy = JSON.parse(fs.readFileSync(path.join(frontendDir, "i18n", "en.json"), "utf-8"));
+    expect(content).toContain("MarketingSteps");
+    expect(copy.public.hero.description).toContain("beyond exam prep");
+    expect(copy.public.marketing.home.journeyTitle).toContain("Practise");
+    expect(copy.public.marketing.learning.tool4Title).toBe("AI-supported guidance");
   });
 
   it("verifies all public page headers use sentence case format", () => {

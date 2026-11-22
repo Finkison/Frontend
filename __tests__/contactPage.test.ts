@@ -55,7 +55,7 @@ describe("Standardized Contact Page and Demo Flow Replacement Test Suite", () =>
 
     // 5 fields
     expect(content).toContain("Full name");
-    expect(content).toContain("Work email");
+    expect(content).toContain("Email address");
     expect(content).toContain("School name (optional)");
     expect(content).toContain("Topic");
     expect(content).toContain("Message");
@@ -63,8 +63,8 @@ describe("Standardized Contact Page and Demo Flow Replacement Test Suite", () =>
     // Live counter
     expect(content).toContain("1,000");
 
-    // Helper text only for work email
-    expect(content).toContain("Use your school email.");
+    // The email field is clearly labelled and supports an optional school name without a placeholder prompt.
+    expect(content).toContain('htmlFor="contact-work-email"');
     expect(content).not.toMatch(/placeholder=["'](?:Enter your name|e\.g\.|Type here)/i);
   });
 
@@ -83,7 +83,7 @@ describe("Standardized Contact Page and Demo Flow Replacement Test Suite", () =>
     const contactPath = path.join(pagesDir, "ContactPage.tsx");
     const content = fs.readFileSync(contactPath, "utf-8");
 
-    expect(content).toContain("We use your details only to reply.");
+    expect(content).toContain("Learn how we handle your information.");
     expect(content).toContain("Privacy policy");
     expect(content).toContain('/privacy');
   });
@@ -98,9 +98,9 @@ describe("Standardized Contact Page and Demo Flow Replacement Test Suite", () =>
     expect(content).toContain("max-w-[480px]");
     expect(content).toContain("shadow-none");
 
-    // Input height 44px, control border #64748B, Inter 16 (text-base), focus ring #881337
+    // Input height 44px, control border token, 16px text, focus ring #881337
     expect(content).toContain("h-[44px]");
-    expect(content).toContain("border-[#64748B]");
+    expect(content).toContain("border-[#A89C90]");
     expect(content).toContain("focus:ring-[#881337]");
 
     // Button full width, #FBBF24 fill, #1C1512 text, 44px, label "Send message"

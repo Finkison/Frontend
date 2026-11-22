@@ -20,14 +20,14 @@ const queryClient = new QueryClient({
   },
 });
 
-// Decommission any legacy offline service workers and caches
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    registrations.forEach((registration) => registration.unregister());
-  });
-  if ("caches" in window) {
-    caches.keys().then((keys) => {
-      keys.forEach((key) => caches.delete(key));
+  if (import.meta.env.PROD) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .catch(() => {
+
+        });
     });
   }
 }
