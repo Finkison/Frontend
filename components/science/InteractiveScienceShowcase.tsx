@@ -58,7 +58,6 @@ export default function InteractiveScienceShowcase(): React.ReactElement {
   const [isInViewport, setIsInViewport] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Lazy pause when off-screen
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new IntersectionObserver(
@@ -77,7 +76,7 @@ export default function InteractiveScienceShowcase(): React.ReactElement {
 
   return (
     <div ref={containerRef} className="w-full space-y-6">
-      {/* 4 Tabs Bar (Max 4 tabs per viewer rule) */}
+
       <div
         role="tablist"
         aria-label="STEM Visual Simulation Subjects"
@@ -108,14 +107,13 @@ export default function InteractiveScienceShowcase(): React.ReactElement {
         })}
       </div>
 
-      {/* Tab Panel Content */}
       <div
         role="tabpanel"
         id={`panel-${activeSubject}`}
         aria-labelledby={`tab-${activeSubject}`}
         className="space-y-4"
       >
-        {/* Unit Mapping Header Bar */}
+
         <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs">
           <div className="flex items-center gap-2">
             <span className="text-[#7D6F63] dark:text-stone-400">Curriculum alignment:</span>
@@ -139,7 +137,6 @@ export default function InteractiveScienceShowcase(): React.ReactElement {
           </div>
         </div>
 
-        {/* Dynamic Simulation Rendering (Only 1 active visual playing) */}
         {isInViewport && (
           <div className="transition-opacity duration-200">
             {activeSubject === "physics" && <PhysicsWaveSimulation />}

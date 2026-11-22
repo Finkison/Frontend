@@ -1,286 +1,159 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AlertTriangle, ArrowRight, BookOpen, CheckCircle2, RefreshCw } from "lucide-react";
 import { getWeakAreas } from "../../services/studentService";
 import { startPractice } from "../../services/practiceService";
 import useSessionStore from "../../store/sessionStore";
+import useAuthStore from "../../store/authStore";
 import { useToast } from "../ui/Toast";
-import { 
-  Target, 
-  AlertTriangle, 
-  CheckCircle2, 
-  ArrowRight, 
-  Sparkles, 
-  Clock, 
-  Flame, 
-  Filter, 
-  BookOpen 
-} from "lucide-react";
+import PortalPage from "../shared/PortalPage";
 
-interface WeakArea {
+type WeakArea = {
   id: string;
   subject: string;
   unit: number;
   topic: string;
   accuracy: number;
-  accuracy_percent?: number;
-}
+  attempts: number;
+};
+
+type WeakAreasResponse = {
+  weak_areas?: WeakArea[];
+  has_topic_data?: boolean;
+  attempts_analyzed?: number;
+  subject_topic_counts?: Record<string, number>;
+};
 
 export default function DiagnosticGapsView(): React.ReactElement {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const startSession = useSessionStore((s) => s.startSession);
-
+  const startSession = useSessionStore((state) => state.startSession);
+  const user = useAuthStore((state) => state.user);
   const [weakAreas, setWeakAreas] = useState<WeakArea[]>([]);
+  const [hasTopicData, setHasTopicData] = useState(false);
+  const [attemptsAnalyzed, setAttemptsAnalyzed] = useState(0);
+  const [subjectTopicCounts, setSubjectTopicCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [selectedSubject, setSelectedSubject] = useState<string>("All");
+  const [error, setError] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState("All");
   const [launchingId, setLaunchingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadAreas = useCallback(async () => {
     setLoading(true);
-    getWeakAreas()
-      .then((res) => {
-        setWeakAreas(res.data || []);
-      })
-      .catch(() => setWeakAreas([]))
-      .finally(() => setLoading(false));
+    setError(false);
+    try {
+      const response = await getWeakAreas();
+      const data: WeakAreasResponse = response.data || {};
+      setWeakAreas(Array.isArray(data.weak_areas) ? data.weak_areas : []);
+      setHasTopicData(Boolean(data.has_topic_data));
+      setAttemptsAnalyzed(Number(data.attempts_analyzed) || 0);
+      setSubjectTopicCounts(data.subject_topic_counts || {});
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const filteredAreas = useMemo(() => {
-    if (selectedSubject === "All") return weakAreas;
-    return weakAreas.filter((w) => w.subject.toLowerCase() === selectedSubject.toLowerCase());
-  }, [weakAreas, selectedSubject]);
+  useEffect(() => { void loadAreas(); }, [loadAreas]);
 
-  const handleLaunchTopic = async (subject: string, topic: string) => {
-    const idKey = `${subject}-${topic}`;
-    setLaunchingId(idKey);
+  const subjects = useMemo(() => Array.from(new Set(weakAreas.map((area) => area.subject))).sort(), [weakAreas]);
+  const filteredAreas = useMemo(() => selectedSubject === "All"
+    ? weakAreas
+    : weakAreas.filter((area) => area.subject.toLowerCase() === selectedSubject.toLowerCase()), [weakAreas, selectedSubject]);
+  const selectedTopicCount = selectedSubject === "All"
+    ? Object.values(subjectTopicCounts).reduce((total, count) => total + count, 0)
+    : subjectTopicCounts[selectedSubject] || 0;
+
+  const handleLaunchUnit = async (area: WeakArea) => {
+    setLaunchingId(area.id);
     try {
-      const { data } = await startPractice({ subject, mode: "adaptive" });
-      startSession(data.id, data.session_type, data.questions, data.duration || 1800);
-      showToast({
-        type: "success",
-        title: "Adaptive Drill Launched",
-        message: `Focusing on ${subject}: ${topic}`
-      });
+      const gradeMatch = String(user?.grade || "").match(/\d+/);
+      const grade = gradeMatch ? Number(gradeMatch[0]) : undefined;
+      const response = await startPractice({ subject: area.subject, mode: "unit", unit: area.unit, ...(grade ? { grade } : {}) });
+      const data = response.data?.data || response.data || {};
+      if (!data.id || !Array.isArray(data.questions) || data.questions.length === 0) {
+        throw new Error(data.error || data.message || "Practice questions are not available for this unit yet.");
+      }
+      startSession(data.id, data.session_type || "unit", data.questions, data.duration_seconds || data.duration || 1800);
+      showToast({ type: "success", title: "Unit practice started", message: `${area.subject}, Unit ${area.unit}` });
       navigate("/student/session");
-    } catch {
-      showToast({
-        type: "info",
-        title: "Starting Practice Mode",
-        message: `Redirecting to subject practice configuration for ${subject}.`
-      });
-      navigate("/student/practice");
+    } catch (err: any) {
+      showToast({ type: "error", title: "Could not start unit practice", message: err?.response?.data?.message || err?.response?.data?.error || err?.message || "Try again later." });
     } finally {
       setLaunchingId(null);
     }
   };
 
-  const recommendations = useMemo(() => {
-    return filteredAreas.map((w) => {
-      let action = "";
-      let estTime = "";
-      if (w.subject === "Physics") {
-        action = "Review Unit 3 Electromagnetic induction formulas and work through 15 adaptive practice questions.";
-        estTime = "45 mins";
-      } else if (w.subject === "Biology") {
-        action = "Read step-by-step meiosis vs mitosis diagrams, then take a targeted concept simulation test.";
-        estTime = "30 mins";
-      } else if (w.subject === "Chemistry") {
-        action = "Consolidate galvanic cell oxidation-reduction equations and calculate standard cell potentials.";
-        estTime = "35 mins";
-      } else {
-        action = "Consolidate definite integral substitution rules and review 2015-2016 entrance exam problems.";
-        estTime = "25 mins";
-      }
-
-      return {
-        id: w.id || `${w.subject}-${w.topic}`,
-        subject: w.subject,
-        topic: w.topic,
-        action,
-        estTime,
-        accuracy: w.accuracy_percent ?? w.accuracy ?? 45
-      };
-    });
-  }, [filteredAreas]);
-
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header Banner */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-700 text-xs font-semibold border border-rose-500/20 mb-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-              <span>Diagnostic Telemetry</span>
-            </div>
-            <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-              Knowledge Gaps
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
-              Topics below 50% accuracy requiring targeted practice to build exam readiness.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
-              {weakAreas.length} Topics Flagged
-            </span>
-          </div>
+    <PortalPage className="max-w-5xl space-y-6">
+      <header className="flex flex-col gap-4 border-b border-stone-200 pb-5 dark:border-white/10 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="inline-flex items-center gap-2 text-sm font-semibold text-[#881337] dark:text-[#FBBF24]"><AlertTriangle className="h-4 w-4" aria-hidden="true" />Practice insights</div>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-stone-900 dark:text-[#FDFBF7]">Knowledge gaps</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-stone-600 dark:text-[#E7E0D6]">Review topics where your practice accuracy is below 50%.</p>
         </div>
+        <div className="flex items-center gap-3">
+          {!loading && !error && <span className="text-xs text-stone-500 dark:text-[#A89C90]">{weakAreas.length} topic{weakAreas.length === 1 ? "" : "s"} below 50%</span>}
+          <button type="button" onClick={() => void loadAreas()} disabled={loading} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-300 bg-white px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-60 dark:border-white/15 dark:bg-[#261E1A] dark:text-[#E7E0D6] dark:hover:bg-white/5"><RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />Refresh</button>
+        </div>
+      </header>
 
-        {/* Filter Bar */}
-        <div className="mt-6 pt-5 border-t border-slate-100 flex items-center gap-2 overflow-x-auto">
-          {["All", "Chemistry", "Physics", "Mathematics", "Biology"].map((sub) => (
-            <button
-              key={sub}
-              onClick={() => setSelectedSubject(sub)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-colors ${
-                selectedSubject === sub
-                  ? "bg-slate-900 text-white shadow-2xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {sub}
-            </button>
+      {subjects.length > 0 && (
+        <nav className="flex items-center gap-2 overflow-x-auto" aria-label="Filter weak topics by subject">
+          {["All", ...subjects].map((subject) => (
+            <button key={subject} type="button" onClick={() => setSelectedSubject(subject)} aria-pressed={selectedSubject === subject} className={`min-h-10 shrink-0 rounded-lg px-3.5 text-xs font-semibold transition-colors ${selectedSubject === subject ? "bg-[#881337] text-white" : "bg-white text-stone-600 hover:bg-stone-50 dark:bg-[#261E1A] dark:text-[#E7E0D6] dark:hover:bg-white/5"}`}>{subject}</button>
           ))}
-        </div>
-      </div>
+        </nav>
+      )}
 
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="font-bold text-slate-900 text-base">
-            Topic Accuracy
-          </h2>
-          <span className="text-xs text-slate-400">
-            Benchmark: 50%
-          </span>
+      <section className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#261E1A] sm:p-6" aria-labelledby="weak-topics-heading">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 id="weak-topics-heading" className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">Topics to review</h2>          <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">Review threshold: below 50% accuracy.</p></div>
+          {!loading && !error && hasTopicData && <span className="text-xs text-stone-500 dark:text-[#A89C90]">{attemptsAnalyzed} answers analyzed</span>}
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-xs">
-            Loading diagnostic weak areas...
+          <p role="status" className="py-8 text-center text-sm text-stone-500 dark:text-[#A89C90]">Loading practice insights...</p>
+        ) : error ? (
+          <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200">Practice insights could not be loaded. Refresh to try again.</div>
+        ) : !hasTopicData ? (
+          <div className="rounded-xl border border-dashed border-stone-300 p-7 text-center dark:border-white/15">
+            <BookOpen className="mx-auto h-8 w-8 text-stone-400 dark:text-[#A89C90]" aria-hidden="true" />
+            <h3 className="mt-3 text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">No topic-level practice data yet</h3>
+            <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-stone-600 dark:text-[#A89C90]">Complete practice to see topics that need review.</p>
+            <button type="button" onClick={() => navigate("/student/practice")} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#881337] px-4 text-xs font-semibold text-white hover:bg-[#9F1239]">Start practice <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></button>
           </div>
         ) : filteredAreas.length === 0 ? (
-          <div className="p-8 rounded-2xl bg-emerald-50/50 border border-emerald-100 text-center space-y-2">
-            <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-            <p className="text-sm font-bold text-emerald-950">
-              No critical weak areas detected
-            </p>
-            <p className="text-xs text-emerald-800 max-w-md mx-auto">
-              All concepts in this subject maintain mastery levels above 50%. Keep practicing to reach 90%+ elite thresholds.
-            </p>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
+            <h3 className="mt-3 text-sm font-semibold text-emerald-950 dark:text-emerald-100">{selectedTopicCount === 0 ? "No topic attempts for this subject" : "No topics below the review threshold"}</h3>
+            <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-emerald-900/80 dark:text-emerald-100/80">{selectedTopicCount === 0 ? "Complete practice in this subject to build a topic-level record." : `No topics below 50% were found in ${selectedTopicCount} topics with recorded answers.`}</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredAreas.map((w, idx) => {
-              const accuracy = w.accuracy_percent ?? w.accuracy ?? 45;
-              const isCritical = accuracy < 45;
-
-              return (
-                <div
-                  key={w.id || idx}
-                  className="p-4 rounded-2xl border border-slate-200/90 bg-slate-50/50 hover:bg-white hover:border-slate-300 transition-colors space-y-2.5"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-md bg-slate-200 text-slate-800 text-[10px] font-bold uppercase">
-                        {w.subject} &bull; Unit {w.unit}
-                      </span>
-                      <h3 className="font-bold text-sm text-slate-900">
-                        {w.topic}
-                      </h3>
+          <div className="space-y-3">
+            {filteredAreas.map((area) => (
+              <article key={area.id} className="rounded-xl border border-stone-200 bg-[#FAF8F5] p-4 dark:border-white/10 dark:bg-[#1C1512]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-md bg-stone-200 px-2 py-1 text-[10px] font-bold uppercase text-stone-800 dark:bg-white/10 dark:text-[#FDFBF7]">{area.subject} · Unit {area.unit}</span>
+                      <span className="text-[11px] text-stone-500 dark:text-[#A89C90]">{area.attempts} answer{area.attempts === 1 ? "" : "s"}</span>
                     </div>
-
-                    <span
-                      className={`text-xs font-bold px-2.5 py-0.5 rounded-full border self-start sm:self-auto ${
-                        isCritical
-                          ? "bg-rose-50 text-rose-800 border-rose-200"
-                          : "bg-amber-50 text-amber-800 border-amber-200"
-                      }`}
-                    >
-                      {accuracy}% Accuracy &bull; {isCritical ? "Critical Intervention" : "Needs Review"}
-                    </span>
+                    <h3 className="mt-2 text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{area.topic}</h3>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10" role="img" aria-label={`${area.accuracy}% accuracy`}><div className="h-full rounded-full bg-rose-600" style={{ width: `${Math.max(0, Math.min(100, area.accuracy))}%` }} /></div>
                   </div>
-
-                  {/* Meter Bar */}
-                  <div className="w-full h-2 rounded-full bg-slate-200/70 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isCritical
-                          ? "bg-rose-500"
-                          : "bg-gradient-to-r from-amber-500 to-amber-600"
-                      }`}
-                      style={{ width: `${accuracy}%` }}
-                    />
+                  <div className="flex items-center justify-between gap-3 sm:justify-end">
+                    <span className="text-sm font-semibold tabular-nums text-rose-800 dark:text-rose-200">{area.accuracy}%</span>
+                    <button type="button" onClick={() => void handleLaunchUnit(area)} disabled={launchingId === area.id} className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-[#881337] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#9F1239] disabled:cursor-wait disabled:opacity-60">{launchingId === area.id ? "Starting..." : `Practice Unit ${area.unit}`}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Action Plan */}
-      {recommendations.length > 0 && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-sans text-xl font-bold text-slate-900">
-                Personalized Intervention Roadmap
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Targeted short drills to eliminate accuracy bottlenecks before the entrance examination.
-              </p>
-            </div>
-            <Sparkles className="w-5 h-5 text-amber-500" />
-          </div>
-
-          <div className="grid gap-3 pt-2">
-            {recommendations.map((rec) => (
-              <div
-                key={rec.id}
-                className="p-5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 shadow-2xs space-y-3 flex flex-col justify-between"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-0.5 rounded">
-                        High Priority
-                      </span>
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> Est. {rec.estTime}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-sm text-slate-900">
-                      {rec.subject} &mdash; {rec.topic}
-                    </h3>
-                    <p className="text-xs text-slate-600 leading-relaxed mt-1">
-                      {rec.action}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleLaunchTopic(rec.subject, rec.topic)}
-                    disabled={launchingId === `${rec.subject}-${rec.topic}`}
-                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
-                  >
-                    <span>
-                      {launchingId === `${rec.subject}-${rec.topic}`
-                        ? "Launching Drill..."
-                        : "Launch Targeted Practice"}
-                    </span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+              </article>
             ))}
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </section>
+    </PortalPage>
   );
 }
 

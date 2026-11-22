@@ -1,12 +1,14 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useLearningStore } from "../../store/learningStore";
-import { Brain, Clock, Zap, CheckCircle, XCircle, ArrowRight, RotateCcw, Sparkles, Target } from "lucide-react";
+import { Brain, CheckCircle, XCircle, RotateCcw, Sparkles, Target, RefreshCw } from "lucide-react";
+import PortalPage from "../shared/PortalPage";
 
 export default function SpacedReview() {
   const {
     dueReviews,
     dueCount,
     reviewsLoading,
+    reviewQueueError,
     fetchDueReviews,
     handleReviewSubmit,
   } = useLearningStore();
@@ -17,26 +19,36 @@ export default function SpacedReview() {
   const [feedback, setFeedback] = useState<string>("");
   const [startTime, setStartTime] = useState(Date.now());
   const [reviewedCount, setReviewedCount] = useState(0);
-  const [sessionXP, setSessionXP] = useState(0);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchDueReviews();
   }, [fetchDueReviews]);
 
+  useEffect(() => () => {
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+  }, []);
+
   const currentReview = dueReviews[currentIndex];
   const currentQuestion = currentReview?.questions?.[0];
+  const hasQuestionOptions = Boolean(currentQuestion && Array.isArray(currentQuestion.options) && currentQuestion.options.length > 0);
+  const queueReviewedCount = Math.min(dueCount, currentIndex + (ratingSubmitting ? 1 : 0));
 
   const handleAnswer = useCallback((answerIndex: number) => {
-    if (showAnswer || !currentQuestion) return;
+    if (showAnswer || !hasQuestionOptions) return;
     setSelectedAnswer(answerIndex);
     setShowAnswer(true);
-  }, [showAnswer, currentQuestion]);
+  }, [showAnswer, hasQuestionOptions]);
 
   const handleRating = useCallback(async (rating: 1 | 2 | 3 | 4) => {
-    if (!currentReview) return;
+    if (!currentReview || ratingSubmitting) return;
 
+    setRatingSubmitting(true);
     const timeTaken = Math.round((Date.now() - startTime) / 1000);
-    const confidence = selectedAnswer === currentQuestion?.correct_answer ? rating : 1;
+    const confidence = hasQuestionOptions
+      ? (selectedAnswer === currentQuestion?.correct_answer ? rating : 1)
+      : rating;
 
     try {
       const result = await handleReviewSubmit(
@@ -47,32 +59,49 @@ export default function SpacedReview() {
       );
       setFeedback(result.message);
       setReviewedCount(prev => prev + 1);
-      setSessionXP(prev => prev + (rating >= 3 ? 15 : 5));
 
-      setTimeout(() => {
-        setShowAnswer(false);
-        setSelectedAnswer(null);
-        setFeedback("");
-        setStartTime(Date.now());
+      advanceTimer.current = setTimeout(async () => {
         if (currentIndex < dueReviews.length - 1) {
+          setShowAnswer(false);
+          setSelectedAnswer(null);
+          setFeedback("");
+          setStartTime(Date.now());
           setCurrentIndex(prev => prev + 1);
+          setRatingSubmitting(false);
         } else {
-          fetchDueReviews(); // Reload queue
+          await fetchDueReviews();
           setCurrentIndex(0);
+          setShowAnswer(false);
+          setSelectedAnswer(null);
+          setFeedback("");
+          setStartTime(Date.now());
+          setRatingSubmitting(false);
         }
       }, 1500);
     } catch {
       setFeedback("Could not submit review. Check connection and retry.");
+      setRatingSubmitting(false);
     }
-  }, [currentReview, currentQuestion, currentIndex, dueReviews.length, handleReviewSubmit, fetchDueReviews, selectedAnswer, startTime]);
+  }, [currentReview, currentQuestion, currentIndex, dueReviews.length, handleReviewSubmit, fetchDueReviews, selectedAnswer, startTime, ratingSubmitting, hasQuestionOptions]);
 
-  // Loading state
   if (reviewsLoading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-3">
-          <Brain className="w-12 h-12 text-blue-600 mx-auto" />
-          <p className="text-slate-600">Loading your review queue...</p>
+          <Brain className="w-12 h-12 text-[#881337] dark:text-[#FBBF24] mx-auto" />
+          <p className="text-stone-600 dark:text-[#E7E0D6]">Loading your review queue...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (reviewQueueError) {
+    return (
+      <div className="mx-auto max-w-lg p-6">
+        <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center dark:border-rose-900/40 dark:bg-rose-950/20">
+          <h2 className="text-lg font-semibold text-rose-900 dark:text-rose-100">Review queue unavailable</h2>
+          <p role="alert" className="text-sm text-rose-800 dark:text-rose-200">{reviewQueueError}</p>
+          <button type="button" onClick={() => void fetchDueReviews()} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#881337] px-4 text-sm font-semibold text-white hover:bg-[#9F1239]"><RefreshCw className="h-4 w-4" aria-hidden="true" />Try again</button>
         </div>
       </div>
     );
@@ -81,23 +110,23 @@ export default function SpacedReview() {
   if (dueCount === 0 || !currentReview) {
     return (
       <div className="p-6 max-w-lg mx-auto">
-        <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-3xl p-8 text-center border border-emerald-200">
-          <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-emerald-600" />
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center dark:border-emerald-900/40 dark:bg-[#261E1A]">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-950/50">
+            <CheckCircle className="h-8 w-8 text-emerald-700 dark:text-emerald-300" />
           </div>
-          <h2 className="text-2xl font-bold text-emerald-900 mb-2">
-            Reviews Complete
+          <h2 className="mb-2 text-2xl font-bold text-emerald-950 dark:text-emerald-100">
+            {reviewedCount > 0 ? "Review session complete" : "You’re all caught up"}
           </h2>
-          <p className="text-emerald-700 mb-1">
-            You have reviewed all concepts scheduled for today.
+          <p className="mb-1 text-emerald-900 dark:text-emerald-200">
+            {reviewedCount > 0 ? "You’ve reviewed every concept that was due in this session." : "You don’t have any concepts due for review right now."}
           </p>
           {reviewedCount > 0 && (
-            <p className="text-sm text-emerald-600 mt-3">
-              Session: {reviewedCount} concepts reviewed · +{sessionXP} XP earned
+            <p className="mt-3 text-sm text-emerald-800 dark:text-emerald-200">
+              Session: {reviewedCount} concept{reviewedCount === 1 ? "" : "s"} reviewed
             </p>
           )}
-          <p className="text-xs text-emerald-500 mt-4">
-            New reviews will appear according to your spaced repetition schedule.
+          <p className="mt-4 text-xs text-emerald-800/80 dark:text-emerald-200/80">
+            Your next review dates are set from your study history.
           </p>
         </div>
       </div>
@@ -105,59 +134,53 @@ export default function SpacedReview() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4">
-      {/* Header */}
+    <PortalPage className="max-w-2xl space-y-4">
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center">
-            <Brain className="w-5 h-5 text-blue-600" />
+          <div className="w-10 h-10 bg-[#FFF1F2] dark:bg-[#4C0519]/40 border border-[#FECDD3] dark:border-[#881337]/50 rounded-xl flex items-center justify-center">
+            <Brain className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-900">Spaced review</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="text-lg font-bold text-stone-900 dark:text-[#FDFBF7]">Spaced review</h1>
+            <p className="text-xs text-stone-500 dark:text-[#A89C90]">
               {dueCount} concepts due · {reviewedCount} reviewed
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Zap className="w-4 h-4 text-amber-500" />
-          <span className="font-bold text-amber-600">+{sessionXP} XP</span>
-        </div>
+        <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold tabular-nums text-stone-600 dark:bg-white/10 dark:text-[#E7E0D6]">{Math.max(0, dueCount - queueReviewedCount)} left in queue</span>
       </div>
 
-      {/* Progress bar */}
-      <div className="w-full bg-slate-200 rounded-full h-2">
+      <div className="w-full bg-stone-200 dark:bg-white/10 rounded-full h-2" role="progressbar" aria-label="Review queue progress" aria-valuemin={0} aria-valuemax={dueCount} aria-valuenow={queueReviewedCount}>
         <div
-          className="bg-[#1D4ED8] h-2 rounded-full transition-all duration-500"
-          style={{ width: `${Math.min(100, (reviewedCount / Math.max(1, dueCount)) * 100)}%` }}
+          className="bg-[#881337] h-2 rounded-full transition-all duration-500"
+          style={{ width: `${Math.min(100, (queueReviewedCount / Math.max(1, dueCount)) * 100)}%` }}
         />
       </div>
 
-      {/* Concept info */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+      <div className="bg-white dark:bg-[#261E1A] rounded-2xl border border-stone-200 dark:border-white/10 p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
-          <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+          <span className="px-2.5 py-0.5 bg-[#FFE4E6] dark:bg-[#4C0519]/50 text-[#881337] dark:text-[#FBBF24] text-xs font-medium rounded-full">
             {currentReview.subject}
           </span>
-          <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-100">
+          <span className="px-2.5 py-0.5 bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] dark:text-[#FBBF24] text-xs font-medium rounded-full border border-[#FECDD3] dark:border-[#881337]/50">
             Mastery: {Math.round(currentReview.mastery_level * 100)}%
           </span>
-          <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">
+          <span className="px-2.5 py-0.5 bg-stone-100 dark:bg-[#201815] text-stone-600 dark:text-[#E7E0D6] text-xs rounded-full">
             Review #{currentReview.review_count + 1}
           </span>
         </div>
 
-        <h2 className="text-lg font-bold text-slate-900 mb-1">
+        <h2 className="text-lg font-bold text-stone-900 dark:text-[#FDFBF7] mb-1">
           {currentReview.concept_name}
         </h2>
         {currentReview.concept_name_am && (
-          <p className="text-sm text-slate-500 mb-4">{currentReview.concept_name_am}</p>
+          <p className="text-sm text-stone-500 dark:text-[#A89C90] mb-4">{currentReview.concept_name_am}</p>
         )}
 
-        {/* Question */}
-        {currentQuestion && (
+        {hasQuestionOptions && currentQuestion ? (
           <div className="mt-4 space-y-3">
-            <p className="text-slate-800 font-medium leading-relaxed">
+            <p className="text-stone-800 dark:text-[#FDFBF7] font-medium leading-relaxed">
               {currentQuestion.question_text}
             </p>
 
@@ -173,9 +196,9 @@ export default function SpacedReview() {
                 } else if (showResult && isSelected && !isCorrect) {
                   classes += "bg-red-50 border-red-400 text-red-800";
                 } else if (isSelected) {
-                  classes += "bg-blue-50 border-blue-400 text-blue-800";
+                  classes += "bg-[#FFF1F2] dark:bg-[#4C0519]/40 border-[#881337] text-[#881337] dark:text-[#FBBF24]";
                 } else {
-                  classes += "bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-blue-50";
+                  classes += "bg-white dark:bg-[#261E1A] border-stone-200 dark:border-white/10 text-stone-700 dark:text-[#E7E0D6] hover:border-[#FECDD3] hover:bg-[#FFF1F2] dark:hover:bg-[#4C0519]/50";
                 }
 
                 return (
@@ -186,7 +209,7 @@ export default function SpacedReview() {
                     className={classes}
                   >
                     <span className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold">
+                      <span className="w-6 h-6 rounded-full bg-stone-100 dark:bg-[#201815] flex items-center justify-center text-xs font-bold">
                         {String.fromCharCode(65 + idx)}
                       </span>
                       {option}
@@ -198,55 +221,64 @@ export default function SpacedReview() {
               })}
             </div>
           </div>
+        ) : (
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-dashed border-stone-300 bg-[#FAF8F5] p-4 dark:border-white/15 dark:bg-[#1C1512]">
+            <p className="text-sm leading-6 text-stone-600 dark:text-[#E7E0D6]">Review this concept from memory, then rate your recall.</p>
+            <button type="button" onClick={() => { setSelectedAnswer(null); setFeedback(""); setShowAnswer(true); }} disabled={showAnswer} className="min-h-10 self-start rounded-lg bg-[#881337] px-4 text-xs font-semibold text-white hover:bg-[#9F1239] disabled:opacity-60">Rate my recall</button>
+          </div>
         )}
       </div>
 
       {showAnswer && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
-          <p className="text-sm font-bold text-slate-700 text-center">
+        <div className="bg-white dark:bg-[#261E1A] rounded-2xl border border-stone-200 dark:border-white/10 p-5 shadow-sm space-y-3">
+          <p className="text-sm font-bold text-stone-700 dark:text-[#E7E0D6] text-center">
             How well did you recall this concept?
           </p>
           <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => handleRating(1)}
-              className="p-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-center transition-all"
+              disabled={ratingSubmitting}
+              className="p-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-center transition-all disabled:cursor-wait disabled:opacity-60"
             >
               <RotateCcw className="w-5 h-5 text-red-500 mx-auto mb-1" />
               <span className="text-xs font-bold text-red-700 block">Again</span>
-              <span className="text-[10px] text-red-400">~1 min</span>
+              <span className="text-[10px] text-red-500">Forgot this</span>
             </button>
             <button
               onClick={() => handleRating(2)}
-              className="p-3 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-center transition-all"
+              disabled={ratingSubmitting}
+              className="p-3 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-center transition-all disabled:cursor-wait disabled:opacity-60"
             >
               <Target className="w-5 h-5 text-orange-500 mx-auto mb-1" />
               <span className="text-xs font-bold text-orange-700 block">Hard</span>
-              <span className="text-[10px] text-orange-400">~1 day</span>
+              <span className="text-[10px] text-orange-500">Difficult recall</span>
             </button>
             <button
               onClick={() => handleRating(3)}
-              className="p-3 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-center transition-all"
+              disabled={ratingSubmitting}
+              className="p-3 rounded-xl bg-[#FFF1F2] dark:bg-[#4C0519]/40 hover:bg-[#FFE4E6] dark:hover:bg-[#4C0519]/60 border border-[#FECDD3] dark:border-[#881337]/50 text-center transition-all disabled:cursor-wait disabled:opacity-60"
             >
-              <CheckCircle className="w-5 h-5 text-blue-500 mx-auto mb-1" />
-              <span className="text-xs font-bold text-blue-700 block">Good</span>
-              <span className="text-[10px] text-blue-400">~3 days</span>
+              <CheckCircle className="w-5 h-5 text-[#881337] dark:text-[#FBBF24] mx-auto mb-1" />
+              <span className="text-xs font-bold text-[#881337] dark:text-[#FBBF24] block">Good</span>
+              <span className="text-[10px] text-[#5C5046] dark:text-[#FBBF24]">Recalled with effort</span>
             </button>
             <button
               onClick={() => handleRating(4)}
-              className="p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-center transition-all"
+              disabled={ratingSubmitting}
+              className="p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-center transition-all disabled:cursor-wait disabled:opacity-60"
             >
               <Sparkles className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
               <span className="text-xs font-bold text-emerald-700 block">Easy</span>
-              <span className="text-[10px] text-emerald-400">~7 days</span>
+              <span className="text-[10px] text-emerald-600">Recalled easily</span>
             </button>
           </div>
           {feedback && (
-            <p className="text-center text-sm text-slate-600 mt-2">
+            <p role="status" className="text-center text-sm text-stone-600 dark:text-[#E7E0D6] mt-2">
               {feedback}
             </p>
           )}
         </div>
       )}
-    </div>
+    </PortalPage>
   );
 }

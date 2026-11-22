@@ -1,77 +1,112 @@
-import React, { useState } from "react";
-import { 
-  Bot, 
-  Send, 
-  Sparkles, 
-  Lightbulb, 
-  Languages, 
-  BookOpen, 
-  ArrowRight,
-  HelpCircle,
-  CheckCircle2,
-  RefreshCw
-} from "lucide-react";
-import { askAITutor, streamAITutor } from "../../services/aiService";
+import React, { useEffect, useRef, useState } from "react";
+import { Bot, Lightbulb, Languages, RefreshCw, Send, Sparkles } from "lucide-react";
+import { useI18n } from "../../i18n";
+import { streamAITutor } from "../../services/aiService";
 import useAuthStore from "../../store/authStore";
+import useScope from "../../hooks/useScope";
+import PortalPage from "../shared/PortalPage";
 
 interface ChatMessage {
   id: string;
   sender: "user" | "tutor";
   text: string;
+  subject?: string;
   hint?: string;
-  suggestedFollowUps?: string[];
   timestamp: string;
 }
 
-export default function AITutorChat(): React.ReactElement {
-  const user = useAuthStore((s) => s.user);
+const subjectLabelKeys: Record<string, string> = {
+  Mathematics: "mathematics",
+  Physics: "physics",
+  Chemistry: "chemistry",
+  Biology: "biology",
+  English: "english",
+  Aptitude: "aptitude",
+  History: "history",
+  Geography: "geography",
+  Economics: "economics",
+  Civics: "civics",
+  "Information Technology": "informationTechnology",
+};
 
-  const [subject, setSubject] = useState("Mathematics");
-  const [lang, setLang] = useState<"English" | "Amharic" | "Afaan Oromoo">("English");
+const juniorPrompts = [
+  { labelKey: "aiTutor.prompts.linearEquation", questionKey: "aiTutor.questions.linearEquation" },
+  { labelKey: "aiTutor.prompts.forces", questionKey: "aiTutor.questions.forces" },
+  { labelKey: "aiTutor.prompts.foodChain", questionKey: "aiTutor.questions.foodChain" },
+] as const;
+
+const seniorPrompts = [
+  { labelKey: "aiTutor.prompts.electrochemistry", questionKey: "aiTutor.questions.electrochemistry" },
+  { labelKey: "aiTutor.prompts.derivatives", questionKey: "aiTutor.questions.derivatives" },
+  { labelKey: "aiTutor.prompts.induction", questionKey: "aiTutor.questions.induction" },
+] as const;
+
+export default function AITutorChat(): React.ReactElement {
+  const user = useAuthStore((state) => state.user);
+  const { t, language: appLanguage } = useI18n();
+  const scope = useScope();
+  const getSubjectLabel = (value: string) => {
+    const labelKey = subjectLabelKeys[value];
+    return labelKey ? t(`aiTutor.subjects.${labelKey}`) : value;
+  };
+  const subjects = scope.availableSubjects.map((value) => ({
+    value,
+    label: getSubjectLabel(value),
+  }));
+  const [subject, setSubject] = useState(scope.availableSubjects[0] || "Mathematics");
+  const [responseLanguage, setResponseLanguage] = useState<"English" | "Amharic" | "Afaan Oromoo">(() => (
+    appLanguage === "am" ? "Amharic" : appLanguage === "om" ? "Afaan Oromoo" : "English"
+  ));
   const [inputQuery, setInputQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const transcriptRef = useRef<HTMLDivElement>(null);
+  const wasNearBottom = useRef(true);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "msg-welcome",
-      sender: "tutor",
-      text: "Selam candidate! I am your Ethiopian Curriculum Socratic AI Tutor.\n\nAsk me any concept, past exam problem, or derivation from Grade 11 or 12 STEM & Social Science subjects. I will guide you with step-by-step reasoning rather than just giving you the answer.",
-      hint: "Ask any step-by-step question or request a conceptual breakdown.",
-      suggestedFollowUps: [
-        "Explain standard reduction potentials in Electrochemistry",
-        "How do I find the derivative of f(x) = ln(x^2 + 1)?",
-        "Explain Lenz's Law and electromagnetic induction"
-      ],
-      timestamp: "Just now"
+  const locale = appLanguage === "am" ? "am-ET" : appLanguage === "om" ? "om-ET" : "en-ET";
+  const currentSubjectLabel = subjects.find((item) => item.value === subject)?.label;
+  const prompts = scope.gradeLevel <= 10 ? juniorPrompts : seniorPrompts;
+
+  useEffect(() => {
+    if (!scope.availableSubjects.includes(subject) && scope.availableSubjects.length > 0) {
+      setSubject(scope.availableSubjects[0]);
     }
-  ]);
+  }, [scope.availableSubjects, subject]);
+
+  useEffect(() => {
+    const transcript = transcriptRef.current;
+    if (!transcript || !wasNearBottom.current) return;
+    transcript.scrollTo({ top: transcript.scrollHeight, behavior: loading ? "auto" : "smooth" });
+  }, [messages, loading]);
 
   const handleSend = async (queryText?: string) => {
-    const textToSend = (queryText || inputQuery).trim();
+    const textToSend = (queryText ?? inputQuery).trim();
     if (!textToSend || loading) return;
 
+    const timestamp = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(new Date());
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: "user",
       text: textToSend,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      timestamp,
     };
-
     const tutorMsgId = `tutor-${Date.now()}`;
     const initialTutorMsg: ChatMessage = {
       id: tutorMsgId,
       sender: "tutor",
       text: "",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      subject,
+      timestamp,
     };
-
-    const conversationHistory = [...messages, userMsg].map((m) => ({
-      sender: m.sender,
-      text: m.text
+    const conversationHistory = [...messages, userMsg].map((message) => ({
+      sender: message.sender,
+      text: message.text,
     }));
 
-    setMessages((prev) => [...prev, userMsg, initialTutorMsg]);
+    setMessages((previous) => [...previous, userMsg, initialTutorMsg]);
     setInputQuery("");
+    setRequestError(null);
     setLoading(true);
 
     try {
@@ -79,185 +114,188 @@ export default function AITutorChat(): React.ReactElement {
         {
           userQuery: textToSend,
           subject,
-          gradeLevel: user?.grade || "Grade 12",
-          stream: user?.stream || "Natural Science",
-          preferredLanguage: lang,
-          conversationHistory
+          gradeLevel: user?.grade || `Grade ${scope.gradeLevel}`,
+          stream: user?.stream || scope.stream,
+          preferredLanguage: responseLanguage,
+          conversationHistory,
         },
-        (chunk: string) => {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === tutorMsgId ? { ...msg, text: msg.text + chunk } : msg
-            )
-          );
+        (chunk) => {
+          setMessages((previous) => previous.map((message) =>
+            message.id === tutorMsgId ? { ...message, text: message.text + chunk } : message,
+          ));
         },
-        (hint?: string) => {
-          setLoading(false);
-          if (hint) {
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === tutorMsgId ? { ...msg, hint } : msg
-              )
-            );
-          }
-        }
+        (hint) => {
+          if (!hint) return;
+          setMessages((previous) => previous.map((message) =>
+            message.id === tutorMsgId ? { ...message, hint } : message,
+          ));
+        },
       );
     } catch {
-      setLoading(false);
-      // Resilient fallback
-      const fallbackReply = lang === "Amharic"
-        ? `እንደምን አለህ! የ${subject} ጥያቄህን በጥልቀት እንመርምር። መጀመሪያ የተሰጡትን ዋና መረጃዎች ለይተህ ጻፍ። ቀጣዩን የሂሳብ ወይም ሳይንስ ቀመር መተግበር ትችላለህ?`
-        : lang === "Afaan Oromoo"
-        ? `Akkam jirtu! Gaaffii ${subject} kee haa ilaallu. Jalqaba wantoota kennaman adda baasii barreessi.`
-        : `Let's break down this **${subject}** question step-by-step:\n\n1. What is the fundamental formula or law from Grade 12 syllabus that applies here?\n2. What variables are given, and what are we asked to calculate?`;
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `tutor-${Date.now()}`,
-          sender: "tutor",
-          text: fallbackReply,
-          hint: "Break the problem down into smaller algebraic components first.",
-          suggestedFollowUps: ["Show me a step-by-step example", "Give me a similar past national exam drill"],
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        }
-      ]);
+      setMessages((previous) => previous.flatMap((message) => {
+        if (message.id !== tutorMsgId) return [message];
+        return message.text.trim()
+          ? [{ ...message, hint: t("aiTutor.partialResponse") }]
+          : [];
+      }));
+      setInputQuery((current) => current || textToSend);
+      setRequestError(t("aiTutor.unavailable"));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header Panel */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-950 via-[#0A192F] to-slate-950 text-white border border-slate-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400">
-            <Bot className="w-6 h-6" />
-          </div>
+    <PortalPage className="max-w-4xl space-y-6 pb-8">
+      <header className="flex flex-col gap-5 rounded-2xl border border-[#3A2921] bg-gradient-to-r from-[#261E1A] via-[#34231F] to-[#261E1A] p-5 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex items-start gap-3.5">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-300/25 bg-amber-300/10 text-amber-300">
+            <Bot className="h-5 w-5" aria-hidden="true" />
+          </span>
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs text-amber-400 font-bold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>AI Tutor</span>
-            </div>
-            <h2 className="font-sans text-2xl font-bold text-white">AI Socratic Tutor</h2>
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-300">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />{t("aiTutor.eyebrow")}
+            </p>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">{t("aiTutor.title")}</h1>
+            <p className="mt-1 max-w-xl text-sm leading-5 text-stone-200">{t("aiTutor.description")}</p>
           </div>
         </div>
 
-        {/* Language Badge */}
-        <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white/10 border border-white/10 text-xs font-bold text-amber-300">
-          <Languages className="w-3.5 h-3.5" />
-          <span>English Medium</span>
-        </div>
-      </div>
-
-      {/* Subject Filter Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-        {["Mathematics", "Physics", "Chemistry", "Biology", "English", "Aptitude"].map((s) => (
-          <button
-            key={s}
-            onClick={() => setSubject(s)}
-            className={`px-3.5 py-1.5 rounded-xl font-bold border transition-colors shrink-0 ${
-              subject === s
-                ? "bg-slate-900 text-amber-400 border-slate-900 shadow-sm"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
+        <label className="flex min-h-10 shrink-0 items-center gap-2 self-start rounded-lg border border-white/15 bg-white/5 px-3 text-sm font-medium text-white sm:self-auto">
+          <Languages className="h-4 w-4 text-amber-300" aria-hidden="true" />
+          <span className="sr-only">{t("aiTutor.responseLanguage")}</span>
+          <select
+            aria-label={t("aiTutor.responseLanguage")}
+            value={responseLanguage}
+            onChange={(event) => setResponseLanguage(event.target.value as typeof responseLanguage)}
+            className="max-w-40 bg-transparent text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
           >
-            {s}
-          </button>
-        ))}
-      </div>
+            <option className="text-stone-900" value="English">English</option>
+            <option className="text-stone-900" value="Amharic">አማርኛ</option>
+            <option className="text-stone-900" value="Afaan Oromoo">Afaan Oromoo</option>
+          </select>
+        </label>
+      </header>
 
-      {/* Chat Messages Stream */}
-      <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm min-h-[460px] max-h-[580px] overflow-y-auto space-y-5 flex flex-col">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex flex-col ${m.sender === "user" ? "items-end" : "items-start"} space-y-2`}
-          >
-            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase">
-              {m.sender === "tutor" ? (
-                <>
-                  <Bot className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Tutor ({subject})</span>
-                </>
-              ) : (
-                <span>You • {m.timestamp}</span>
-              )}
-            </div>
-
-            <div
-              className={`p-4 sm:p-5 rounded-2xl max-w-2xl text-xs sm:text-sm leading-relaxed whitespace-pre-line ${
-                m.sender === "user"
-                  ? "bg-slate-900 text-white rounded-br-none shadow-md"
-                  : "bg-slate-50 text-slate-800 border border-slate-200 rounded-bl-none shadow-sm"
+      <section aria-labelledby="ai-tutor-subject-heading" className="space-y-2">
+        <h2 id="ai-tutor-subject-heading" className="text-sm font-semibold text-stone-800 dark:text-[#FDFBF7]">{t("aiTutor.chooseSubject")}</h2>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {subjects.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              aria-pressed={subject === item.value}
+              onClick={() => setSubject(item.value)}
+              className={`min-h-10 shrink-0 rounded-lg border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:focus-visible:ring-[#FBBF24] ${
+                subject === item.value
+                  ? "border-[#881337] bg-[#881337] text-white dark:border-[#FBBF24] dark:bg-[#FBBF24] dark:text-[#261E1A]"
+                  : "border-stone-200 bg-white text-stone-700 hover:bg-stone-50 dark:border-white/10 dark:bg-[#261E1A] dark:text-[#E7E0D6] dark:hover:bg-white/5"
               }`}
             >
-              {m.text}
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </section>
 
-              {/* Socratic Hint */}
-              {m.hint && (
-                <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-2 text-xs">
-                  <Lightbulb className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <span>{m.hint}</span>
-                </div>
-              )}
-
-              {/* Follow-up Prompts */}
-              {m.suggestedFollowUps && m.suggestedFollowUps.length > 0 && (
-                <div className="mt-4 pt-3 border-t border-slate-200 space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Suggested Questions:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {m.suggestedFollowUps.map((prompt, pIdx) => (
-                      <button
-                        key={pIdx}
-                        onClick={() => handleSend(prompt)}
-                        className="py-1 px-2.5 rounded-lg bg-white border border-slate-300 hover:border-amber-400 hover:bg-amber-50/50 text-[11px] font-semibold text-slate-700 transition-colors text-left"
-                      >
-                        • {prompt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+      <section
+        ref={transcriptRef}
+        role="log"
+        aria-label={t("aiTutor.conversation")}
+        aria-live="polite"
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          wasNearBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 96;
+        }}
+        className="flex min-h-[360px] max-h-[56vh] flex-col gap-5 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-[#261E1A] sm:p-6"
+      >
+        {messages.length === 0 && (
+          <div className="my-auto rounded-xl border border-dashed border-stone-300 bg-[#FAF8F5] p-5 dark:border-white/15 dark:bg-[#1C1512] sm:p-6">
+            <div className="flex items-center gap-2 text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">
+              <Bot className="h-4 w-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />
+              {t("aiTutor.welcomeTitle")}
+            </div>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600 dark:text-[#E7E0D6]">{t("aiTutor.welcomeDescription")}</p>
+            <p className="mt-4 text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">{t("aiTutor.tryPrompt")}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {prompts.map((item) => (
+                <button
+                  key={item.labelKey}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void handleSend(t(item.questionKey))}
+                  className="min-h-9 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-left text-xs font-medium text-stone-700 transition-colors hover:border-[#881337]/50 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60 dark:border-white/15 dark:bg-[#261E1A] dark:text-[#E7E0D6] dark:hover:bg-white/5"
+                >
+                  {t(item.labelKey)}
+                </button>
+              ))}
             </div>
           </div>
-        ))}
+        )}
+
+        {messages.map((message) => {
+          const messageSubjectLabel = message.subject
+            ? getSubjectLabel(message.subject)
+            : t("aiTutor.subjects.mathematics");
+          return (
+            <article key={message.id} className={`flex flex-col gap-2 ${message.sender === "user" ? "items-end" : "items-start"}`}>
+              <p className="flex items-center gap-2 text-xs font-medium text-stone-500 dark:text-[#A89C90]">
+                {message.sender === "tutor" ? <Bot className="h-3.5 w-3.5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /> : null}
+                <span>{message.sender === "tutor"
+                  ? t("aiTutor.tutorLabel", { subject: messageSubjectLabel })
+                  : t("aiTutor.youLabel")}</span>
+                <time>{message.timestamp}</time>
+              </p>
+              <div className={`max-w-[95%] rounded-xl px-4 py-3 text-sm leading-6 whitespace-pre-line sm:max-w-[85%] sm:px-5 ${
+                message.sender === "user"
+                  ? "rounded-br-sm bg-[#881337] text-white dark:bg-[#4C0519]"
+                  : "rounded-bl-sm border border-stone-200 bg-[#FAF8F5] text-stone-800 dark:border-white/10 dark:bg-[#1C1512] dark:text-[#FDFBF7]"
+              }`}>
+                {message.text}
+                {message.hint && (
+                  <p className="mt-3 flex items-start gap-2 border-t border-stone-200 pt-3 text-xs leading-5 text-stone-600 dark:border-white/10 dark:text-[#E7E0D6]">
+                    <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden="true" />
+                    <span>{message.hint}</span>
+                  </p>
+                )}
+              </div>
+            </article>
+          );
+        })}
 
         {loading && (
-          <div className="flex items-center gap-2 text-xs text-amber-600 font-bold p-3 bg-amber-50 rounded-2xl w-fit">
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Thinking...</span>
-          </div>
+          <p role="status" aria-live="polite" className="inline-flex items-center gap-2 self-start rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+            <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />{t("aiTutor.thinking")}
+          </p>
         )}
-      </div>
+      </section>
 
-      {/* Input Box */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSend();
-        }}
-        className="p-2 rounded-2xl bg-white border border-slate-300 shadow-md flex items-center gap-2"
-      >
+      {requestError && (
+        <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-100">
+          {requestError}
+        </p>
+      )}
+
+      <form onSubmit={(event) => { event.preventDefault(); void handleSend(); }} className="flex items-center gap-2 rounded-xl border border-stone-300 bg-white p-2 shadow-xs focus-within:border-[#881337] focus-within:ring-2 focus-within:ring-[#881337]/15 dark:border-white/15 dark:bg-[#261E1A] dark:focus-within:border-[#FBBF24]">
+        <label className="sr-only" htmlFor="ai-tutor-question">{t("aiTutor.questionLabel")}</label>
         <input
+          id="ai-tutor-question"
           type="text"
+          maxLength={4000}
           value={inputQuery}
-          onChange={(e) => setInputQuery(e.target.value)}
-          placeholder={`Ask a question about ${subject}...`}
-          className="flex-1 p-3 text-xs sm:text-sm bg-transparent focus:outline-none text-slate-800 placeholder:text-slate-400 font-medium"
+          onChange={(event) => setInputQuery(event.target.value)}
+          placeholder={t("aiTutor.questionPlaceholder", { subject: currentSubjectLabel || t("aiTutor.subjects.mathematics") })}
+          className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-sm text-stone-800 outline-none placeholder:text-stone-400 dark:text-[#FDFBF7]"
         />
         <button
           type="submit"
           disabled={!inputQuery.trim() || loading}
-          className="p-3 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:opacity-40 text-slate-950 font-bold transition-all shadow-sm flex items-center gap-1.5 text-xs"
+          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-[#881337] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#9F1239] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#FBBF24] dark:text-[#261E1A] dark:hover:bg-amber-300"
         >
-          <span>Ask</span>
-          <Send className="w-4 h-4" />
+          <span>{t("aiTutor.send")}</span><Send className="h-4 w-4" aria-hidden="true" />
         </button>
       </form>
-    </div>
+      <p className="text-xs leading-5 text-stone-500 dark:text-[#A89C90]">{t("aiTutor.privacyNote")}</p>
+    </PortalPage>
   );
 }

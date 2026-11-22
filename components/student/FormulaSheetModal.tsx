@@ -22,7 +22,7 @@ interface FormulaItem {
 }
 
 const FORMULA_DATABASE: FormulaItem[] = [
-  // Physical Constants
+
   {
     id: "const-g",
     category: "constants",
@@ -88,7 +88,6 @@ const FORMULA_DATABASE: FormulaItem[] = [
     unitsOrNotes: "k = \\frac{1}{4\\pi\\varepsilon_0} \\approx 8.99 \\times 10^9 \\text{ N}\\cdot\\text{m}^2/\\text{C}^2"
   },
 
-  // Physics Mechanics & Electromagnetism
   {
     id: "phys-kin-1",
     category: "physics",
@@ -138,7 +137,6 @@ const FORMULA_DATABASE: FormulaItem[] = [
     unitsOrNotes: "Inverse square law for electrostatic field"
   },
 
-  // Mathematics & Trigonometry
   {
     id: "math-quad",
     category: "math",
@@ -188,7 +186,6 @@ const FORMULA_DATABASE: FormulaItem[] = [
     unitsOrNotes: "Infinite sum S_\\infty = \\frac{a}{1 - r} for |r| < 1"
   },
 
-  // Chemistry Foundations
   {
     id: "chem-ideal-gas",
     category: "chemistry",
@@ -254,11 +251,10 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white shrink-0">
+    <div className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
+      <div className="bg-white dark:bg-[#261E1A] rounded-3xl border border-stone-200 dark:border-white/10 shadow-2xl max-w-4xl w-full max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+
+        <div className="px-6 py-4 border-b border-stone-100 dark:border-white/10 flex items-center justify-between bg-stone-900 text-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-400">
               <BookOpen className="w-5 h-5" />
@@ -272,7 +268,7 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
                   EUEE Standard
                 </span>
               </div>
-              <p className="text-[11px] text-slate-300">
+              <p className="text-[11px] text-stone-300">
                 Reference identities, formulas, and physical constants.
               </p>
             </div>
@@ -281,44 +277,42 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-stone-400 dark:text-[#A89C90] hover:text-white hover:bg-stone-800 transition-colors cursor-pointer"
             title="Close formula sheet"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Toolbar: Search & Category Filter Tabs */}
-        <div className="p-4 border-b border-slate-100 bg-slate-50/70 space-y-3 shrink-0">
+        <div className="p-4 border-b border-stone-100 dark:border-white/10 bg-stone-50/70 space-y-3 shrink-0">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-stone-400 dark:text-[#A89C90] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search formulas or constants..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-[#261E1A] border border-stone-200 dark:border-white/10 text-xs font-medium text-stone-900 dark:text-[#FDFBF7] placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 dark:text-[#A89C90] hover:text-stone-600 text-xs font-bold"
               >
                 Clear
               </button>
             )}
           </div>
 
-          {/* Categories Tab Bar */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
             <button
               type="button"
               onClick={() => setActiveTab("all")}
               className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === "all"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                  ? "bg-stone-900 text-white shadow-xs"
+                  : "bg-white dark:bg-[#261E1A] text-stone-600 dark:text-[#E7E0D6] border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10"
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
@@ -330,8 +324,8 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
               onClick={() => setActiveTab("constants")}
               className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === "constants"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                  ? "bg-stone-900 text-white shadow-xs"
+                  : "bg-white dark:bg-[#261E1A] text-stone-600 dark:text-[#E7E0D6] border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10"
               }`}
             >
               <Atom className="w-3.5 h-3.5 text-sky-400" />
@@ -343,8 +337,8 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
               onClick={() => setActiveTab("physics")}
               className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === "physics"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                  ? "bg-stone-900 text-white shadow-xs"
+                  : "bg-white dark:bg-[#261E1A] text-stone-600 dark:text-[#E7E0D6] border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10"
               }`}
             >
               <Atom className="w-3.5 h-3.5 text-amber-400" />
@@ -356,8 +350,8 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
               onClick={() => setActiveTab("math")}
               className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === "math"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                  ? "bg-stone-900 text-white shadow-xs"
+                  : "bg-white dark:bg-[#261E1A] text-stone-600 dark:text-[#E7E0D6] border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10"
               }`}
             >
               <Calculator className="w-3.5 h-3.5 text-emerald-500" />
@@ -369,21 +363,20 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
               onClick={() => setActiveTab("chemistry")}
               className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === "chemistry"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                  ? "bg-stone-900 text-white shadow-xs"
+                  : "bg-white dark:bg-[#261E1A] text-stone-600 dark:text-[#E7E0D6] border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10"
               }`}
             >
-              <FlaskConical className="w-3.5 h-3.5 text-blue-500" />
+              <FlaskConical className="w-3.5 h-3.5 text-[#881337] dark:text-[#FBBF24]" />
               <span>Chemistry</span>
             </button>
           </div>
         </div>
 
-        {/* Content Body Grid */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {filteredFormulas.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-xs space-y-2">
-              <Search className="w-8 h-8 text-slate-300 mx-auto" />
+            <div className="text-center py-12 text-stone-400 dark:text-[#A89C90] text-xs space-y-2">
+              <Search className="w-8 h-8 text-stone-300 mx-auto" />
               <p>No formulas matched your search &ldquo;{searchQuery}&rdquo;.</p>
             </div>
           ) : (
@@ -391,11 +384,11 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
               {filteredFormulas.map((item) => (
                 <div
                   key={item.id}
-                  className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-amber-400 hover:shadow-xs transition-all flex flex-col justify-between group"
+                  className="p-4 rounded-2xl border border-stone-200 dark:border-white/10 bg-white dark:bg-[#261E1A] hover:border-amber-400 hover:shadow-xs transition-all flex flex-col justify-between group"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-[#A89C90]">
                         {item.category === "constants"
                           ? "Constant"
                           : item.category.toUpperCase()}
@@ -403,7 +396,7 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
                       <button
                         type="button"
                         onClick={() => handleCopy(item.formula, item.id)}
-                        className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors cursor-pointer"
+                        className="text-stone-400 dark:text-[#A89C90] hover:text-stone-700 p-1 rounded-lg transition-colors cursor-pointer"
                         title="Copy formula text"
                       >
                         {copiedId === item.id ? (
@@ -414,24 +407,23 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
                       </button>
                     </div>
 
-                    <h4 className="font-bold text-xs text-slate-900 leading-snug">
+                    <h4 className="font-bold text-xs text-stone-900 dark:text-[#FDFBF7] leading-snug">
                       {item.title}
                     </h4>
 
-                    {/* Formula Render Container */}
-                    <div className="p-3 rounded-xl bg-slate-900 text-amber-300 font-mono text-xs sm:text-sm overflow-x-auto flex items-center justify-center min-h-[48px] shadow-2xs">
+                    <div className="p-3 rounded-xl bg-stone-900 text-amber-300 font-mono text-xs sm:text-sm overflow-x-auto flex items-center justify-center min-h-[48px] shadow-2xs">
                       <MathText text={`$$${item.formula}$$`} />
                     </div>
 
-                    <p className="text-[11px] text-slate-600 leading-relaxed font-sans">
+                    <p className="text-[11px] text-stone-600 dark:text-[#E7E0D6] leading-relaxed font-sans">
                       {item.description}
                     </p>
                   </div>
 
                   {item.unitsOrNotes && (
-                    <div className="mt-3 pt-2 border-t border-slate-100 text-[10px] text-slate-500 font-mono flex items-center justify-between">
-                      <span className="text-slate-400">Notes:</span>
-                      <span className="text-slate-700 truncate max-w-[240px]">
+                    <div className="mt-3 pt-2 border-t border-stone-100 dark:border-white/10 text-[10px] text-stone-500 dark:text-[#A89C90] font-mono flex items-center justify-between">
+                      <span className="text-stone-400 dark:text-[#A89C90]">Notes:</span>
+                      <span className="text-stone-700 dark:text-[#E7E0D6] truncate max-w-[240px]">
                         {item.unitsOrNotes}
                       </span>
                     </div>
@@ -442,13 +434,12 @@ export default function FormulaSheetModal({ isOpen, onClose }: FormulaSheetModal
           )}
         </div>
 
-        {/* Footer info bar */}
-        <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
+        <div className="px-6 py-3 border-t border-stone-100 dark:border-white/10 bg-stone-50 dark:bg-[#1C1512] flex items-center justify-between text-[11px] text-stone-500 dark:text-[#A89C90] shrink-0">
           <span>Formula reference sheet. Does not pause exam timer.</span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
+            className="px-4 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs transition-colors cursor-pointer"
           >
             Back to Exam
           </button>

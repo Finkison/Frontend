@@ -4,7 +4,7 @@ import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react"
 export default function ChemistryMolecularSimulation(): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRunning, setIsRunning] = useState(true);
-  const [energyLevel, setEnergyLevel] = useState(3); // n = 1, 2, 3, 4
+  const [energyLevel, setEnergyLevel] = useState(3);
   const [stepIndex, setStepIndex] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -38,14 +38,12 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
     const render = () => {
       ctx.clearRect(0, 0, width, height);
 
-      // Deep Espresso canvas background #1C1512
       ctx.fillStyle = "#1C1512";
       ctx.fillRect(0, 0, width, height);
 
       const centerX = width / 2;
       const centerY = height / 2;
 
-      // Coordinate axes
       ctx.strokeStyle = "rgba(251, 191, 36, 0.1)";
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -63,14 +61,12 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
 
       const t = timeRef.current;
 
-      // Shell definitions (Bohr radii: n=1, n=2, n=3, n=4)
       const shells = [
         { n: 1, radius: 34, electrons: 2, speed: 1.6 },
         { n: 2, radius: 64, electrons: 8, speed: 1.1 },
         { n: 3, radius: 96, electrons: Math.min(8, energyLevel * 2), speed: 0.75 },
       ];
 
-      // Draw Bohr orbitals
       shells.slice(0, energyLevel).forEach((shell) => {
         ctx.beginPath();
         ctx.arc(centerX, centerY, shell.radius, 0, Math.PI * 2);
@@ -80,7 +76,6 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Label quantum number
         ctx.font = "10px Inter, sans-serif";
         ctx.fillStyle = "#A8A29E";
         ctx.fillText(`n=${shell.n}`, centerX + shell.radius + 6, centerY + 3);
@@ -145,8 +140,8 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
   };
 
   return (
-    <div className="bg-white rounded-[8px] border border-[#E2E8F0] overflow-hidden select-none">
-      {/* Simulation HUD Bar */}
+    <div className="bg-white dark:bg-[#261E1A] rounded-[8px] border border-[#E7E0D6] dark:border-white/10 overflow-hidden select-none">
+
       <div className="bg-[#4C0519] px-4 py-3 flex items-center justify-between text-xs text-white border-b border-[#FBBF24]/30">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#FBBF24] animate-pulse" />
@@ -159,7 +154,6 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
         </div>
       </div>
 
-      {/* Visual Canvas Area */}
       <div className="relative bg-[#1C1512] h-[280px]">
         <canvas
           ref={canvasRef}
@@ -167,7 +161,6 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
           className="w-full h-full block"
         />
 
-        {/* HUD Info Badge */}
         <div className="absolute bottom-2 left-3 flex items-center gap-3 bg-[#1C1512]/90 px-2.5 py-1 rounded border border-[#881337]/50 text-[10px] text-stone-200">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-[#881337]" /> Nucleus (+Z)
@@ -181,16 +174,15 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
         </div>
       </div>
 
-      {/* Control Surface with WCAG 44px Buttons */}
-      <div className="p-4 bg-white border-t border-[#E2E8F0] space-y-3">
+      <div className="p-4 bg-white dark:bg-[#261E1A] border-t border-[#E7E0D6] dark:border-white/10 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Controls */}
+
           <div className="flex items-center gap-2">
             {!reducedMotion ? (
               <button
                 type="button"
                 onClick={() => setIsRunning((r) => !r)}
-                className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-2 focus:bg-white focus:text-[#1C1512] focus:rounded-[6px] focus:ring-2 focus:ring-[#881337]"
+                className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-2 focus:bg-white focus:text-[#1C1512] dark:text-[#FDFBF7] focus:rounded-[6px] focus:ring-2 focus:ring-[#881337]"
                 aria-label={isRunning ? "Pause atomic simulation" : "Play atomic simulation"}
               >
                 {isRunning ? "Pause atomic simulation" : "Play atomic simulation"}
@@ -200,7 +192,7 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => setStepIndex((s) => Math.max(0, s - 1))}
-                  className="min-h-[44px] min-w-[44px] px-3 py-2 rounded-[8px] border border-[#64748B] text-[#1C1512] text-xs font-semibold flex items-center gap-1 hover:bg-stone-50 cursor-pointer focus:ring-2 focus:ring-[#881337]"
+                  className="min-h-[44px] min-w-[44px] px-3 py-2 rounded-[8px] border border-[#A89C90] text-[#1C1512] dark:text-[#FDFBF7] text-xs font-semibold flex items-center gap-1 hover:bg-stone-50 dark:hover:bg-white/5 cursor-pointer focus:ring-2 focus:ring-[#881337]"
                   aria-label="Previous frame"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -209,7 +201,7 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => setStepIndex((s) => s + 1)}
-                  className="min-h-[44px] min-w-[44px] px-3 py-2 rounded-[8px] border border-[#64748B] text-[#1C1512] text-xs font-semibold flex items-center gap-1 hover:bg-stone-50 cursor-pointer focus:ring-2 focus:ring-[#881337]"
+                  className="min-h-[44px] min-w-[44px] px-3 py-2 rounded-[8px] border border-[#A89C90] text-[#1C1512] dark:text-[#FDFBF7] text-xs font-semibold flex items-center gap-1 hover:bg-stone-50 dark:hover:bg-white/5 cursor-pointer focus:ring-2 focus:ring-[#881337]"
                   aria-label="Next frame"
                 >
                   <span>Next</span>
@@ -229,7 +221,6 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
             </button>
           </div>
 
-          {/* Parameter Slider: Energy Shell Level */}
           <div className="flex items-center gap-3">
             <label htmlFor="energy-slider" className="text-xs font-semibold text-[#1C1512] whitespace-nowrap">
               Shells (n): {energyLevel}
@@ -242,22 +233,20 @@ export default function ChemistryMolecularSimulation(): React.ReactElement {
               step="1"
               value={energyLevel}
               onChange={(e) => setEnergyLevel(parseInt(e.target.value, 10))}
-              className="w-28 sm:w-36 h-2 bg-stone-200 rounded-lg accent-[#881337] cursor-pointer"
+              className="w-28 sm:w-36 h-2 bg-stone-200 dark:bg-white/10 rounded-lg accent-[#881337] cursor-pointer"
             />
           </div>
         </div>
 
-        {/* Caption (max 15 words) */}
-        <p className="text-xs text-[#475569] leading-normal">
+        <p className="text-xs text-[#5C5046] dark:text-[#E7E0D6] leading-normal">
           Bohr atomic model showing quantum energy levels and valence electron orbital transitions.
         </p>
 
-        {/* Accessible Text Alternative */}
-        <details className="text-xs text-[#64748B] cursor-pointer">
+        <details className="text-xs text-[#A89C90] cursor-pointer">
           <summary className="font-semibold text-[#881337] hover:underline">
             Text alternative & scientific description
           </summary>
-          <div id="chemistry-visual-description" className="pt-1.5 pl-2 border-l-2 border-[#FECDD3] text-[11px] leading-relaxed">
+          <div id="chemistry-visual-description" className="pt-1.5 pl-2 border-l-2 border-[#FECDD3] dark:border-[#881337]/50 text-[11px] leading-relaxed">
             The visualization simulates the quantized planetary Bohr model of an atom. Concentric dashed orbits represent energy levels from n=1 to n=3 around a positively charged nucleus. Electrons occupy shells according to the 2n² rule, circulating at frequencies inversely proportional to orbital radius.
           </div>
         </details>

@@ -25,6 +25,7 @@ import {
   Check,
   NotebookPen
 } from "lucide-react";
+import PortalPage from "../shared/PortalPage";
 import { 
   getLessons, 
   getLessonDetail, 
@@ -46,7 +47,6 @@ export default function LessonReader(): React.ReactElement {
   const { showToast } = useToast();
   const startSession = useSessionStore((s) => s.startSession);
 
-  // States
   const [selectedSubject, setSelectedSubject] = useState("English");
   const [units, setUnits] = useState<UnitGroup[]>([]);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
@@ -55,7 +55,6 @@ export default function LessonReader(): React.ReactElement {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Side panel tabs: AI Companion or Personal Notes
   const [rightPanelTab, setRightPanelTab] = useState<"ai" | "notes">("ai");
   const [notes, setNotes] = useState<StudentNoteItem[]>([]);
   const [activeNoteTitle, setActiveNoteTitle] = useState("");
@@ -257,17 +256,18 @@ export default function LessonReader(): React.ReactElement {
       startSession(data.id || `drill-${lessonDetail.id}`, "topic_drill", questions, 1200);
       navigate("/student/session");
     } catch {
-      if (lessonDetail.related_questions && lessonDetail.related_questions.length > 0) {
-        startSession(`drill-${lessonDetail.id}`, "topic_drill", lessonDetail.related_questions, 1200);
-        navigate("/student/session");
-      }
+      showToast({
+        type: "error",
+        title: "Practice unavailable",
+        message: "No saved questions are available for this lesson yet. Try another topic."
+      });
     }
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Subject Selector Bar */}
-      <div className="flex items-center justify-between gap-4 flex-wrap bg-white p-4 rounded-3xl border border-slate-200/80 shadow-sm">
+    <PortalPage className="max-w-7xl space-y-6">
+
+      <div className="flex items-center justify-between gap-4 flex-wrap bg-white dark:bg-[#261E1A] p-4 rounded-3xl border border-stone-200/80 shadow-sm">
         <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
           {subjects.map((sub) => {
             const isActive = selectedSubject.toLowerCase() === sub.id.toLowerCase();
@@ -277,11 +277,11 @@ export default function LessonReader(): React.ReactElement {
                 onClick={() => setSelectedSubject(sub.id)}
                 className={`px-4 py-2 rounded-2xl font-bold text-xs flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
                   isActive
-                    ? "bg-gradient-to-r from-slate-900 to-slate-800 text-amber-400 shadow-md border border-slate-800"
-                    : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100"
+                    ? "bg-gradient-to-r from-stone-900 to-stone-800 text-amber-400 shadow-md border border-stone-800"
+                    : "bg-stone-50 dark:bg-[#1C1512] text-stone-600 dark:text-[#E7E0D6] border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10"
                 }`}
               >
-                <BookOpen className={`w-3.5 h-3.5 ${isActive ? "text-amber-400" : "text-slate-400"}`} />
+                <BookOpen className={`w-3.5 h-3.5 ${isActive ? "text-amber-400" : "text-stone-400 dark:text-[#A89C90]"}`} />
                 <span>{sub.name}</span>
               </button>
             );
@@ -291,17 +291,17 @@ export default function LessonReader(): React.ReactElement {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-xs font-bold text-slate-600 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center gap-1.5"
+            className="text-xs font-bold text-stone-600 dark:text-[#E7E0D6] px-3 py-1.5 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50 dark:bg-[#1C1512] hover:bg-stone-100 dark:hover:bg-white/10 flex items-center gap-1.5"
           >
-            <ListOrdered className="w-3.5 h-3.5 text-slate-500" />
+            <ListOrdered className="w-3.5 h-3.5 text-stone-500 dark:text-[#A89C90]" />
             <span>{sidebarOpen ? "Hide Syllabus" : "View Syllabus"}</span>
           </button>
           <button
             onClick={() => setAiOpen(!aiOpen)}
             className={`text-xs font-bold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer ${
               aiOpen
-                ? "bg-amber-400 text-slate-950 border-amber-500 shadow-sm"
-                : "bg-slate-900 text-amber-400 border-slate-800"
+                ? "bg-amber-400 text-stone-950 border-amber-500 shadow-sm"
+                : "bg-stone-900 text-amber-400 border-stone-800"
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
@@ -311,13 +311,13 @@ export default function LessonReader(): React.ReactElement {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Syllabus Tree */}
+
         {sidebarOpen && (
-          <aside className="lg:col-span-3 space-y-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm lg:sticky lg:top-20 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <aside className="lg:col-span-3 space-y-4 bg-white dark:bg-[#261E1A] p-4 rounded-3xl border border-stone-200 dark:border-white/10 shadow-sm lg:sticky lg:top-20 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-white/10">
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-emerald-600" />
-                <h3 className="font-bold text-sm text-slate-900">Syllabus</h3>
+                <h3 className="font-bold text-sm text-stone-900 dark:text-[#FDFBF7]">Syllabus</h3>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
                 Grade 12
@@ -325,14 +325,14 @@ export default function LessonReader(): React.ReactElement {
             </div>
 
             {loadingUnits ? (
-              <div className="py-12 text-center text-xs text-slate-400">Loading units...</div>
+              <div className="py-12 text-center text-xs text-stone-400 dark:text-[#A89C90]">Loading units...</div>
             ) : units.length === 0 ? (
-              <div className="py-8 text-center text-xs text-slate-400">No lessons available for {selectedSubject}.</div>
+              <div className="py-8 text-center text-xs text-stone-400 dark:text-[#A89C90]">No lessons available for {selectedSubject}.</div>
             ) : (
               <div className="space-y-4">
                 {units.map((u) => (
                   <div key={u.unit_number} className="space-y-2">
-                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
+                    <div className="text-xs font-bold text-stone-500 dark:text-[#A89C90] uppercase tracking-wider px-1">
                       {u.unit_title}
                     </div>
                     <div className="space-y-1">
@@ -344,18 +344,18 @@ export default function LessonReader(): React.ReactElement {
                             onClick={() => setActiveLessonId(les.id)}
                             className={`w-full text-left p-3 rounded-2xl text-xs transition-all flex items-start gap-2.5 cursor-pointer ${
                               isCurrent
-                                ? "bg-amber-500/10 border border-amber-500/30 text-slate-900 font-bold shadow-sm"
-                                : "hover:bg-slate-50 text-slate-600 border border-transparent"
+                                ? "bg-amber-500/10 border border-amber-500/30 text-stone-900 dark:text-[#FDFBF7] font-bold shadow-sm"
+                                : "hover:bg-stone-50 dark:hover:bg-white/5 text-stone-600 dark:text-[#E7E0D6] border border-transparent"
                             }`}
                           >
                             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 mt-0.5 font-mono ${
-                              isCurrent ? "bg-amber-400 text-slate-950 font-bold" : "bg-slate-100 text-slate-500"
+                              isCurrent ? "bg-amber-400 text-stone-950 font-bold" : "bg-stone-100 dark:bg-[#201815] text-stone-500 dark:text-[#A89C90]"
                             }`}>
                               {les.lesson_number}
                             </span>
                             <div className="flex-1 min-w-0">
                               <p className="truncate font-medium leading-tight">{les.title}</p>
-                              <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-1">
+                              <span className="text-[10px] text-stone-400 dark:text-[#A89C90] flex items-center gap-1 mt-1">
                                 <Clock className="w-2.5 h-2.5" />
                                 {les.read_time_minutes} min read
                               </span>
@@ -371,27 +371,27 @@ export default function LessonReader(): React.ReactElement {
           </aside>
         )}
 
-        <main className={`${sidebarOpen ? (aiOpen ? "lg:col-span-5 xl:col-span-6" : "lg:col-span-9") : (aiOpen ? "lg:col-span-8" : "lg:col-span-12")} space-y-6`}>
+        <div className={`${sidebarOpen ? (aiOpen ? "lg:col-span-5 xl:col-span-6" : "lg:col-span-9") : (aiOpen ? "lg:col-span-8" : "lg:col-span-12")} space-y-6`}>
           {loadingDetail ? (
-            <div className="p-12 text-center bg-white rounded-3xl border border-slate-200">
+            <div className="p-12 text-center bg-white dark:bg-[#261E1A] rounded-3xl border border-stone-200 dark:border-white/10">
               <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-3" />
-              <p className="text-sm font-bold text-slate-700">Loading lesson content & formulas...</p>
+              <p className="text-sm font-bold text-stone-700 dark:text-[#E7E0D6]">Loading lesson content & formulas...</p>
             </div>
           ) : !lessonDetail ? (
-            <div className="p-12 text-center bg-white rounded-3xl border border-slate-200">
-              <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-800">No Lesson Selected</h3>
-              <p className="text-xs text-slate-500 mt-1">Select a unit topic from the syllabus to begin studying.</p>
+            <div className="p-12 text-center bg-white dark:bg-[#261E1A] rounded-3xl border border-stone-200 dark:border-white/10">
+              <BookOpen className="w-10 h-10 text-stone-300 mx-auto mb-3" />
+              <h3 className="font-bold text-stone-800 dark:text-[#FDFBF7]">No Lesson Selected</h3>
+              <p className="text-xs text-stone-500 dark:text-[#A89C90] mt-1">Select a unit topic from the syllabus to begin studying.</p>
             </div>
           ) : (
-            <article className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-8">
-              
-              <div className="space-y-3 pb-6 border-b border-slate-100">
+            <article className="bg-white dark:bg-[#261E1A] rounded-3xl border border-stone-200/90 shadow-sm p-6 sm:p-8 space-y-8">
+
+              <div className="space-y-3 pb-6 border-b border-stone-100 dark:border-white/10">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="px-3 py-1 rounded-full bg-slate-900 text-amber-400 text-xs font-bold tracking-wide">
+                  <span className="px-3 py-1 rounded-full bg-stone-900 text-amber-400 text-xs font-bold tracking-wide">
                     {lessonDetail.subject} • Grade {lessonDetail.grade}
                   </span>
-                  <div className="flex items-center gap-2 text-slate-400 text-xs">
+                  <div className="flex items-center gap-2 text-stone-400 dark:text-[#A89C90] text-xs">
                     <span className="flex items-center gap-1 font-mono">
                       <Clock className="w-3.5 h-3.5 text-amber-500" />
                       {lessonDetail.read_time_minutes} min read
@@ -399,11 +399,11 @@ export default function LessonReader(): React.ReactElement {
                   </div>
                 </div>
 
-                <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">
+                <h1 className="font-sans text-2xl sm:text-3xl font-bold text-stone-900 dark:text-[#FDFBF7] leading-tight">
                   {lessonDetail.title}
                 </h1>
 
-                <p className="text-xs text-slate-500 font-medium">
+                <p className="text-xs text-stone-500 dark:text-[#A89C90] font-medium">
                   {lessonDetail.unit_title} • Lesson {lessonDetail.lesson_number}
                 </p>
 
@@ -418,13 +418,12 @@ export default function LessonReader(): React.ReactElement {
                 )}
               </div>
 
-              {/* Main Content Body */}
               <div className="prose prose-slate max-w-none text-sm leading-relaxed space-y-4">
                 <MathText text={lessonDetail.content_markdown} />
               </div>
 
               {lessonDetail.key_formulas && lessonDetail.key_formulas.length > 0 && (
-                <div className="space-y-3 p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-[#0A192F] text-white border border-slate-800">
+                <div className="space-y-3 p-5 rounded-2xl bg-gradient-to-br from-stone-900 to-[#0A192F] text-white border border-stone-800">
                   <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
                     <Sparkles className="w-4 h-4" />
                     <span>Key Formulas</span>
@@ -432,11 +431,11 @@ export default function LessonReader(): React.ReactElement {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                     {lessonDetail.key_formulas.map((f, i) => (
                       <div key={i} className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
-                        <span className="text-[11px] font-bold text-slate-300">{f.name}</span>
+                        <span className="text-[11px] font-bold text-stone-300">{f.name}</span>
                         <div className="font-mono text-xs text-amber-300">
                           <MathText text={f.formula} />
                         </div>
-                        {f.note && <p className="text-[10px] text-slate-400 mt-1">{f.note}</p>}
+                        {f.note && <p className="text-[10px] text-stone-400 dark:text-[#A89C90] mt-1">{f.note}</p>}
                       </div>
                     ))}
                   </div>
@@ -444,19 +443,19 @@ export default function LessonReader(): React.ReactElement {
               )}
 
               {lessonDetail.key_terms && lessonDetail.key_terms.length > 0 && (
-                <div className="space-y-3 p-5 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="space-y-3 p-5 rounded-2xl bg-stone-50 dark:bg-[#1C1512] border border-stone-200 dark:border-white/10">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                    <div className="flex items-center gap-2 text-stone-900 dark:text-[#FDFBF7] font-bold text-xs uppercase tracking-wider">
                       <Languages className="w-4 h-4 text-emerald-600" />
                       <span>Terminology & Glossary</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-mono">EN • አማርኛ • OROMOO</span>
+                    <span className="text-[10px] text-stone-400 dark:text-[#A89C90] font-mono">EN • አማርኛ • OROMOO</span>
                   </div>
                   <div className="grid grid-cols-1 gap-2.5 pt-1">
                     {lessonDetail.key_terms.map((t, i) => (
-                      <div key={i} className="p-3 rounded-xl bg-white border border-slate-200/80 text-xs space-y-1 shadow-2xs">
+                      <div key={i} className="p-3 rounded-xl bg-white dark:bg-[#261E1A] border border-stone-200/80 text-xs space-y-1 shadow-2xs">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <span className="font-bold text-slate-900">{t.term}</span>
+                          <span className="font-bold text-stone-900 dark:text-[#FDFBF7]">{t.term}</span>
                           <div className="flex items-center gap-2 text-[11px]">
                             {t.amharic && (
                               <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-medium">
@@ -470,17 +469,16 @@ export default function LessonReader(): React.ReactElement {
                             )}
                           </div>
                         </div>
-                        <p className="text-slate-600 text-[11px] leading-relaxed">{t.definition}</p>
+                        <p className="text-stone-600 dark:text-[#E7E0D6] text-[11px] leading-relaxed">{t.definition}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Worked Examples */}
               {lessonDetail.worked_examples && lessonDetail.worked_examples.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                  <h3 className="font-bold text-sm text-stone-900 dark:text-[#FDFBF7] flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     <span>Worked Examples</span>
                   </h3>
@@ -488,12 +486,12 @@ export default function LessonReader(): React.ReactElement {
                     <div key={i} className="p-5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-3">
                       <span className="font-bold text-xs text-emerald-900">{ex.title}</span>
                       {ex.passage_excerpt && (
-                        <blockquote className="p-3 rounded-xl bg-white border-l-4 border-emerald-500 text-xs text-slate-700 italic">
+                        <blockquote className="p-3 rounded-xl bg-white dark:bg-[#261E1A] border-l-4 border-emerald-500 text-xs text-stone-700 dark:text-[#E7E0D6] italic">
                           "{ex.passage_excerpt}"
                         </blockquote>
                       )}
-                      <p className="text-xs font-semibold text-slate-800">Q: {ex.question}</p>
-                      <div className="p-3 rounded-xl bg-white border border-emerald-200 text-xs text-slate-800 space-y-1">
+                      <p className="text-xs font-semibold text-stone-800 dark:text-[#FDFBF7]">Q: {ex.question}</p>
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#261E1A] border border-emerald-200 text-xs text-stone-800 dark:text-[#FDFBF7] space-y-1">
                         <span className="font-bold text-emerald-700 text-[11px] uppercase tracking-wide">Step-by-Step Solution:</span>
                         <div className="mt-1">
                           <MathText text={ex.solution} />
@@ -505,23 +503,23 @@ export default function LessonReader(): React.ReactElement {
               )}
 
               {lessonDetail.exam_tips && (
-                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-slate-900 space-y-2">
+                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-stone-900 dark:text-[#FDFBF7] space-y-2">
                   <div className="flex items-center gap-2 text-amber-700 font-bold text-xs uppercase tracking-wide">
                     <HelpCircle className="w-4 h-4 text-amber-600" />
                     <span>Exam Strategy & Traps</span>
                   </div>
-                  <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                  <p className="text-xs text-stone-700 dark:text-[#E7E0D6] leading-relaxed font-medium">
                     {lessonDetail.exam_tips}
                   </p>
                 </div>
               )}
 
-              <div className="pt-6 border-t border-slate-100 flex items-center justify-between gap-4 flex-wrap">
+              <div className="pt-6 border-t border-stone-100 dark:border-white/10 flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   {lessonDetail.prev_lesson_id && (
                     <button
                       onClick={() => setActiveLessonId(lessonDetail.prev_lesson_id)}
-                      className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+                      className="px-4 py-2 rounded-xl border border-stone-200 dark:border-white/10 text-xs font-bold text-stone-700 dark:text-[#E7E0D6] hover:bg-stone-50 dark:hover:bg-white/5 flex items-center gap-1.5"
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                       <span>Previous Lesson</span>
@@ -530,7 +528,7 @@ export default function LessonReader(): React.ReactElement {
                   {lessonDetail.next_lesson_id && (
                     <button
                       onClick={() => setActiveLessonId(lessonDetail.next_lesson_id)}
-                      className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 flex items-center gap-1.5"
+                      className="px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-bold hover:bg-stone-800 flex items-center gap-1.5"
                     >
                       <span>Next Lesson</span>
                       <ChevronRight className="w-3.5 h-3.5" />
@@ -549,20 +547,20 @@ export default function LessonReader(): React.ReactElement {
               </div>
             </article>
           )}
-        </main>
+        </div>
 
         {aiOpen && (
-          <aside className="lg:col-span-4 xl:col-span-3 space-y-3 bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-lg lg:sticky lg:top-20 max-h-[85vh] flex flex-col justify-between">
+          <aside className="lg:col-span-4 xl:col-span-3 space-y-3 bg-white dark:bg-[#261E1A] p-4 sm:p-5 rounded-3xl border border-stone-200 dark:border-white/10 shadow-lg lg:sticky lg:top-20 max-h-[85vh] flex flex-col justify-between">
             <div className="space-y-3">
-              {/* Panel Tab Switcher */}
-              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-2xl">
+
+              <div className="flex items-center gap-1 p-1 bg-stone-100 dark:bg-[#201815] rounded-2xl">
                 <button
                   type="button"
                   onClick={() => setRightPanelTab("ai")}
                   className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     rightPanelTab === "ai"
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-500 hover:text-slate-800"
+                      ? "bg-white dark:bg-[#261E1A] text-stone-900 dark:text-[#FDFBF7] shadow-xs"
+                      : "text-stone-500 dark:text-[#A89C90] hover:text-stone-800"
                   }`}
                 >
                   AI Companion
@@ -572,8 +570,8 @@ export default function LessonReader(): React.ReactElement {
                   onClick={() => setRightPanelTab("notes")}
                   className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     rightPanelTab === "notes"
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-500 hover:text-slate-800"
+                      ? "bg-white dark:bg-[#261E1A] text-stone-900 dark:text-[#FDFBF7] shadow-xs"
+                      : "text-stone-500 dark:text-[#A89C90] hover:text-stone-800"
                   }`}
                 >
                   <NotebookPen className="w-3.5 h-3.5 text-amber-500" />
@@ -581,32 +579,30 @@ export default function LessonReader(): React.ReactElement {
                 </button>
               </div>
 
-              {/* TAB 1: Socratic AI Companion */}
               {rightPanelTab === "ai" && (
                 <>
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-white/10">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-bold">
+                      <div className="w-6 h-6 rounded-lg bg-amber-400 text-stone-950 flex items-center justify-center font-bold">
                         <Bot className="w-3.5 h-3.5" />
                       </div>
                       <span className="text-[11px] text-[#0369A1] font-bold">National Curriculum AI</span>
                     </div>
                   </div>
 
-                  {/* Quick Prompt Chips */}
                   <div className="space-y-1">
                     <div className="flex flex-wrap gap-1">
                       <button
                         type="button"
                         onClick={() => handleAskAI("Explain this concept simply and clearly")}
-                        className="text-[10px] px-2 py-0.5 rounded-md bg-slate-50 text-slate-800 border border-slate-200 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
+                        className="text-[10px] px-2 py-0.5 rounded-md bg-stone-50 dark:bg-[#1C1512] text-stone-800 dark:text-[#FDFBF7] border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10 font-medium transition-colors cursor-pointer"
                       >
                         Explain simply
                       </button>
                       <button
                         type="button"
                         onClick={() => handleAskAI("Provide a memorable formula summary for this")}
-                        className="text-[10px] px-2 py-0.5 rounded-md bg-slate-50 text-slate-800 border border-slate-200 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
+                        className="text-[10px] px-2 py-0.5 rounded-md bg-stone-50 dark:bg-[#1C1512] text-stone-800 dark:text-[#FDFBF7] border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10 font-medium transition-colors cursor-pointer"
                       >
                         Formula summary
                       </button>
@@ -616,27 +612,26 @@ export default function LessonReader(): React.ReactElement {
                           setAiLanguage("am");
                           handleAskAI("ይህን ፅንሰ ሀሳብ በአማርኛ በዝርዝር አስረዳኝ");
                         }}
-                        className="text-[10px] px-2 py-0.5 rounded-md bg-slate-50 text-slate-800 border border-slate-200 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
+                        className="text-[10px] px-2 py-0.5 rounded-md bg-stone-50 dark:bg-[#1C1512] text-stone-800 dark:text-[#FDFBF7] border border-stone-200 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10 font-medium transition-colors cursor-pointer"
                       >
                         በአማርኛ አስረዳኝ
                       </button>
                     </div>
                   </div>
 
-                  {/* Message Stream */}
                   <div className="space-y-2.5 overflow-y-auto max-h-[340px] pr-1 pt-1">
                     {aiMessages.map((m, idx) => (
                       <div
                         key={idx}
                         className={`p-3 rounded-2xl text-xs leading-relaxed space-y-2 ${
                           m.sender === "user"
-                            ? "bg-amber-50 text-slate-900 border border-amber-200 ml-4 font-medium"
-                            : "bg-slate-50 text-slate-800 border border-slate-200/80 mr-1"
+                            ? "bg-amber-50 text-stone-900 dark:text-[#FDFBF7] border border-amber-200 ml-4 font-medium"
+                            : "bg-stone-50 dark:bg-[#1C1512] text-stone-800 dark:text-[#FDFBF7] border border-stone-200/80 mr-1"
                         }`}
                       >
                         <MathText text={m.text} />
                         {m.sender === "ai" && idx > 0 && (
-                          <div className="pt-1.5 border-t border-slate-200/50 flex justify-end">
+                          <div className="pt-1.5 border-t border-stone-200/50 flex justify-end">
                             <button
                               type="button"
                               onClick={() => handleSaveAIToNotes(m.text)}
@@ -650,7 +645,7 @@ export default function LessonReader(): React.ReactElement {
                       </div>
                     ))}
                     {aiLoading && (
-                      <div className="p-3 rounded-2xl bg-slate-50 text-slate-500 text-xs italic flex items-center gap-2">
+                      <div className="p-3 rounded-2xl bg-stone-50 dark:bg-[#1C1512] text-stone-500 dark:text-[#A89C90] text-xs italic flex items-center gap-2">
                         <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
                         <span>Thinking...</span>
                       </div>
@@ -659,7 +654,6 @@ export default function LessonReader(): React.ReactElement {
                 </>
               )}
 
-              {/* TAB 2: Personal Lesson Study Notes */}
               {rightPanelTab === "notes" && (
                 <div className="space-y-3">
                   <div className="p-3 bg-amber-50/50 rounded-2xl border border-amber-200/60 space-y-2">
@@ -671,56 +665,55 @@ export default function LessonReader(): React.ReactElement {
                       placeholder="Note Title (e.g. Key Formulas)"
                       value={activeNoteTitle}
                       onChange={(e) => setActiveNoteTitle(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs focus:border-amber-500 outline-none"
+                      className="w-full bg-white dark:bg-[#261E1A] border border-stone-200 dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs focus:border-amber-500 outline-none"
                     />
                     <textarea
                       rows={3}
                       placeholder="Type your personal observations, derivations, or exam notes..."
                       value={activeNoteContent}
                       onChange={(e) => setActiveNoteContent(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs focus:border-amber-500 outline-none resize-none"
+                      className="w-full bg-white dark:bg-[#261E1A] border border-stone-200 dark:border-white/10 rounded-xl p-2.5 text-xs focus:border-amber-500 outline-none resize-none"
                     />
                     <button
                       type="button"
                       disabled={savingNote || !activeNoteContent.trim()}
                       onClick={handleSaveNote}
-                      className="w-full py-1.5 rounded-xl font-bold bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-slate-950 text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                      className="w-full py-1.5 rounded-xl font-bold bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-stone-950 text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>{savingNote ? "Saving Note..." : "Save Note"}</span>
                     </button>
                   </div>
 
-                  {/* List of Saved Notes */}
                   <div className="space-y-2 overflow-y-auto max-h-[300px] pr-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-[#A89C90] block">
                       Saved Notes ({notes.length})
                     </span>
                     {notes.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic text-center py-4">
+                      <p className="text-xs text-stone-400 dark:text-[#A89C90] italic text-center py-4">
                         No notes for this lesson yet.
                       </p>
                     ) : (
                       notes.map((n) => (
                         <div
                           key={n.id}
-                          className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs hover:border-slate-300 transition-colors"
+                          className="p-3 rounded-2xl bg-stone-50 dark:bg-[#1C1512] border border-stone-200 dark:border-white/10 space-y-1.5 text-xs hover:border-stone-300 transition-colors"
                         >
                           <div className="flex items-center justify-between">
-                            <h4 className="font-bold text-slate-900 line-clamp-1">{n.title}</h4>
+                            <h4 className="font-bold text-stone-900 dark:text-[#FDFBF7] line-clamp-1">{n.title}</h4>
                             <button
                               type="button"
                               onClick={() => handleDeleteNote(n.id)}
-                              className="text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer"
+                              className="text-stone-400 dark:text-[#A89C90] hover:text-rose-600 p-0.5 cursor-pointer"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
-                          <p className="text-slate-600 whitespace-pre-wrap text-[11px] line-clamp-4 leading-relaxed">
+                          <p className="text-stone-600 dark:text-[#E7E0D6] whitespace-pre-wrap text-[11px] line-clamp-4 leading-relaxed">
                             {n.content}
                           </p>
-                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-200/50">
-                            <span className="px-1.5 py-0.2 rounded bg-slate-200/60 font-semibold text-slate-700">
+                          <div className="flex items-center justify-between text-[10px] text-stone-400 dark:text-[#A89C90] pt-1 border-t border-stone-200/50">
+                            <span className="px-1.5 py-0.2 rounded bg-stone-200/60 font-semibold text-stone-700 dark:text-[#E7E0D6]">
                               {n.source === "ai_companion" ? "AI Companion" : "Self-Study"}
                             </span>
                             <span>{n.created_at}</span>
@@ -733,26 +726,25 @@ export default function LessonReader(): React.ReactElement {
               )}
             </div>
 
-            {/* Input Bar (Only on AI Tab) */}
             {rightPanelTab === "ai" && (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleAskAI();
                 }}
-                className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2"
+                className="mt-2 pt-2 border-t border-stone-100 dark:border-white/10 flex items-center gap-2"
               >
                 <input
                   type="text"
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
                   placeholder="Ask AI about this lesson..."
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-amber-500"
+                  className="flex-1 bg-stone-50 dark:bg-[#1C1512] border border-stone-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-stone-900 dark:text-[#FDFBF7] focus:outline-none focus:border-amber-500"
                 />
                 <button
                   type="submit"
                   disabled={aiLoading || !aiPrompt.trim()}
-                  className="p-2 rounded-xl bg-slate-900 text-amber-400 hover:bg-slate-800 disabled:opacity-40 transition-colors cursor-pointer"
+                  className="p-2 rounded-xl bg-stone-900 text-amber-400 hover:bg-stone-800 disabled:opacity-40 transition-colors cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>
@@ -761,6 +753,6 @@ export default function LessonReader(): React.ReactElement {
           </aside>
         )}
       </div>
-    </div>
+    </PortalPage>
   );
 }

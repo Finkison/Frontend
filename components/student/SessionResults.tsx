@@ -1,40 +1,37 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import useSessionStore from "../../store/sessionStore";
-import { getStudentAIInsights } from "../../services/studentService";
-import { Sparkles, CheckCircle2, Bot } from "lucide-react";
+import { CheckCircle2, Bot } from "lucide-react";
+import PortalPage from "../shared/PortalPage";
 
 export default function SessionResults() {
   const navigate = useNavigate();
   const { result, questions, endSession } = useSessionStore();
-  const [showAiExp, setShowAiExp] = useState<Record<number, boolean>>({});
-  const { data: aiData } = useQuery(["studentAIInsights"], getStudentAIInsights, {
-    enabled: !!result,
-    staleTime: 1000 * 60 * 5,
-  });
+  const [openExplanations, setOpenExplanations] = useState<Record<number, boolean>>({});
 
   if (!result) {
     return (
-      <div className="container">
-        <div className="card" style={{ textAlign: "center", padding: 40 }}>
-          <h3 style={{ color: "var(--navy)", marginBottom: 12 }}>No Results Found</h3>
-          <p className="muted" style={{ marginBottom: 20 }}>Complete a practice session to view analytics.</p>
-          <button className="btn primary" onClick={() => navigate("/student/practice")}>Start Practice</button>
+      <PortalPage className="max-w-4xl">
+        <div className="rounded-2xl border border-stone-200 bg-white p-10 text-center shadow-xs dark:border-white/10 dark:bg-[#261E1A]">
+          <h3 className="text-xl font-semibold text-stone-900 dark:text-[#FDFBF7]">No results yet</h3>
+          <p className="mt-2 mb-5 text-sm text-stone-600 dark:text-[#A89C90]">Finish a practice session or exam to see your results.</p>
+          <button className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#881337] px-4 py-2 text-sm font-semibold text-white hover:bg-[#9F1239]" onClick={() => navigate("/student/practice")}>Start practice</button>
         </div>
-      </div>
+      </PortalPage>
     );
   }
 
-  const aiSummary = aiData?.data;
+  const reviewQuestions = result.questions?.length ? result.questions : questions;
+  const scorePercent = Number(result.score_percent) || 0;
+  const durationSeconds = Number(result.duration_seconds) || 0;
   const radius = 50;
   const stroke = 12;
   const normalizedRadius = radius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (result.score_percent / 100) * circumference;
+  const strokeDashoffset = circumference - (scorePercent / 100) * circumference;
 
-  const toggleExplanation = (index) => {
-    setShowAiExp({ ...showAiExp, [index]: !showAiExp[index] });
+  const toggleExplanation = (index: number) => {
+    setOpenExplanations((current) => ({ ...current, [index]: !current[index] }));
   };
 
   const handleFinish = () => {
@@ -43,169 +40,114 @@ export default function SessionResults() {
   };
 
   return (
-    <div className="container" style={{ maxWidth: 800 }}>
-      <div className="card" style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 24, padding: 30, marginBottom: 20 }}>
+    <PortalPage className="max-w-4xl">
+      <div className="grid gap-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-xs dark:border-white/10 dark:bg-[#261E1A] sm:grid-cols-[1fr_auto] sm:p-8">
         <div>
-          <h2 style={{ color: "var(--navy)", marginBottom: 8 }}>Session Completed</h2>
-          <p className="muted" style={{ marginBottom: 16 }}>
-            Accuracy, speed, and topic performance summary.
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div style={{ padding: 12, background: "rgba(15, 39, 68, 0.02)", borderRadius: 8 }}>
-              <span className="muted" style={{ fontSize: 12 }}>Correct Questions</span>
-              <h4 style={{ fontSize: 20, color: "var(--teal)", marginTop: 4 }}>
+          <h2 className="text-xl font-semibold text-stone-900 dark:text-[#FDFBF7]">Session completed</h2>
+          <p className="mt-1 mb-4 text-sm text-stone-600 dark:text-[#A89C90]">Your score and answer review.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg bg-stone-50 p-3 dark:bg-[#1C1512]">
+              <span className="text-xs text-stone-500 dark:text-[#A89C90]">Correct answers</span>
+              <h4 className="mt-1 text-xl font-semibold text-emerald-700 dark:text-emerald-300">
                 {result.correct_count} / {result.total_questions}
               </h4>
             </div>
-            <div style={{ padding: 12, background: "rgba(15, 39, 68, 0.02)", borderRadius: 8 }}>
-              <span className="muted" style={{ fontSize: 12 }}>Time Elapsed</span>
-              <h4 style={{ fontSize: 20, color: "var(--navy)", marginTop: 4 }}>
-                {Math.floor(result.duration_seconds / 60)}m {result.duration_seconds % 60}s
+            <div className="rounded-lg bg-stone-50 p-3 dark:bg-[#1C1512]">
+              <span className="text-xs text-stone-500 dark:text-[#A89C90]">Time spent</span>
+              <h4 className="mt-1 text-xl font-semibold text-stone-900 dark:text-[#FDFBF7]">
+                {durationSeconds > 0 ? `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s` : "Not recorded"}
               </h4>
             </div>
           </div>
         </div>
 
-        <div className="score-circle-container" style={{ flexDirection: "column" }}>
-          <svg height={120} width={120} className="score-circle-svg">
-            <circle
-              className="score-circle-bg"
-              cx={60}
-              cy={60}
-              r={normalizedRadius}
-            />
+        <div className="score-circle-container flex-col">
+          <svg height={120} width={120} className="score-circle-svg" aria-label={`${scorePercent}% accuracy`}>
+            <circle className="score-circle-bg" cx={60} cy={60} r={normalizedRadius} />
             <circle
               className="score-circle-progress"
               cx={60}
               cy={60}
               r={normalizedRadius}
-              strokeDasharray={circumference + " " + circumference}
+              strokeDasharray={`${circumference} ${circumference}`}
               style={{ strokeDashoffset }}
             />
-            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" transform="rotate(90 60 60)" style={{ fontFamily: "Playfair Display", fontSize: 22, fontWeight: 700, fill: "var(--navy)" }}>
-              {result.score_percent}%
+            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" transform="rotate(90 60 60)" className="fill-stone-900 text-[22px] font-bold dark:fill-[#FDFBF7]">
+              {scorePercent}%
             </text>
           </svg>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--txt2)", marginTop: 8 }}>ACCURACY</span>
+          <span className="mt-2 text-[11px] font-bold text-stone-500 dark:text-[#A89C90]">ACCURACY</span>
         </div>
       </div>
 
-      {aiSummary?.summary && (
-        <div className="card" style={{ marginBottom: 20, padding: 20, background: "rgba(250, 248, 243, 0.98)" }}>
-          <h4 style={{ marginBottom: 8 }}>AI Session Insight</h4>
-          <p className="muted" style={{ marginBottom: 12 }}>{aiSummary.summary}</p>
-          <div style={{ display: "grid", gap: 8 }}>
-            {aiSummary.recommendations?.map((item, idx) => (
-              <div key={idx} className="status-pill" style={{ background: "var(--teal-lt)", color: "var(--teal)", fontSize: 13 }}>
-                {item}
-              </div>
-            ))}
-          </div>
+      <h3 className="mb-3 text-lg font-semibold text-stone-900 dark:text-[#FDFBF7]">Answer review</h3>
+      {reviewQuestions.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-stone-300 p-6 text-sm text-stone-600 dark:border-white/15 dark:text-[#A89C90]">
+          No answer details were recorded for this session.
+        </div>
+      ) : (
+        <div className="mb-6 grid gap-4">
+          {reviewQuestions.map((q, idx) => {
+            const hasAnswer = q.selected_answer !== null && q.selected_answer !== undefined && q.selected_answer !== "";
+            const isCorrect = q.is_correct === true;
+            const labels = ["A", "B", "C", "D", "E"];
+            const rawSelection = String(q.selected_answer ?? "");
+            const selectedLabel = /^\d+$/.test(rawSelection) ? labels[Number(rawSelection)] : rawSelection.toUpperCase();
+            const correctIndex = Number.isInteger(q.correct_answer) ? q.correct_answer : q.correctAnswer;
+
+            return (
+              <article key={q.id} className="rounded-2xl border border-stone-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#261E1A]">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <span className="text-sm font-bold text-stone-900 dark:text-[#FDFBF7]">Question {idx + 1}</span>
+                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${isCorrect ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200" : hasAnswer ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200" : "border-stone-200 bg-stone-50 text-stone-600 dark:border-white/10 dark:bg-white/5 dark:text-[#A89C90]"}`}>
+                    {isCorrect ? "Correct" : hasAnswer ? "Incorrect" : "Unanswered"}
+                  </span>
+                </div>
+                <p className="mb-3 font-medium text-stone-800 dark:text-[#E7E0D6]">
+                  {q.question_text_en || q.question_text || q.question || "Question text unavailable."}
+                </p>
+                <div className="mb-4 grid gap-1.5 text-sm">
+                  {(q.options || []).map((option, optionIndex) => {
+                    const optionLabel = typeof option === "object" ? (option.label || labels[optionIndex]) : labels[optionIndex];
+                    const optionText = typeof option === "object" ? (option.text || option.text_en || "") : String(option);
+                    const isCorrectOption = optionLabel === q.correct_label || optionIndex === correctIndex;
+                    const isSelectedOption = optionLabel === selectedLabel;
+                    return (
+                      <div key={optionLabel} className={`rounded-lg border p-2 ${isCorrectOption ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200" : isSelectedOption ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" : "border-transparent text-stone-600 dark:text-[#A89C90]"}`}>
+                        <span>{optionLabel}. {optionText}</span>
+                        {isCorrectOption && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline ml-1.5" />}
+                        {isSelectedOption && <span className="ml-1.5 text-[11px]">Your answer</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" className="inline-flex min-h-10 items-center rounded-lg border border-stone-300 px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50 dark:border-white/15 dark:text-[#E7E0D6] dark:hover:bg-white/5" onClick={() => toggleExplanation(idx)}>
+                    {openExplanations[idx] ? "Hide explanation" : "Show explanation"}
+                  </button>
+                  <button type="button" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-950/30" onClick={() => navigate("/student/ai-tutor")}>
+                      <Bot className="w-3.5 h-3.5" />
+                      Ask tutor
+                  </button>
+                </div>
+                {openExplanations[idx] && (
+                  <div className="mt-3 rounded-lg border-l-4 border-[#FBBF24] bg-amber-50 p-3 text-sm leading-6 text-amber-950 dark:bg-amber-950/20 dark:text-amber-100">
+                    <strong>Explanation</strong>
+                    <p className="mt-1">
+                      {q.explanation_en || q.explanation || "No explanation is available for this question yet."}
+                    </p>
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
 
-      <h3 style={{ color: "var(--navy)", marginBottom: 14 }}>Review Questions</h3>
-      <div style={{ display: "grid", gap: 16, marginBottom: 24 }}>
-        {questions.map((q, idx) => {
-          const isCorrect = idx === 0 || idx === 2;
-          const isOpened = showAiExp[idx];
-          return (
-            <div key={q.id} className="card" style={{ padding: 20 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)" }}>
-                  Question {idx + 1}
-                </span>
-                <span className={`status-pill ${isCorrect ? "secondary" : ""}`} style={{
-                  background: isCorrect ? "var(--teal-lt)" : "#fef2f2",
-                  color: isCorrect ? "var(--teal)" : "#b91c1c"
-                }}>
-                  {isCorrect ? "Correct" : "Incorrect"}
-                </span>
-              </div>
-              <p style={{ fontWeight: 500, marginBottom: 12 }}>
-                {q.question_text_en || q.question_text || q.question || "Question prompt"}
-              </p>
-              <div style={{ display: "grid", gap: 6, fontSize: 13, marginBottom: 16 }}>
-                {(q.options || []).map((opt, optIdx) => {
-                  const labels = ["A", "B", "C", "D", "E"];
-                  const optLabel = typeof opt === "object" ? (opt.label || labels[optIdx]) : labels[optIdx];
-                  const optText = typeof opt === "object" ? (opt.text || opt.text_en || "") : String(opt);
-                  const correctIdx = q.correct_answer ?? q.correctAnswer ?? 0;
-                  const isCorrectOption = optLabel === q.correct_label || optIdx === correctIdx;
-                  return (
-                    <div
-                      key={optLabel}
-                      style={{
-                        padding: 8,
-                        borderRadius: 6,
-                        background: isCorrectOption ? "rgba(10, 110, 85, 0.08)" : "transparent",
-                        border: isCorrectOption ? "1px solid rgba(10, 110, 85, 0.2)" : "1px solid transparent",
-                        color: isCorrectOption ? "var(--teal)" : "var(--txt2)",
-                        fontWeight: isCorrectOption ? "600" : "400",
-                      }}
-                    >
-                      <span>{optLabel}. {optText}</span>
-                      {isCorrectOption && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline ml-1.5" />}
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => toggleExplanation(idx)}
-                  style={{ fontSize: 12, padding: "6px 12px", cursor: "pointer" }}
-                >
-                  {isOpened ? "Hide Explanation" : (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Explain with AI</span>
-                    </span>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => navigate("/student/ai-tutor")}
-                  style={{ fontSize: 12, padding: "6px 12px", color: "var(--teal)", cursor: "pointer" }}
-                >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <Bot className="w-3.5 h-3.5" />
-                    <span>Ask Tutor Directly</span>
-                  </span>
-                </button>
-              </div>
-
-              {isOpened && (
-                <div style={{
-                  marginTop: 12,
-                  padding: 14,
-                  background: "var(--bg)",
-                  borderLeft: "4px solid var(--gold)",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid var(--border)" }}>
-                    <strong style={{ color: "var(--navy)" }}>Socratic Pedagogical Breakdown:</strong>
-                  </div>
-
-                  <p style={{ marginTop: 4, color: "var(--txt2)" }}>
-                    {q.explanation_en || q.explanation || aiSummary?.weak_topics?.[idx]?.recommendation || "Explanations loaded dynamically. This topic assesses fundamental Ethiopian national curriculum standards."}
-                  </p>
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div className="flex flex-wrap justify-end gap-3">
+        <button className="inline-flex min-h-11 items-center justify-center rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 dark:border-white/15 dark:text-[#E7E0D6] dark:hover:bg-white/5" onClick={() => navigate("/student/practice")}>Practice again</button>
+        <button className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#881337] px-4 py-2 text-sm font-semibold text-white hover:bg-[#9F1239]" onClick={handleFinish}>Return to dashboard</button>
       </div>
-
-      <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-        <button className="btn ghost" onClick={() => navigate("/student/practice")}>Practice Again</button>
-        <button className="btn primary" onClick={handleFinish}>Return to Dashboard</button>
-      </div>
-    </div>
+    </PortalPage>
   );
 }

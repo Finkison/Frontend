@@ -1,293 +1,125 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { AlertCircle, BookOpen, Save, Target, TrendingUp } from "lucide-react";
 import { getScoreTrajectory, updateStudentProfile } from "../../services/studentService";
 import { useToast } from "../ui/Toast";
-import useAuthStore from "../../store/authStore";
-import { 
-  TrendingUp, 
-  Target, 
-  Sparkles, 
-  Award, 
-  CheckCircle2, 
-  Sliders, 
-  Save, 
-  GraduationCap, 
-  ArrowUpRight 
-} from "lucide-react";
+import { useI18n } from "../../i18n";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
 
 export default function ScorePredictor(): React.ReactElement {
   const { showToast } = useToast();
-  const user = useAuthStore((s) => s.user);
-
-  const [predictedScore, setPredictedScore] = useState(user?.currentPredictedScore || 0);
-  const [targetScore, setTargetScore] = useState(user?.targetScore || 500);
-  const [accuracySim, setAccuracySim] = useState(82);
-  const [savingTarget, setSavingTarget] = useState(false);
+  const { t } = useI18n();
+  const [predictedScore, setPredictedScore] = useState<number | null>(null);
+  const [targetScore, setTargetScore] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [savingTarget, setSavingTarget] = useState(false);
+
+  const loadOverview = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const response = await getScoreTrajectory();
+      const data = response.data || {};
+      setPredictedScore(data.has_score_evidence === true && typeof data.current_predicted_score === "number" ? data.current_predicted_score : null);
+      setTargetScore(data.has_custom_target === true && typeof data.target_score === "number" ? data.target_score : null);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setLoading(true);
-    getScoreTrajectory()
-      .then((res) => {
-        if (res.data && typeof res.data === "object") {
-          setPredictedScore(res.data.current_predicted_score ?? (user?.currentPredictedScore || 0));
-          setTargetScore(res.data.target_score ?? (user?.targetScore || 500));
-        }
-      })
-      .catch(() => {
-        setPredictedScore(user?.currentPredictedScore || 0);
-        setTargetScore(user?.targetScore || 500);
-      })
-      .finally(() => setLoading(false));
-  }, [user]);
-
-  const simulatedScore = Math.min(600, Math.round((accuracySim / 100) * 600));
-  const completionPercent = Math.min(100, Math.round((predictedScore / targetScore) * 100));
-  const percentileRank = Math.min(99.9, Math.max(50, (simulatedScore / 600) * 100)).toFixed(1);
-  const topPercent = Math.max(0.1, +(100 - Number(percentileRank)).toFixed(1));
+    void loadOverview();
+  }, [loadOverview]);
 
   const handleSaveGoal = async () => {
+    if (targetScore === null || !Number.isFinite(targetScore) || targetScore < 250 || targetScore > 600) return;
     setSavingTarget(true);
     try {
       await updateStudentProfile({ target_score: targetScore });
-      showToast({
-        type: "success",
-        title: "Target Score Updated",
-        message: `Your entrance examination target is set to ${targetScore} / 600.`
-      });
-    } catch {
-      showToast({
-        type: "error",
-        title: "Failed to Save Goal",
-        message: "Unable to sync target score with your profile."
-      });
+      showToast({ type: "success", title: t("scoreOverview.goalSaved"), message: t("scoreOverview.goalSavedMessage") });
+    } catch (error: any) {
+      showToast({ type: "error", title: t("scoreOverview.goalSaveFailed"), message: error?.response?.data?.error || t("scoreOverview.goalSaveFailedMessage") });
     } finally {
       setSavingTarget(false);
     }
   };
 
-  const isSocial = user?.stream?.toLowerCase().includes("social");
-  const isGeneral = user?.grade && (user.grade.includes("9") || user.grade.includes("10"));
-
-  const subjectBreakdown = isSocial
-    ? [
-        { subject: "Mathematics", current: 80, target: 90, stream: "Core" },
-        { subject: "History", current: 84, target: 92, stream: "Social" },
-        { subject: "Geography", current: 78, target: 88, stream: "Social" },
-        { subject: "Economics", current: 82, target: 90, stream: "Social" },
-        { subject: "English", current: 90, target: 95, stream: "Common" },
-        { subject: "Scholastic Aptitude (SAT)", current: 84, target: 90, stream: "Common" }
-      ]
-    : isGeneral
-    ? [
-        { subject: "Mathematics", current: 82, target: 90, stream: "Foundation" },
-        { subject: "Physics", current: 75, target: 85, stream: "Foundation" },
-        { subject: "Chemistry", current: 70, target: 85, stream: "Foundation" },
-        { subject: "Biology", current: 85, target: 92, stream: "Foundation" },
-        { subject: "History & Geography", current: 80, target: 90, stream: "Foundation" },
-        { subject: "English", current: 88, target: 94, stream: "Common" }
-      ]
-    : [
-        { subject: "Mathematics", current: 82, target: 90, stream: "Core" },
-        { subject: "Physics", current: 74, target: 85, stream: "Natural" },
-        { subject: "Chemistry", current: 65, target: 80, stream: "Natural" },
-        { subject: "Biology", current: 85, target: 92, stream: "Natural" },
-        { subject: "English", current: 90, target: 95, stream: "Common" },
-        { subject: "Scholastic Aptitude (SAT)", current: 82, target: 88, stream: "Common" }
-      ];
+  const targetGap = predictedScore !== null && targetScore !== null ? targetScore - predictedScore : null;
+  const targetProgress = predictedScore !== null && targetScore !== null && targetScore > 0
+    ? Math.max(0, Math.min(100, Math.round((predictedScore / targetScore) * 100)))
+    : null;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header Banner */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-7 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 text-xs font-semibold border border-emerald-500/20 mb-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Score Analytics</span>
+    <PortalPage className="max-w-5xl space-y-6">
+      <PageHeader
+        eyebrow={t("scoreOverview.eyebrow")}
+        title={t("scoreOverview.title")}
+        description={t("scoreOverview.description")}
+      />
+
+      {loadError ? (
+        <section role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <div className="flex-1"><p className="font-semibold">{t("scoreOverview.loadErrorTitle")}</p><p className="mt-1 text-xs">{t("scoreOverview.loadErrorDescription")}</p><button type="button" onClick={() => void loadOverview()} className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-rose-400 px-3 text-xs font-semibold hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-rose-700 dark:hover:bg-rose-900/30">{t("scoreOverview.retry")}</button></div>
+        </section>
+      ) : (
+        <>
+          <section className="grid gap-4 sm:grid-cols-3" aria-label={t("scoreOverview.summaryLabel")}>
+            <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#261E1A]">
+              <div className="flex items-center justify-between text-xs text-stone-500 dark:text-[#A89C90]"><span>{t("scoreOverview.estimateLabel")}</span><TrendingUp className="h-4 w-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /></div>
+              <p className="mt-4 font-mono text-3xl font-semibold tabular-nums text-stone-900 dark:text-[#FDFBF7]">{loading ? "…" : predictedScore ?? <span className="font-sans text-base font-medium text-stone-500 dark:text-[#A89C90]">{t("scoreOverview.noEstimate")}</span>}</p>
+              <p className="mt-2 text-xs text-stone-500 dark:text-[#A89C90]">{t("scoreOverview.estimateSource")}</p>
+            </article>
+
+            <article className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-xs dark:border-amber-900/40 dark:bg-amber-950/20">
+              <div className="flex items-center justify-between text-xs text-amber-900 dark:text-amber-100"><span>{t("scoreOverview.targetLabel")}</span><Target className="h-4 w-4" aria-hidden="true" /></div>
+              <p className="mt-4 font-mono text-3xl font-semibold tabular-nums text-stone-900 dark:text-[#FDFBF7]">{loading ? "…" : targetScore ?? <span className="font-sans text-base font-medium text-stone-600 dark:text-[#A89C90]">{t("scoreOverview.notSet")}</span>}</p>
+              <p className="mt-2 text-xs text-amber-900/80 dark:text-amber-100/80">{t("scoreOverview.targetHint")}</p>
+            </article>
+
+            <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#261E1A]">
+              <div className="flex items-center justify-between text-xs text-stone-500 dark:text-[#A89C90]"><span>{t("scoreOverview.gapLabel")}</span><Target className="h-4 w-4 text-stone-400 dark:text-[#A89C90]" aria-hidden="true" /></div>
+              <p className="mt-4 font-mono text-3xl font-semibold tabular-nums text-stone-900 dark:text-[#FDFBF7]">{loading ? "…" : targetGap === null ? "—" : targetGap <= 0 ? t("scoreOverview.goalReached") : targetGap}</p>
+              <p className="mt-2 text-xs text-stone-500 dark:text-[#A89C90]">{targetGap !== null && targetGap > 0 ? t("scoreOverview.gapDescription") : t("scoreOverview.gapBasis")}</p>
+            </article>
+          </section>
+
+          <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+            <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#261E1A] sm:p-6">
+              <h2 className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("scoreOverview.progressTitle")}</h2>
+              <p className="mt-1 text-xs leading-5 text-stone-500 dark:text-[#A89C90]">{t("scoreOverview.progressDescription")}</p>
+              {targetProgress === null ? (
+                <p className="mt-6 rounded-lg border border-dashed border-stone-300 p-4 text-sm text-stone-600 dark:border-white/15 dark:text-[#E7E0D6]">{t("scoreOverview.progressEmpty")}</p>
+              ) : (
+                <div className="mt-6">
+                  <div className="flex items-end justify-between gap-3"><span className="text-3xl font-semibold tabular-nums text-[#881337] dark:text-[#FBBF24]">{targetProgress}%</span><span className="text-xs text-stone-500 dark:text-[#A89C90]">{t("scoreOverview.towardTarget")}</span></div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-100 dark:bg-[#1C1512]" role="progressbar" aria-label={t("scoreOverview.progressLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={targetProgress}><div className="h-full rounded-full bg-[#881337] transition-[width] dark:bg-[#FBBF24]" style={{ width: `${targetProgress}%` }} /></div>
+                  <div className="mt-2 flex justify-between text-[11px] text-stone-500 dark:text-[#A89C90]"><span>{t("scoreOverview.estimateValue", { score: predictedScore })}</span><span>{t("scoreOverview.targetValue", { score: targetScore })}</span></div>
+                </div>
+              )}
+            </article>
+
+            <article className="rounded-2xl border border-stone-200 bg-[#FAF8F5] p-5 dark:border-white/10 dark:bg-[#1C1512]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#881337] dark:bg-white/10 dark:text-[#FBBF24]"><BookOpen className="h-5 w-5" aria-hidden="true" /></div>
+              <h2 className="mt-4 text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("scoreOverview.scopeTitle")}</h2>
+              <p className="mt-2 text-xs leading-5 text-stone-600 dark:text-[#E7E0D6]">{t("scoreOverview.scopeDescription")}</p>
+            </article>
+          </section>
+
+          <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#261E1A] sm:p-6" aria-labelledby="score-goal-heading">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-md"><h2 id="score-goal-heading" className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("scoreOverview.updateTarget")}</h2><p className="mt-1 text-xs leading-5 text-stone-500 dark:text-[#A89C90]">{t("scoreOverview.updateTargetDescription")}</p></div>
+              <form onSubmit={(event) => { event.preventDefault(); void handleSaveGoal(); }} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="space-y-1"><label htmlFor="target-score" className="text-xs font-semibold text-stone-700 dark:text-[#E7E0D6]">{t("scoreOverview.targetInputLabel")}</label><input id="target-score" type="number" min={250} max={600} step={1} value={targetScore ?? ""} onChange={(event) => setTargetScore(event.target.value === "" ? null : Number(event.target.value))} disabled={loading || loadError} className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-900 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 disabled:opacity-60 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7] sm:w-40" /></div>
+                <button type="submit" disabled={savingTarget || loading || loadError || targetScore === null || !Number.isFinite(targetScore) || targetScore < 250 || targetScore > 600} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#881337] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#9F1239] focus:outline-none focus:ring-2 focus:ring-[#881337] disabled:cursor-wait disabled:opacity-60"><Save className="h-4 w-4" aria-hidden="true" />{savingTarget ? t("scoreOverview.saving") : t("scoreOverview.saveTarget")}</button>
+              </form>
             </div>
-            <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-              Score predictor
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
-              Projected EUEE scaled score based on practice accuracy and item difficulty.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
-              Grade 12 Scale
-            </span>
-          </div>
-        </div>
-
-        {/* 3 Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-5 border-t border-slate-100">
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">
-              Predicted Score
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="font-sans text-3xl font-bold text-slate-900">
-                {predictedScore}
-              </span>
-              <span className="text-xs font-semibold text-slate-400">/ 600</span>
-            </div>
-            <span className="text-[11px] text-emerald-700 font-semibold block mt-1">
-              Top {topPercent}% Nationally
-            </span>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
-            <span className="text-[10px] uppercase font-bold text-amber-800 block">
-              Target Score
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="font-sans text-3xl font-bold text-slate-950">
-                {targetScore}
-              </span>
-              <span className="text-xs font-semibold text-amber-800">/ 600</span>
-            </div>
-            <span className="text-[11px] text-amber-900 font-semibold block mt-1">
-              {Math.max(0, targetScore - predictedScore)} points to goal
-            </span>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">
-              Target Progress
-            </span>
-            <div className="flex items-baseline gap-1 mt-1">
-              <span className="font-sans text-3xl font-bold text-blue-700">
-                {completionPercent}%
-              </span>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-slate-200 mt-2 overflow-hidden">
-              <div
-                className="h-full bg-[#1D4ED8] rounded-full"
-                style={{ width: `${completionPercent}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 7-Subject Breakdown */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-7 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-sans text-xl font-bold text-slate-900">
-              Subject Breakdown
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Estimated performance across examined subjects.
-            </p>
-          </div>
-          <GraduationCap className="w-5 h-5 text-slate-400" />
-        </div>
-
-        <div className="overflow-x-auto rounded-2xl border border-slate-100">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider text-[11px] border-b border-slate-100">
-                <th className="py-3 px-4">Subject</th>
-                <th className="py-3 px-4">Track</th>
-                <th className="py-3 px-4">Predicted</th>
-                <th className="py-3 px-4">Target</th>
-                <th className="py-3 px-4 text-right">Gain</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {subjectBreakdown.map((s) => (
-                <tr key={s.subject} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3 px-4 font-bold text-slate-900">{s.subject}</td>
-                  <td className="py-3 px-4 text-slate-500">{s.stream}</td>
-                  <td className="py-3 px-4">
-                    <span className="font-bold text-slate-800">{s.current} pts</span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="font-bold text-amber-800">{s.target} pts</span>
-                  </td>
-                  <td className="py-3 px-4 text-right font-bold text-emerald-700">
-                    +{s.target - s.current} pts
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Interactive Simulator */}
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-6 sm:p-8 shadow-lg space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 text-amber-400 text-xs font-semibold mb-2">
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Interactive Admission Simulator</span>
-            </div>
-            <h3 className="font-sans text-2xl font-bold">
-              Simulate topic accuracy vs national score
-            </h3>
-            <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-              Adjust the daily practice accuracy slider to model how mastering core units increases your entrance exam standing.
-            </p>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 text-center shrink-0">
-            <span className="text-[10px] text-slate-400 uppercase font-bold block">
-              Simulated Score
-            </span>
-            <span className="font-sans text-3xl font-bold text-amber-400 mt-1 block">
-              {simulatedScore} / 600
-            </span>
-            <span className="text-[11px] text-slate-300">
-              Percentile: Top {topPercent}%
-            </span>
-          </div>
-        </div>
-
-        {/* Range Slider */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs font-bold text-slate-300">
-            <span>Overall Diagnostic Accuracy: {accuracySim}%</span>
-            <span>Scale: 40% &ndash; 100%</span>
-          </div>
-          <input
-            type="range"
-            min={40}
-            max={100}
-            value={accuracySim}
-            onChange={(e) => setAccuracySim(Number(e.target.value))}
-            className="w-full accent-amber-400 cursor-pointer h-2 bg-slate-700 rounded-lg"
-          />
-        </div>
-
-        <div className="pt-4 border-t border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <label htmlFor="targetGoal" className="text-xs font-bold text-slate-300 shrink-0 uppercase">
-              Set Your Target Goal:
-            </label>
-            <input
-              id="targetGoal"
-              type="number"
-              min={350}
-              max={600}
-              value={targetScore}
-              onChange={(e) => setTargetScore(Number(e.target.value))}
-              className="w-28 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-sm text-center outline-none focus:border-amber-400"
-            />
-          </div>
-
-          <button
-            onClick={handleSaveGoal}
-            disabled={savingTarget}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition-colors"
-          >
-            <Save className="w-4 h-4 text-slate-950" />
-            <span>{savingTarget ? "Saving Goal..." : "Save Goal to Profile"}</span>
-          </button>
-        </div>
-      </div>
-    </div>
+          </section>
+        </>
+      )}
+    </PortalPage>
   );
 }
