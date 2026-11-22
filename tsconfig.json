@@ -23,6 +23,16 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "dist", "vite.config.ts", "src"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "vite.config.ts",
+    "src",
+    "__tests__",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
