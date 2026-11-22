@@ -1,4 +1,6 @@
-# 🎨 Design System & Accessibility Specification
+# Finkison design system conventions
+
+These conventions describe the current visual system and accessibility targets. They are guidance for implementation, not a claim that every page has been audited or certified against WCAG.
 
 This document defines the visual hierarchy, token architecture, and accessibility standards for the Finkison web client.
 
@@ -40,18 +42,18 @@ Finkison's color system is specifically curated for scholarly focus and high-sta
 - **Font Sans**: Inter / modern sans-serif in strict sentence case across all headings, labels, and buttons.
 - **Font Mono**: For candidate roll numbers, exam item numbers, and IRT psychometric formulas.
 - **Micro-Animations**:
-  - `prefers-reduced-motion` is strictly respected across all sliders and transitions.
+  - Components should respect `prefers-reduced-motion`, including sliders and transitions.
   - Hover durations capped between `150ms` and `250ms` to maintain snappy responsiveness.
 
 ---
 
-## 4. Accessibility (WCAG 2.2 Level AA)
+## 4. Accessibility target: WCAG 2.2 AA
 
-1. **Touch Targets**: All interactive elements (buttons, tabs, inputs) maintain a minimum clickable area of 44×44px.
+1. **Touch Targets**: Aim for a minimum clickable area of 44×44px for interactive controls and audit compact layouts individually.
 2. **Color Contrast**: 
    - Normal text: $\ge 4.5:1$ contrast ratio.
    - Large text ($\ge 18\text{pt}$ or bold $\ge 14\text{pt}$): $\ge 3:1$ contrast ratio.
-   - High-contrast gold pills use `#1C1512` text over `#FBBF24` background ($\gt 10:1$ ratio).
+   - Gold accents use dark text where they carry readable text; verify contrast for each component state.
 3. **Keyboard Navigation**:
    - Explicit `focus-visible` rings (`ring-2 ring-[#881337] ring-offset-2`).
    - Accessible skip-to-content anchor on all pages (`#main-content`).

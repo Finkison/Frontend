@@ -1,92 +1,61 @@
-# 🏛️ Architecture Specification
+# Frontend architecture
 
-This document provides the authoritative architectural blueprint for the Finkison web client.
+This document records the current Finkison web client structure and the conventions for adding features.
 
----
+## Runtime
 
-## 1. System Overview
+- React 18, TypeScript, Vite, and React Router
+- Zustand for in-memory authentication state and persisted, non-authoritative profile display data
+- Axios through `services/api.ts` for API requests, bearer-token attachment, access-token refresh, and common error messages
+- Tailwind CSS with shared styles and components
+- i18next resources in `i18n/` for English, Amharic, and Afaan Oromoo
 
-Finkison is a high-performance educational platform built for secondary education (Grades 9–12), national entrance examination prep (EUEE/ESSLCE), and school management.
+The shared API client reads `VITE_API_BASE_URL` and normalizes it to `/api/v1`. Its default `/api` works with the same-origin proxy, and values already ending in `/v1` are preserved. API requests use the versioned routes; the streaming AI request shares the same token refresh behavior.
 
-### Technology Stack
-- **Framework**: React 18.2 with TypeScript 5.3 (Strict Type Checking)
-- **Build System**: Vite 5 with Rollup code-splitting & manual chunks
-- **State Management**: Zustand 4.4 with local storage persistence
-- **Routing**: React Router v6 with lazy-loaded route bundles and RBAC guards
-- **Styling**: Vanilla CSS & Tailwind CSS 3.4 with custom academic design tokens
-- **Internationalization**: `i18next` & `react-i18next` (English, Amharic, Afaan Oromoo)
-- **Mathematics Rendering**: KaTeX / MathJax LaTeX formula rendering (`MathText.tsx`)
-- **Test Runner**: Vitest 1.6 with JSDOM environment
-
----
-
-## 2. Directory Topology
+## Main directories
 
 ```text
 Frontend/
-├── App.tsx             # Root application shell, public routes, and suspense loader
-├── main.tsx            # DOM mount point, theme, and query providers
-├── components/         # Partitioned by role and domain
-│   ├── auth/           # Onboarding and credentials
-│   ├── landing/        # Public landing components (HeroCarousel, PricingSection)
-│   ├── layouts/        # Role layout shells (StudentLayout, TeacherLayout, SchoolLayout, ParentLayout)
-│   ├── navigation/     # AppShell, TopBar, Sidebar, Breadcrumbs, PublicNavbar
-│   ├── parent/         # Guardian portal views
-│   ├── school/         # School administration views
-│   ├── science/        # Interactive STEM virtual labs
-│   ├── shared/         # Essential shared UI (PageHeader, ErrorBoundary, MathText)
-│   ├── student/        # Candidate learning and examination views
-│   ├── teacher/        # Educator studio and evaluation views
-│   ├── typography/     # SectionHeader, CardText, Meta
-│   └── ui/             # Atomic design primitives (Button, Card, Input, Modal, Table, Toast)
-├── docs/               # Standard engineering documentation
-│   ├── architecture.md # This architecture specification
-│   ├── design_system.md# Tokens, typography, colors, and accessibility
-│   └── deployment.md   # Production builds, Docker, and Nginx edge delivery
-├── hooks/              # Custom React hooks (useTheme, useScope)
-├── pages/              # Standalone public route pages (Academics, AiFeatures, Schools, etc.)
-├── routes/             # Role-based route bundles (StudentRoutes, TeacherRoutes, SchoolRoutes, ParentRoutes)
-├── services/           # Typed API service clients
-├── store/              # Zustand client stores (authStore, challengeStore, sessionStore, learningStore)
-├── styles/             # Global CSS and design tokens
-├── types/              # Domain TypeScript interfaces and types
-└── utils/              # Pure utility functions (dateUtils, logger, localization)
+├── App.tsx             # Public shell and route composition
+├── components/         # Shared and role-specific UI
+├── pages/              # Public and account-entry pages
+├── routes/             # Protected student, parent, teacher, and school route trees
+├── services/           # API clients and domain requests
+├── store/              # Zustand stores
+├── hooks/              # Shared React hooks
+├── context/            # React context providers
+├── i18n/               # Locale dictionaries and setup
+├── styles/             # Global styles and design tokens
+├── types/              # Shared TypeScript types
+├── utils/               # Formatting and other pure helpers
+└── docs/               # Frontend engineering documentation
 ```
 
----
+Components are grouped by shared UI or product role (`student`, `teacher`, `school`, and `parent`). Public pages such as the landing, pricing, schools, teachers, students, and families pages live under `pages/`.
 
-## 3. Role-Based Access Control (RBAC)
+## Authentication and authorization
 
-The application enforces strict client-side role guardrails matching the backend security model:
+`store/authStore.ts` holds the current client session. The short-lived access token stays in memory, while the rotating refresh token is held in an HttpOnly, SameSite cookie scoped to the auth API. `services/api.ts` sends credentials for refresh and attaches the access token to protected requests; streaming requests use its authenticated fetch helper. At startup, the app refreshes the session and loads `/auth/me` before enabling protected routes. A one-time migration accepts a legacy localStorage refresh token, rotates it into the cookie, and removes the browser-readable copy. Logout revokes the current access token and clears the cookie.
 
-```typescript
-export type UserRole = "STUDENT" | "TEACHER" | "PRINCIPAL" | "PARENT" | "ADMIN" | "ALUMNI";
-```
+`ProtectedRoute` and route role lists control client navigation only. They do not secure data; every protected operation must also enforce role and tenant authorization in the backend. Do not derive a user's permissions from a client-editable role selector.
 
-### Route Guard Matrix
-| Role | Permitted Route Trees | Redirect Upon Access Violation |
-| :--- | :--- | :--- |
-| `STUDENT` | `/student/*`, `/challenges`, public routes | `/login` or `/student` |
-| `TEACHER` | `/teacher/*`, `/school/assignments`, public routes | `/login` or `/teacher` |
-| `PRINCIPAL` / `ADMIN` | `/school/*`, `/teacher/*`, public routes | `/login` or `/school` |
-| `PARENT` | `/parent/*`, public routes | `/login` or `/parent` |
+## Naming and feature conventions
 
----
+- React components and pages use `PascalCase.tsx`.
+- Hooks use `useName.ts` and begin with `use`.
+- API clients use descriptive domain names such as `studentService.ts`; keep HTTP behavior in the shared API client.
+- Keep shared primitives in `components/ui/` and role-specific workflows in the matching role directory.
+- Use descriptive route names and visible labels. Keep route aliases only for compatibility and redirect them to one canonical destination.
+- `components/navigation/navigationConfig.ts` is the canonical portal navigation source. `constants/navigationManifest.ts` only adapts that configuration for existing consumers; portal access role lists live in `constants/routes.ts`.
+- Add UI copy to locale dictionaries instead of hardcoding new user-visible strings in multiple components.
 
-## 4. State Management Architecture
+## Known architecture work
 
-Zustand provides lightweight, boilerplate-free state management:
-
-1. **`authStore.ts`**: Active JWT token, user profile, authenticated role, and school affiliation.
-2. **`sessionStore.ts`**: Real-time examination session state, focus-loss anti-cheat telemetry, answers map, and countdown timers.
-3. **`challengeStore.ts`**: Real-time peer quiz room matchmaking, live score counters, and round timers.
-4. **`learningStore.ts`**: FSRS v4 active recall spaced-repetition queue and daily study streak counters.
-
----
-
-## 5. Network & API Transport
-
-All outbound network requests flow through the centralized Axios client (`services/api.ts`):
-- Automatic `Authorization: Bearer <token>` header injection via request interceptors.
-- Automatic 401 response handling and token refresh interceptors.
-- Typed response unwrapping and unified error logging.
+1. The API currently supports versioned and unversioned routes; frontend services use `/api/v1`. Keep backend aliases until external client usage has been checked and a deprecation date is published.
+2. Client route guards are a usability layer and must remain aligned with backend authorization without being treated as a security control.
+3. Keep API response types close to the service functions so pages do not need to infer multiple unrelated response shapes.
+4. Maintain locale entries for new navigation and product language, and use font coverage that supports all shipped scripts.
+5. Scholarship discovery, university-program directories, technology tracks, and related application workflows have been removed from the current product scope.
+6. Teacher past-paper workflows can save mapped questions with an optional private PDF, and provide school-scoped file downloads. Automatic document extraction and OCR are not available. Grade 12 student past-paper attempts use persisted practice sessions, server-side scoring, and localized answer review. The server restricts submitted answers to the questions assigned to that session and requires a complete answer set before completion.
+7. Frontend Nginx now sends a same-origin Content Security Policy and standard browser security headers. Keep `connect-src` aligned with deployment and review policy violations before adding external scripts. An active XSS can still use an in-memory access token until it expires even though it cannot read the refresh cookie; dependency review remains ongoing work.
+8. The service worker caches the app shell and static assets only; it deliberately skips API responses. Lessons, practice sets, and response syncing are not available offline yet. Add explicit user-selected learning packs with account-scoped local storage and a clear sync policy before promising offline learning.
