@@ -1,13 +1,19 @@
 {
-  "name": "Finkison - Ethiopian EUEE Exam Preparation",
+  "name": "Finkison AI - Education Platform",
   "short_name": "Finkison",
-  "description": "Ethiopia's #1 EdTech platform for secondary education and EUEE exam preparation",
+  "description": "AI-supported learning, assessment, and school workflows for Ethiopian secondary education.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3B82F6",
+  "background_color": "#FAF8F5",
+  "theme_color": "#881337",
   "orientation": "portrait-primary",
   "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
     {
       "src": "/logo-192.png",
       "sizes": "192x192",
@@ -22,27 +28,13 @@
     }
   ],
   "categories": ["education", "productivity"],
-  "screenshots": [
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "540x720",
-      "type": "image/png",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshot-desktop.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
-    }
-  ],
   "shortcuts": [
     {
-      "name": "Take Exam",
-      "short_name": "Exam",
-      "description": "Start an exam",
-      "url": "/student/exams",
-      "icons": [{ "src": "/icon-exam.png", "sizes": "192x192" }]
+      "name": "Browse curriculum",
+      "short_name": "Learn",
+      "description": "Explore lessons by grade and subject",
+      "url": "/academics",
+      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
       "name": "Practice",
@@ -50,6 +42,13 @@
       "description": "Practice questions",
       "url": "/student/practice",
       "icons": [{ "src": "/icon-practice.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "School portal",
+      "short_name": "School",
+      "description": "Open school management tools",
+      "url": "/school",
+      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     }
   ],
   "prefer_related_applications": false

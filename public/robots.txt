@@ -1,0 +1,11 @@
+# Finkison Robots Directives
+User-agent: *
+Allow: /
+Disallow: /student/
+Disallow: /teacher/
+Disallow: /school/
+Disallow: /parent/
+Disallow: /api/
+Disallow: /checkout/
+
+Sitemap: https://finkison.com/sitemap.xml
