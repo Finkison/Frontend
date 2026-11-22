@@ -1,191 +1,199 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, BookOpen, ClipboardList, Target, TrendingUp } from "lucide-react";
 import { getChildProgress } from "../../services/parentService";
-import { 
-  ArrowLeft, 
-  GraduationCap, 
-  TrendingUp, 
-  Target, 
-  Clock, 
-  CheckCircle2, 
-  AlertTriangle, 
-  BookOpen, 
-  Sparkles,
-  Flame
-} from "lucide-react";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
+import PortalLoading from "../shared/PortalLoading";
+import { useI18n } from "../../i18n";
+
+interface SubjectAccuracy {
+  subject: string;
+  accuracy: number;
+}
+
+interface ProgressActivity {
+  kind: "practice" | "exam" | "classwork";
+  title: string;
+  subject?: string;
+  status?: string;
+  score_percent?: number;
+  total_questions?: number;
+  score?: number;
+  max_score?: number;
+  created_at: string;
+}
+
+const activityStatusKeys: Record<string, string> = {
+  assigned: "assigned",
+  overdue: "overdue",
+  submitted: "submitted",
+  graded: "graded",
+};
 
 export default function ChildDetailView(): React.ReactElement {
+  const { t, language } = useI18n();
   const { id } = useParams();
   const navigate = useNavigate();
   const [child, setChild] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
-    getChildProgress(id || "")
-      .then((r) => setChild(r.data || null))
-      .catch(() => setChild(null))
-      .finally(() => setLoading(false));
+  const loadChild = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      if (!id) {
+        setChild(null);
+        return;
+      }
+      const response = await getChildProgress(id);
+      setChild(response.data || null);
+    } catch {
+      setChild(null);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
+  useEffect(() => { void loadChild(); }, [loadChild]);
+
   if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto p-12 text-center text-slate-400 text-sm">
-        Loading student progress...
-      </div>
-    );
+    return <PortalPage className="max-w-4xl"><PortalLoading message={t("parentChildDetail.loading")} /></PortalPage>;
   }
 
   if (!child) {
     return (
-      <div className="max-w-lg mx-auto bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-4 shadow-sm">
-        <h3 className="font-sans text-xl font-bold text-slate-900">Student not found</h3>
-        <p className="text-xs text-slate-500">
-          Unable to load diagnostic data for this student.
-        </p>
-        <button
-          onClick={() => navigate("/parent")}
-          className="px-6 py-2.5 rounded-xl font-bold bg-slate-900 text-white text-xs hover:bg-slate-800 transition-colors cursor-pointer"
-        >
-          Back to dashboard
-        </button>
-      </div>
+      <PortalPage className="max-w-lg"><div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-xs dark:border-white/10 dark:bg-[#261E1A]">
+        <h1 className="text-xl font-semibold text-stone-900 dark:text-[#FDFBF7]">{loadError ? t("parentChildDetail.loadErrorTitle") : t("parentChildDetail.notFoundTitle")}</h1>
+        <p className="text-sm text-stone-600 dark:text-[#E7E0D6]">{loadError ? t("parentChildDetail.loadErrorDescription") : t("parentChildDetail.notFoundDescription")}</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {loadError && <button type="button" onClick={() => void loadChild()} className="min-h-[44px] rounded-lg border border-stone-300 px-5 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 dark:border-white/15 dark:text-[#E7E0D6] dark:hover:bg-white/5">{t("parentChildDetail.tryAgain")}</button>}
+          <button type="button" onClick={() => navigate("/parent")} className="min-h-[44px] rounded-lg bg-stone-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-stone-800">{t("parentChildDetail.backToDashboard")}</button>
+        </div>
+      </div></PortalPage>
     );
   }
 
-  const events = [
-    {
-      type: "success",
-      icon: <CheckCircle2 className="w-4 h-4 text-emerald-500" />,
-      time: "Today, 2:15 PM",
-      title: "Completed Calculus & Limits Diagnostic",
-      desc: "Scored 84% accuracy across 25 past national exam questions."
-    },
-    {
-      type: "warning",
-      icon: <AlertTriangle className="w-4 h-4 text-amber-500" />,
-      time: "Yesterday, 4:30 PM",
-      title: "Conceptual Gap: Electrochemistry",
-      desc: "Accuracy dropped to 48% on Galvanic cell voltage calculations."
-    },
-    {
-      type: "info",
-      icon: <Flame className="w-4 h-4 text-rose-500" />,
-      time: "May 24, 2026",
-      title: "14-Day Study Streak",
-      desc: "Consistent 3.4 daily study hours logged on Finkison."
-    }
-  ];
+  const subjects: SubjectAccuracy[] = Array.isArray(child.subject_accuracy) ? child.subject_accuracy : [];
+  const activity: ProgressActivity[] = Array.isArray(child.recent_activity) ? child.recent_activity : [];
+  const latestScore = child.latest_exam_score;
+  const latestMax = child.latest_exam_max_score;
+  const gradeLabel = child.grade_display || (child.grade ? t("parentChildDetail.grade", { grade: child.grade }) : "");
+  const childDescription = [
+    gradeLabel,
+    child.stream ? t("parentChildDetail.stream", { stream: child.stream }) : "",
+    child.school ? t("parentChildDetail.school", { school: child.school }) : "",
+  ].filter(Boolean).join(" · ");
+  const locale = language === "am" ? "am-ET" : language === "om" ? "om-ET" : "en-ET";
+  const formatDate = (value: string) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? t("parentChildDetail.dateUnavailable") : date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+  };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Top Bar Navigation */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate("/parent")}
-          className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to dashboard</span>
-        </button>
-        <span className="text-xs font-semibold text-slate-500">
-          Last active: {child.last_active || "Today at 2:15 PM"}
-        </span>
-      </div>
+    <PortalPage className="max-w-5xl space-y-6">
+      <PageHeader
+        eyebrow={t("parentChildDetail.eyebrow")}
+        title={child.name}
+        description={childDescription || t("parentChildDetail.description")}
+        secondaryActions={[{ label: t("parentChildDetail.backToDashboard"), href: "/parent", icon: ArrowLeft }]}
+      />
 
-      <div className="grid lg:grid-cols-12 gap-6">
-        {/* Left Column: Diagnostics */}
-        <div className="lg:col-span-8 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
-              <div>
-                <h1 className="font-sans text-2xl font-bold text-slate-900">
-                  {child.name || child.user__full_name || "Daniel Finkison"}
-                </h1>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Grade {child.grade || 12} &bull; {child.stream || "Natural Science"}
-                </p>
-              </div>
-              <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-bold">
-                {child.predicted_cutoff_odds || "88% University Admission Probability"}
-              </span>
-            </div>
+      <section className="space-y-6 rounded-2xl border border-stone-200 dark:border-white/10 bg-white dark:bg-[#261E1A] p-6 shadow-xs sm:p-8">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50 dark:bg-[#1C1512] p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-stone-600 dark:text-[#E7E0D6]"><TrendingUp className="h-4 w-4" aria-hidden="true" />{t("parentChildDetail.latestExam")}</div>
+            <p className="mt-3 text-2xl font-semibold tabular-nums text-stone-900 dark:text-[#FDFBF7]">{latestScore ?? "—"}{latestScore != null && latestMax != null && <span className="ml-1 text-sm font-normal text-stone-500 dark:text-[#A89C90]">/ {latestMax}</span>}</p>
+            {latestScore == null && <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">{t("parentChildDetail.noExam")}</p>}
+          </div>
 
-            {/* Score Grid */}
-            <div className="grid sm:grid-cols-3 gap-3">
-              <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100">
-                <span className="text-[11px] font-semibold text-blue-700 block mb-1">Predicted Score</span>
-                <span className="font-sans text-2xl font-bold text-blue-900">{child.predicted_score || 498}</span>
-                <span className="text-[10px] text-blue-600/80 block mt-0.5">Out of 600</span>
-              </div>
+          <div className="rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50 dark:bg-[#1C1512] p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-stone-600 dark:text-[#E7E0D6]"><BookOpen className="h-4 w-4" aria-hidden="true" />{t("parentChildDetail.practiceAccuracy")}</div>
+            <p className="mt-3 text-2xl font-semibold tabular-nums text-stone-900 dark:text-[#FDFBF7]">{child.practice_accuracy == null ? "—" : `${child.practice_accuracy}%`}</p>
+            {child.practice_accuracy == null && <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">{t("parentChildDetail.noPractice")}</p>}
+          </div>
 
-              <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-100">
-                <span className="text-[11px] font-semibold text-amber-800 block mb-1">Target Score</span>
-                <span className="font-sans text-2xl font-bold text-amber-900">{child.target_score || 540}</span>
-                <span className="text-[10px] text-amber-700/80 block mt-0.5">Admission target</span>
-              </div>
+          <div className="rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50 dark:bg-[#1C1512] p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-stone-600 dark:text-[#E7E0D6]"><ClipboardList className="h-4 w-4" aria-hidden="true" />{t("parentChildDetail.questionsThisWeek")}</div>
+            <p className="mt-3 text-2xl font-semibold tabular-nums text-stone-900 dark:text-[#FDFBF7]">{child.weekly_questions_solved ?? 0}</p>
+          </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <span className="text-[11px] font-semibold text-slate-500 block mb-1">Target Department</span>
-                <span className="font-sans text-sm font-bold text-slate-900 truncate block mt-1">
-                  {child.department || "Software Engineering & AI"}
-                </span>
-                <span className="text-[10px] text-slate-500 block mt-0.5">Selected field</span>
-              </div>
-            </div>
+          <div className="rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50 dark:bg-[#1C1512] p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-stone-600 dark:text-[#E7E0D6]"><Target className="h-4 w-4" aria-hidden="true" />{t("parentChildDetail.personalTarget")}</div>
+            <p className="mt-3 text-2xl font-semibold tabular-nums text-stone-900 dark:text-[#FDFBF7]">{child.target_score ?? "—"}</p>
+          </div>
 
-            {/* Weak Areas Breakdown */}
-            <div className="space-y-3">
-              <h3 className="font-sans text-lg font-bold text-slate-900">
-                Weak Areas
-              </h3>
-              <div className="grid gap-3">
-                {[
-                  { subject: "Chemistry", topic: "Electrochemistry & Redox Reactions", accuracy: 48 },
-                  { subject: "Physics", topic: "Rotational Dynamics & Torque", accuracy: 52 },
-                  { subject: "Mathematics", topic: "Definite Integral Applications", accuracy: 64 }
-                ].map((item, i) => (
-                  <div key={i} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-slate-900">{item.subject} &bull; <span className="font-normal text-slate-600">{item.topic}</span></span>
-                      <span className={`font-bold ${item.accuracy < 50 ? "text-rose-600" : "text-amber-600"}`}>
-                        {item.accuracy}% Accuracy
-                      </span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${item.accuracy < 50 ? "bg-rose-500" : "bg-amber-500"}`}
-                        style={{ width: `${item.accuracy}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="rounded-xl border border-stone-200 dark:border-white/10 bg-stone-50 dark:bg-[#1C1512] p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-stone-600 dark:text-[#E7E0D6]"><ClipboardList className="h-4 w-4" aria-hidden="true" />{t("parentChildDetail.pendingClasswork")}</div>
+            <p className="mt-3 text-2xl font-semibold tabular-nums text-stone-900 dark:text-[#FDFBF7]">{child.pending_classwork_count ?? 0}</p>
+            <p className="mt-1 text-xs text-stone-500 dark:text-[#A89C90]">{t("parentChildDetail.assignedByTeachers")}</p>
           </div>
         </div>
 
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <h3 className="font-sans text-lg font-bold text-slate-900">
-              Recent Activity
-            </h3>
-            <div className="space-y-4 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
-              {events.map((ev, idx) => (
-                <div key={idx} className="relative flex items-start gap-3 pl-2">
-                  <div className="w-6 h-6 rounded-full bg-white border border-slate-200 shadow-2xs flex items-center justify-center shrink-0 z-10 mt-0.5">
-                    {ev.icon}
-                  </div>
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] font-semibold text-slate-400 block">{ev.time}</span>
-                    <h4 className="text-xs font-bold text-slate-900">{ev.title}</h4>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">{ev.desc}</p>
-                  </div>
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("parentChildDetail.focusSubjects")}</h2>
+            <p className="mt-1 text-xs text-stone-600 dark:text-[#E7E0D6]">{t("parentChildDetail.focusSubjectsDescription")}</p>
+          </div>
+          {subjects.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-stone-300 dark:border-white/20 p-5 text-sm text-stone-600 dark:text-[#E7E0D6]">{t("parentChildDetail.noSubjectResults")}</p>
+          ) : (
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {subjects.map((item) => {
+                const accuracy = Number.isFinite(Number(item.accuracy)) ? Math.min(100, Math.max(0, Number(item.accuracy))) : 0;
+                return (
+                  <li key={item.subject} className="rounded-xl border border-stone-200 dark:border-white/10 p-4">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="font-semibold text-stone-900 dark:text-[#FDFBF7]">{item.subject}</span>
+                      <span className="font-semibold tabular-nums text-stone-700 dark:text-[#E7E0D6]">{Math.round(accuracy)}%</span>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-100 dark:bg-[#201815]" role="progressbar" aria-label={t("parentChildDetail.subjectAccuracy", { subject: item.subject })} aria-valuenow={Math.round(accuracy)} aria-valuemin={0} aria-valuemax={100}>
+                      <div className="h-full rounded-full bg-amber-500" style={{ width: `${accuracy}%` }} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      </section>
+
+      <section className="space-y-4 rounded-2xl border border-stone-200 dark:border-white/10 bg-white dark:bg-[#261E1A] p-6 shadow-xs sm:p-8">
+        <div>
+          <h2 className="text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("parentChildDetail.recentActivity")}</h2>
+          <p className="mt-1 text-xs text-stone-600 dark:text-[#E7E0D6]">{t("parentChildDetail.recentActivityDescription")}</p>
+        </div>
+        {activity.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-stone-300 dark:border-white/20 p-5 text-sm text-stone-600 dark:text-[#E7E0D6]">{t("parentChildDetail.noActivity")}</p>
+        ) : (
+          <ul className="divide-y divide-stone-100">
+            {activity.map((item, index) => {
+              const normalizedStatus = item.status?.trim().toLowerCase();
+              const statusKey = normalizedStatus ? activityStatusKeys[normalizedStatus] : undefined;
+              const submittedStatus = statusKey ? t(`parentChildDetail.status.${statusKey}`) : item.status || t("parentChildDetail.submitted");
+              return (
+              <li key={`${item.kind}-${item.created_at}-${index}`} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                <div>
+                  <h3 className="text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{item.title}{item.subject ? ` · ${item.subject}` : ""}</h3>
+                  <time className="mt-1 block text-xs text-stone-500 dark:text-[#A89C90]">{formatDate(item.created_at)}</time>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+                <span className="text-sm font-semibold tabular-nums text-stone-700 dark:text-[#E7E0D6]">
+                  {item.kind === "exam"
+                    ? (item.score == null ? t("parentChildDetail.scoreUnavailable") : `${item.score}${item.max_score == null ? "" : ` / ${item.max_score}`}`)
+                    : item.kind === "classwork"
+                      ? (item.score == null ? submittedStatus : `${item.score}${item.max_score == null ? "" : ` / ${item.max_score}`}`)
+                      : item.score_percent == null
+                        ? t("parentChildDetail.questionsCount", { count: item.total_questions ?? 0 })
+                        : t("parentChildDetail.practiceResult", { percent: Math.round(item.score_percent), count: item.total_questions ?? 0 })}
+                </span>
+              </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    </PortalPage>
   );
 }
