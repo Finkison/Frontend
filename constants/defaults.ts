@@ -4,7 +4,6 @@ export const DASHBOARD_DEFAULTS = {
   MAX_SCORE: 700,
   STREAK_DAYS: 0,
   NATIONAL_RANK: 0,
-  DEFAULT_UNIVERSITY: "Addis Ababa University (AAU)",
   DAYS_UNTIL_EXAM: 118,
   CANDIDATE_NAME: "Candidate",
   TREND_FALLBACK: [45, 52, 58, 64, 70, 72, 78],

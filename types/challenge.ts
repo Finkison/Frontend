@@ -18,6 +18,9 @@ export interface ChallengeRoomData {
   opponent?: ChallengeParticipant | null;
   hostScore: number;
   opponentScore: number;
+  hostCompleted?: boolean;
+  opponentCompleted?: boolean;
+  winner?: string | null;
   timeLimitSeconds: number;
   questions: QuestionItem[];
   createdAt: string;

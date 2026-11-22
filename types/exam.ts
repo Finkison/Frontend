@@ -8,7 +8,7 @@ export interface QuestionOption {
 }
 
 export interface QuestionItem {
-  id: string;
+  id: string | number;
   subject: string;
   stream: string;
   grade: number;

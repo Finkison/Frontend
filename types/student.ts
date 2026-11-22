@@ -1,16 +1,38 @@
 export interface DashboardData {
   student_name?: string;
   name?: string;
-  current_predicted_score?: number;
-  predicted_score?: number;
-  target_score?: number;
+  grade?: number | string;
+  stream?: string;
+  current_predicted_score?: number | null;
+  predicted_score?: number | null;
+  target_score?: number | null;
   streak_days?: number;
   national_rank?: number;
-  target_university?: string;
   days_until_exam?: number;
   total_xp?: number;
   level?: number;
   attendance_rate?: number;
+  is_school_enrolled?: boolean;
+}
+
+export interface StudentSchoolAssignment {
+  id: string;
+  exam_title: string;
+  subject?: string;
+  duration_minutes?: number;
+  due_date?: string;
+  assigned_by?: string;
+  school_name?: string | null;
+  is_completed: boolean;
+  score?: number | null;
+  score_percent?: number | null;
+  exam_id?: string | null;
+  created_at?: string;
+}
+
+export interface StudentAssignmentsResponse {
+  success: boolean;
+  assignments: StudentSchoolAssignment[];
 }
 
 export interface SubjectProgress {

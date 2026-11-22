@@ -1,4 +1,4 @@
-export type UserRole = "STUDENT" | "TEACHER" | "PARENT" | "PRINCIPAL" | "SCHOOL_ADMIN" | "ADMIN";
+export type UserRole = "STUDENT" | "TEACHER" | "PARENT" | "PRINCIPAL" | "SCHOOL_ADMIN" | "SUPER_ADMIN" | "ADMIN";
 
 export type StreamType = "Natural Science" | "Social Science" | "General Secondary";
 
@@ -13,10 +13,9 @@ export interface UserProfile {
   stream: StreamType;
   school?: string;
   region?: string;
-  targetUniversity?: string;
-  targetScore?: number;
-  currentPredictedScore?: number;
-  predictedScore?: number;
+  targetScore?: number | null;
+  currentPredictedScore?: number | null;
+  predictedScore?: number | null;
   streakDays?: number;
   xpPoints?: number;
   nationalRank?: number;
@@ -27,9 +26,11 @@ export interface UserProfile {
 }
 
 export interface AuthTokens {
-  token: string;
-  accessToken: string;
-  refreshToken?: string;
+  access_token: string;
+  token?: string;
+  accessToken?: string;
+  token_type?: string;
+  expires_in?: number;
 }
 
 export interface AuthResponse {
@@ -37,8 +38,8 @@ export interface AuthResponse {
   message?: string;
   data?: {
     user: UserProfile;
-    token: string;
-    accessToken: string;
-    refreshToken?: string;
+    access_token: string;
+    token?: string;
+    accessToken?: string;
   };
 }

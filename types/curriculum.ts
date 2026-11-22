@@ -58,5 +58,5 @@ export interface LessonDetail {
   exam_tips?: string;
   prev_lesson_id?: string | null;
   next_lesson_id?: string | null;
-  related_questions?: any[];
+  related_questions?: unknown[];
 }
