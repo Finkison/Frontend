@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { getAuditLogs } from "../../services/schoolService";
-import { ShieldCheck, Clock, User, FileText, AlertCircle } from "lucide-react";
-import { useToast } from "../ui/Toast";
+import { AlertCircle, RefreshCw, ShieldCheck } from "lucide-react";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
 
 interface AuditLogEntry {
   id: string;
@@ -16,12 +17,11 @@ interface AuditLogEntry {
 }
 
 export default function AuditLogView(): React.ReactElement {
-  const { showToast } = useToast();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -37,59 +37,62 @@ export default function AuditLogView(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchLogs();
   }, []);
 
+  useEffect(() => {
+    void fetchLogs();
+  }, [fetchLogs]);
+
+  const formatTimestamp = (value: string) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "Date unavailable" : date.toLocaleString();
+  };
+
+  const formatDetails = (details?: Record<string, any>) => {
+    if (!details || Object.keys(details).length === 0) return "—";
+    return Object.entries(details)
+      .map(([key, value]) => `${key.replace(/_/g, " ")}: ${typeof value === "object" ? JSON.stringify(value) : String(value)}`)
+      .join(" · ");
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6 font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
-        <div>
-          <h1 className="text-xl font-semibold text-[#0F172A] tracking-tight">Audit log</h1>
-          <p className="text-xs text-[#475569] mt-0.5">
-            Cryptographic ledger tracking administrative actions, access to confidential student records, and faculty reassignments.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={fetchLogs}
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[6px] border border-[#E2E8F0] hover:bg-slate-50 text-xs font-semibold text-[#0F172A] cursor-pointer min-h-[36px]"
-        >
-          <span>Refresh log</span>
-        </button>
-      </div>
+    <PortalPage className="space-y-6">
+
+      <PageHeader
+        title="Activity log"
+        description="Review administrative changes and access events recorded for this school."
+        secondaryActions={[{ label: "Refresh", onClick: () => void fetchLogs(), icon: RefreshCw, loading }]}
+      />
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-[8px] flex items-center gap-3 text-xs text-rose-800">
-          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-          <p>{error}</p>
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200 sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex items-start gap-2"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /><span>{error}</span></span>
+          <button type="button" onClick={() => void fetchLogs()} disabled={loading} className="min-h-9 self-start rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-60 dark:border-rose-900/60 dark:bg-[#261E1A] dark:text-rose-200 sm:self-auto">Try again</button>
         </div>
       )}
 
       {loading ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-[8px] p-12 text-center">
-          <div className="w-6 h-6 border-2 border-slate-300 border-t-[#1D4ED8] rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs text-[#475569]">Loading audit trail...</p>
+        <div role="status" aria-live="polite" className="rounded-2xl border border-[#E7E0D6] bg-white p-12 text-center dark:border-white/10 dark:bg-[#261E1A]">
+          <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-stone-300 border-t-[#881337] dark:border-white/20 dark:border-t-[#FBBF24]" />
+          <p className="text-sm text-[#5C5046] dark:text-[#E7E0D6]">Loading activity log…</p>
         </div>
       ) : logs.length === 0 ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-[8px] p-12 text-center max-w-md mx-auto">
-          <div className="w-10 h-10 rounded-full bg-[#EFF6FF] text-[#1D4ED8] flex items-center justify-center mx-auto mb-3">
+        <div className="mx-auto max-w-md rounded-2xl border border-dashed border-stone-300 bg-white p-12 text-center dark:border-white/15 dark:bg-[#261E1A]">
+          <div className="w-10 h-10 rounded-full bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] flex items-center justify-center mx-auto mb-3">
             <ShieldCheck className="w-5 h-5" />
           </div>
-          <h2 className="text-sm font-semibold text-[#0F172A]">No audit events logged yet</h2>
-          <p className="text-xs text-[#475569] mt-1">
-            System actions and sensitive student record accesses will be recorded here automatically.
+          <h2 className="text-sm font-semibold text-[#261E1A] dark:text-[#FDFBF7]">No activity recorded yet</h2>
+          <p className="mt-1 text-sm text-[#5C5046] dark:text-[#E7E0D6]">
+            Administrative changes will appear here.
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-[#E2E8F0] rounded-[8px] overflow-hidden shadow-xs">
+        <div className="bg-white dark:bg-[#261E1A] border border-[#E7E0D6] dark:border-white/10 rounded-[8px] overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
+              <caption className="sr-only">School administrative activity log</caption>
               <thead>
-                <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                <tr className="bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E7E0D6] dark:border-white/10 text-stone-500 dark:text-[#A89C90] font-semibold uppercase tracking-wider text-[11px]">
                   <th className="py-3 px-4">Timestamp</th>
                   <th className="py-3 px-4">Actor</th>
                   <th className="py-3 px-4">Action</th>
@@ -98,29 +101,29 @@ export default function AuditLogView(): React.ReactElement {
                   <th className="py-3 px-4">IP Address</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2E8F0] text-[#0F172A]">
+              <tbody className="divide-y divide-[#E7E0D6] text-[#261E1A] dark:text-[#FDFBF7]">
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-[#F8FAFC] transition-colors">
-                    <td className="py-3 px-4 text-slate-500 font-mono text-[11px] whitespace-nowrap">
-                      {new Date(log.timestamp).toLocaleString()}
+                  <tr key={log.id} className="transition-colors hover:bg-[#FAF8F5] dark:hover:bg-white/5">
+                    <td className="py-3 px-4 text-stone-500 dark:text-[#A89C90] font-mono text-[11px] whitespace-nowrap">
+                      <time dateTime={log.timestamp}>{formatTimestamp(log.timestamp)}</time>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-[#0F172A]">{log.actor_name}</div>
-                      <div className="text-[10px] text-slate-400">{log.actor_role}</div>
+                      <div className="font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{log.actor_name}</div>
+                      <div className="text-[10px] text-stone-400 dark:text-[#A89C90]">{log.actor_role}</div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] border border-[#FECDD3] dark:border-[#881337]/50">
                         {log.action}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-[#475569]">
+                    <td className="py-3 px-4 text-[#5C5046] dark:text-[#E7E0D6]">
                       {log.target_model || "—"}
                     </td>
-                    <td className="py-3 px-4 text-[#475569] max-w-xs truncate">
-                      {log.details ? JSON.stringify(log.details) : "—"}
+                    <td className="max-w-xs truncate py-3 px-4 text-[#5C5046] dark:text-[#E7E0D6]" title={formatDetails(log.details)}>
+                      {formatDetails(log.details)}
                     </td>
-                    <td className="py-3 px-4 text-slate-400 font-mono text-[11px]">
-                      {log.ip_address || "127.0.0.1"}
+                    <td className="py-3 px-4 text-stone-400 dark:text-[#A89C90] font-mono text-[11px]">
+                      {log.ip_address || "Not recorded"}
                     </td>
                   </tr>
                 ))}
@@ -129,6 +132,6 @@ export default function AuditLogView(): React.ReactElement {
           </div>
         </div>
       )}
-    </div>
+    </PortalPage>
   );
 }

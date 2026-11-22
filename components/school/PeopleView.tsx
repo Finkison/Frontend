@@ -20,25 +20,28 @@ import {
   AlertTriangle,
   ChevronRight,
   Eye,
-  Lock
+  Lock,
+  Copy
 } from "lucide-react";
 import { useToast } from "../ui/Toast";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
+import PortalLoading from "../shared/PortalLoading";
+import { getApiErrorMessage } from "../../services/api";
 
 export default function PeopleView(): React.ReactElement {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<"teachers" | "students" | "parents">("teachers");
-  
-  // Teachers state
+
   const [teachers, setTeachers] = useState<any[]>([]);
   const [invitations, setInvitations] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(true);
-  
-  // Teacher detail modal (workload and activity only, no student data)
+
   const [selectedTeacher, setSelectedTeacher] = useState<any | null>(null);
 
-  // Invite teacher modal
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [invitationLink, setInvitationLink] = useState<string | null>(null);
   const [inviteForm, setInviteForm] = useState({
     email: "",
     subject: "Biology",
@@ -47,15 +50,21 @@ export default function PeopleView(): React.ReactElement {
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
-  // Students aggregated state
   const [studentAggregates, setStudentAggregates] = useState<any | null>(null);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [atRiskList, setAtRiskList] = useState<any[] | null>(null);
   const [loadingAtRisk, setLoadingAtRisk] = useState(false);
 
-  // Parents state
   const [parents, setParents] = useState<any[]>([]);
 
+  const copyInvitationLink = async (link: string) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast({ title: "Invitation link copied", message: "Share the link with the invited teacher.", type: "success" });
+    } catch {
+      showToast({ title: "Invitation ready", message: "Copy the link from the highlighted field and share it with the teacher.", type: "info" });
+    }
+  };
 
   const loadTeacherData = async () => {
     setLoadingTeachers(true);
@@ -90,15 +99,11 @@ export default function PeopleView(): React.ReactElement {
   const loadAtRiskStudents = async () => {
     setLoadingAtRisk(true);
     try {
-      // Calling API with view_at_risk=true logs to server audit log
-      const res = await getSchoolStudents(false);
-      // If the endpoint returned structured format or we fetch with flag
-      const atRiskData = res.data?.at_risk_students || [
-        { id: "s-1", name: "Natnael Girma", grade: "Grade 12", section: "12-B", predicted_score: 318, attendance_rate: 84.5, status: "Critical" },
-        { id: "s-2", name: "Bethlehem Alemu", grade: "Grade 12", section: "12-A", predicted_score: 334, attendance_rate: 89.2, status: "Warning" }
-      ];
-      setAtRiskList(atRiskData);
-      showToast({ title: "Audit logged", message: "Accessing at-risk records was logged to school audit log.", type: "info" });
+
+      const res = await getSchoolStudents(false, true);
+      const data = res.data?.data || res.data;
+      setAtRiskList(Array.isArray(data?.at_risk_students) ? data.at_risk_students : Array.isArray(data) ? data : []);
+      showToast({ title: "At-risk records viewed", message: "This access was recorded in the school audit log.", type: "info" });
     } catch {
       showToast({ title: "Error", message: "Failed to retrieve at-risk list.", type: "error" });
     } finally {
@@ -116,17 +121,22 @@ export default function PeopleView(): React.ReactElement {
     setInviting(true);
     setInviteError(null);
     try {
-      await sendInvitation({
+      const response = await sendInvitation({
         email: inviteForm.email,
         subject: inviteForm.subject,
         section_ids: inviteForm.section_ids
       });
-      showToast({ title: "Invitation sent", message: `Invitation sent to ${inviteForm.email}.`, type: "success" });
+      const relativeLink = response.data?.acceptance_url || response.data?.invitation?.acceptance_url;
+      if (relativeLink) {
+        const absoluteLink = new URL(relativeLink, window.location.origin).toString();
+        setInvitationLink(absoluteLink);
+        await copyInvitationLink(absoluteLink);
+      }
       setShowInviteModal(false);
       setInviteForm({ email: "", subject: "Biology", section_ids: [] });
       loadTeacherData();
-    } catch (err: any) {
-      setInviteError(err.response?.data?.error || "Failed to send invitation.");
+    } catch (err) {
+      setInviteError(getApiErrorMessage(err) || "Failed to send invitation.");
     } finally {
       setInviting(false);
     }
@@ -134,11 +144,16 @@ export default function PeopleView(): React.ReactElement {
 
   const handleResendInvite = async (id: string) => {
     try {
-      await resendInvitation(id);
-      showToast({ title: "Invitation resent", message: "Sent updated invitation email.", type: "success" });
+      const response = await resendInvitation(id);
+      const relativeLink = response.data?.acceptance_url;
+      if (relativeLink) {
+        const absoluteLink = new URL(relativeLink, window.location.origin).toString();
+        setInvitationLink(absoluteLink);
+        await copyInvitationLink(absoluteLink);
+      }
       loadTeacherData();
-    } catch (err: any) {
-      showToast({ title: "Error", message: err.response?.data?.error || "Could not resend.", type: "error" });
+    } catch (err) {
+      showToast({ title: "Error", message: getApiErrorMessage(err) || "Could not resend.", type: "error" });
     }
   };
 
@@ -147,35 +162,20 @@ export default function PeopleView(): React.ReactElement {
       await revokeInvitation(id);
       showToast({ title: "Invitation revoked", message: "Invitation has been cancelled.", type: "info" });
       loadTeacherData();
-    } catch (err: any) {
-      showToast({ title: "Error", message: err.response?.data?.error || "Could not revoke.", type: "error" });
+    } catch (err) {
+      showToast({ title: "Error", message: getApiErrorMessage(err) || "Could not revoke.", type: "error" });
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
-        <div>
-          <h1 className="text-xl font-semibold text-[#0F172A] tracking-tight">People</h1>
-          <p className="text-xs text-[#475569] mt-0.5">
-            Manage school faculty, student enrollment quotas, and parent communications.
-          </p>
-        </div>
-        {activeTab === "teachers" && (
-          <button
-            type="button"
-            onClick={() => setShowInviteModal(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs cursor-pointer min-h-[40px] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Invite teacher</span>
-          </button>
-        )}
-      </div>
+    <PortalPage className="space-y-6">
 
-      {/* Primary Tabs */}
-      <div className="border-b border-[#E2E8F0] flex gap-6 text-xs font-semibold">
+      <PageHeader
+        title="People"
+        description="Manage teachers, students, and parent access for your school."
+        primaryAction={activeTab === "teachers" ? { label: "Invite teacher", onClick: () => setShowInviteModal(true), icon: Plus } : undefined}
+      >
+      <div className="flex gap-6 border-b border-[#E7E0D6] text-sm font-semibold dark:border-white/10">
         {(["teachers", "students", "parents"] as const).map((tab) => (
           <button
             key={tab}
@@ -183,75 +183,62 @@ export default function PeopleView(): React.ReactElement {
             onClick={() => setActiveTab(tab)}
             className={`py-3 capitalize cursor-pointer border-b-2 -mb-px transition-colors ${
               activeTab === tab
-                ? "border-[#1D4ED8] text-[#1D4ED8]"
-                : "border-transparent text-[#475569] hover:text-[#0F172A]"
+                ? "border-[#881337] text-[#881337]"
+                : "border-transparent text-[#5C5046] dark:text-[#E7E0D6] hover:text-[#261E1A] dark:hover:text-[#FDFBF7]"
             }`}
           >
-            {tab}
+            {tab === "teachers" ? "Teachers" : tab === "students" ? "Students" : "Parents"}
           </button>
         ))}
       </div>
+      </PageHeader>
 
-      {/* Teachers Tab */}
       {activeTab === "teachers" && (
         <div className="space-y-6">
-          {/* Active Faculty Table */}
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] overflow-hidden shadow-xs">
-            <div className="px-4 py-3 bg-[#F8FAFC] border-b border-[#E2E8F0] flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
-                Active & Unassigned Teachers
+
+          <div className="bg-white dark:bg-[#261E1A] border border-[#E7E0D6] dark:border-white/10 rounded-[8px] overflow-hidden shadow-xs">
+            <div className="px-4 py-3 bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E7E0D6] dark:border-white/10 flex items-center justify-between">
+              <h2 className="text-xs font-semibold text-[#261E1A] dark:text-[#FDFBF7] uppercase tracking-wider">
+                Teachers
               </h2>
-              <span className="text-xs text-slate-500">{teachers.length} teachers</span>
+              <span className="text-xs text-stone-500 dark:text-[#A89C90]">{teachers.length} teachers</span>
             </div>
 
             {loadingTeachers ? (
-              <div className="p-8 text-center text-xs text-[#475569]">
-                <div className="w-6 h-6 border-2 border-slate-300 border-t-[#1D4ED8] rounded-full animate-spin mx-auto mb-2" />
-                Loading teachers...
-              </div>
+              <PortalLoading message="Loading teachers…" className="rounded-none border-0 shadow-none" />
             ) : teachers.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#475569]">
-                No teachers registered yet. Click &quot;Invite teacher&quot; to onboard staff.
+              <div className="p-8 text-center text-xs text-[#5C5046] dark:text-[#E7E0D6]">
+                No teachers yet. Invite a teacher to begin.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                    <tr className="bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E7E0D6] dark:border-white/10 text-stone-500 dark:text-[#A89C90] font-semibold uppercase tracking-wider text-[11px]">
                       <th className="py-3 px-4">Name & Email</th>
                       <th className="py-3 px-4">Subject</th>
                       <th className="py-3 px-4">Sections</th>
-                      <th className="py-3 px-4">Exams Published</th>
-                      <th className="py-3 px-4">Grading Backlog</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E2E8F0] text-[#0F172A]">
+                  <tbody className="divide-y divide-[#E7E0D6] text-[#261E1A] dark:text-[#FDFBF7]">
                     {teachers.map((t) => {
-                      const sectionsCount = (t.assigned_classrooms || []).length;
+                      const sectionsCount = t.sections_count ?? (t.assigned_classrooms || []).length;
                       const status = t.status || (sectionsCount === 0 ? "Unassigned" : "Active");
                       return (
-                        <tr key={t.id} className="hover:bg-[#F8FAFC] transition-colors">
+                        <tr key={t.id} className="hover:bg-[#FAF8F5] dark:hover:bg-white/5 transition-colors">
                           <td className="py-3 px-4">
-                            <div className="font-semibold text-[#0F172A]">{t.name}</div>
-                            <div className="text-[11px] text-slate-400">{t.email}</div>
+                            <div className="font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{t.name}</div>
+                            <div className="text-[11px] text-stone-400 dark:text-[#A89C90]">{t.email}</div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] border border-[#FECDD3] dark:border-[#881337]/50">
                               {t.subject || t.department || "Unassigned"}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-[#475569]">
-                            {sectionsCount > 0 ? `${sectionsCount} sections` : "None"}
-                          </td>
-                          <td className="py-3 px-4 font-mono">
-                            {t.exams_published_count ?? 4}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`font-mono ${t.grading_backlog_count ? "text-amber-700 font-semibold" : "text-slate-500"}`}>
-                              {t.grading_backlog_count ?? 0}
-                            </span>
+                          <td className="py-3 px-4 text-[#5C5046] dark:text-[#E7E0D6]">
+                            {sectionsCount > 0 ? `${sectionsCount} classes` : "None"}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
@@ -259,7 +246,7 @@ export default function PeopleView(): React.ReactElement {
                                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                 : status === "Unassigned"
                                 ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : "bg-slate-100 text-slate-600 border-slate-200"
+                                : "bg-stone-100 dark:bg-[#201815] text-stone-600 dark:text-[#E7E0D6] border-stone-200 dark:border-white/10"
                             }`}>
                               {status}
                             </span>
@@ -268,9 +255,9 @@ export default function PeopleView(): React.ReactElement {
                             <button
                               type="button"
                               onClick={() => setSelectedTeacher(t)}
-                              className="px-2.5 py-1.5 rounded-[6px] border border-[#E2E8F0] hover:bg-[#EFF6FF] hover:border-[#BFDBFE] text-[#1D4ED8] font-medium text-xs cursor-pointer min-h-[32px]"
+                              className="px-2.5 py-1.5 rounded-[6px] border border-[#E7E0D6] dark:border-white/10 hover:bg-[#FFF1F2] dark:hover:bg-[#4C0519]/50 hover:border-[#FECDD3] text-[#881337] font-medium text-xs cursor-pointer min-h-[32px]"
                             >
-                              Workload detail
+                              View workload
                             </button>
                           </td>
                         </tr>
@@ -282,34 +269,55 @@ export default function PeopleView(): React.ReactElement {
             )}
           </div>
 
-          {/* Pending Invitations Table */}
           {invitations.length > 0 && (
-            <div className="bg-white border border-[#E2E8F0] rounded-[8px] overflow-hidden shadow-xs">
-              <div className="px-4 py-3 bg-[#F8FAFC] border-b border-[#E2E8F0] flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
-                  Pending Invitations (7-Day Expiry)
+            <div className="bg-white dark:bg-[#261E1A] border border-[#E7E0D6] dark:border-white/10 rounded-[8px] overflow-hidden shadow-xs">
+              <div className="px-4 py-3 bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E7E0D6] dark:border-white/10 flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-[#261E1A] dark:text-[#FDFBF7] uppercase tracking-wider">
+                  Invitations
                 </h2>
-                <span className="text-xs text-slate-500">{invitations.length} pending</span>
+                <span className="text-xs text-stone-500 dark:text-[#A89C90]">{invitations.filter((inv) => inv.status === "pending").length} pending</span>
               </div>
+              {invitationLink && (
+                <div className="flex flex-col gap-3 border-b border-[#E7E0D6] bg-[#FFFBEB] p-4 dark:border-white/10 dark:bg-amber-950/20 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-stone-800 dark:text-[#FDFBF7]">Invitation link</p>
+                    <input
+                      readOnly
+                      aria-label="Teacher invitation link"
+                      value={invitationLink}
+                      onFocus={(event) => event.currentTarget.select()}
+                      className="mt-1 min-h-9 w-full rounded-md border border-stone-300 bg-white px-2 text-xs text-stone-700 dark:border-white/20 dark:bg-[#201815] dark:text-[#E7E0D6]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyInvitationLink(invitationLink)}
+                    className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50 dark:border-white/20 dark:bg-[#261E1A] dark:text-[#FDFBF7]"
+                  >
+                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                    Copy link
+                  </button>
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                    <tr className="bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E7E0D6] dark:border-white/10 text-stone-500 dark:text-[#A89C90] font-semibold uppercase tracking-wider text-[11px]">
                       <th className="py-2.5 px-4">Email</th>
                       <th className="py-2.5 px-4">Role</th>
                       <th className="py-2.5 px-4">Target Subject</th>
-                      <th className="py-2.5 px-4">Sent Date</th>
+                      <th className="py-2.5 px-4">Created</th>
                       <th className="py-2.5 px-4">Status</th>
                       <th className="py-2.5 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E2E8F0]">
+                  <tbody className="divide-y divide-[#E7E0D6]">
                     {invitations.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-[#F8FAFC]">
-                        <td className="py-3 px-4 font-semibold text-[#0F172A]">{inv.email}</td>
-                        <td className="py-3 px-4 text-[#475569]">{inv.role}</td>
-                        <td className="py-3 px-4 text-[#475569]">{inv.subject || "Not assigned"}</td>
-                        <td className="py-3 px-4 text-slate-400">
+                      <tr key={inv.id} className="hover:bg-[#FAF8F5] dark:hover:bg-white/5">
+                        <td className="py-3 px-4 font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{inv.email}</td>
+                        <td className="py-3 px-4 text-[#5C5046] dark:text-[#E7E0D6]">{inv.role}</td>
+                        <td className="py-3 px-4 text-[#5C5046] dark:text-[#E7E0D6]">{inv.subject || "Not assigned"}</td>
+                        <td className="py-3 px-4 text-stone-400 dark:text-[#A89C90]">
                           {new Date(inv.created_at).toLocaleDateString()}
                         </td>
                         <td className="py-3 px-4">
@@ -321,9 +329,9 @@ export default function PeopleView(): React.ReactElement {
                           <button
                             type="button"
                             onClick={() => handleResendInvite(inv.id)}
-                            className="px-2 py-1 text-slate-600 hover:text-slate-900 border border-slate-200 rounded hover:bg-slate-50 text-[11px] cursor-pointer"
+                            className="px-2 py-1 text-stone-600 dark:text-[#E7E0D6] hover:text-stone-900 border border-stone-200 dark:border-white/10 rounded hover:bg-stone-50 dark:hover:bg-white/5 text-[11px] cursor-pointer"
                           >
-                            Resend
+                            Refresh link
                           </button>
                           <button
                             type="button"
@@ -343,16 +351,15 @@ export default function PeopleView(): React.ReactElement {
         </div>
       )}
 
-      {/* Students Tab (Aggregated by default) */}
       {activeTab === "students" && (
         <div className="space-y-6">
-          <div className="p-4 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[8px] flex items-center justify-between gap-4">
+          <div className="p-4 bg-[#FFF1F2] dark:bg-[#4C0519]/40 border border-[#FECDD3] dark:border-[#881337]/50 rounded-[8px] flex items-center justify-between gap-4">
             <div>
-              <div className="font-semibold text-xs text-[#1D4ED8]">
-                Aggregated Student Monitoring
+              <div className="font-semibold text-xs text-[#881337]">
+                Student progress
               </div>
-              <p className="text-[11px] text-slate-600 mt-0.5">
-                School Directors monitor enrollment counts, cohort averages, and attendance rates. Individual student records and submissions are maintained by subject teachers.
+              <p className="text-[11px] text-stone-600 dark:text-[#E7E0D6] mt-0.5">
+                Review progress by class. Detailed learner records require audit access.
               </p>
             </div>
             <button
@@ -361,52 +368,50 @@ export default function PeopleView(): React.ReactElement {
               disabled={loadingAtRisk}
               className="shrink-0 px-3 py-1.5 rounded-[6px] border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold cursor-pointer min-h-[36px]"
             >
-              {loadingAtRisk ? "Auditing access..." : "View at-risk students"}
+              {loadingAtRisk ? "Checking access..." : "View students needing support"}
             </button>
           </div>
 
-          {/* Aggregated Section Summary Table */}
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] overflow-hidden shadow-xs">
-            <div className="px-4 py-3 bg-[#F8FAFC] border-b border-[#E2E8F0]">
-              <h2 className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
-                Section Performance Aggregates
+          <div className="bg-white dark:bg-[#261E1A] border border-[#E7E0D6] dark:border-white/10 rounded-[8px] overflow-hidden shadow-xs">
+            <div className="px-4 py-3 bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E7E0D6] dark:border-white/10">
+              <h2 className="text-xs font-semibold text-[#261E1A] dark:text-[#FDFBF7] uppercase tracking-wider">
+                Class overview
               </h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                  <tr className="bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E7E0D6] dark:border-white/10 text-stone-500 dark:text-[#A89C90] font-semibold uppercase tracking-wider text-[11px]">
                     <th className="py-3 px-4">Section</th>
                     <th className="py-3 px-4">Grade</th>
-                    <th className="py-3 px-4">Enrolled Count</th>
-                    <th className="py-3 px-4">Attendance Rate</th>
-                    <th className="py-3 px-4">Score Average</th>
-                    <th className="py-3 px-4">At-Risk Count</th>
+                    <th className="py-3 px-4">Students</th>
+                    <th className="py-3 px-4">Average score</th>
+                    <th className="py-3 px-4">Needs support</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E2E8F0] text-[#0F172A]">
-                  {(studentAggregates?.sections || [
-                    { section: "A", grade: "12", student_count: 42, attendance_rate: 96.2, average_score: 485, at_risk_count: 1 },
-                    { section: "B", grade: "12", student_count: 38, attendance_rate: 94.8, average_score: 472, at_risk_count: 2 },
-                    { section: "C", grade: "11", student_count: 40, attendance_rate: 97.0, average_score: 504, at_risk_count: 0 },
-                  ]).map((s: any) => (
-                    <tr key={`${s.grade}-${s.section}`} className="hover:bg-[#F8FAFC]">
-                      <td className="py-3 px-4 font-semibold text-[#0F172A]">Section {s.section}</td>
-                      <td className="py-3 px-4 text-[#475569]">Grade {s.grade}</td>
-                      <td className="py-3 px-4 font-mono">{s.student_count}</td>
-                      <td className="py-3 px-4 font-mono">{s.attendance_rate}%</td>
-                      <td className="py-3 px-4 font-mono">{s.average_score}</td>
-                      <td className="py-3 px-4 font-mono text-amber-700 font-semibold">{s.at_risk_count}</td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-[#E7E0D6] text-[#261E1A] dark:text-[#FDFBF7]">
+                  {loadingStudents ? (
+                    <tr><td colSpan={5} className="py-8 text-center text-stone-500 dark:text-[#A89C90]">Loading section data…</td></tr>
+                  ) : studentAggregates?.sections?.length ? (
+                    studentAggregates.sections.map((section: any) => (
+                      <tr key={section.section_id || `${section.grade}-${section.section}`} className="hover:bg-[#FAF8F5] dark:hover:bg-white/5">
+                        <td className="py-3 px-4 font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{section.name || `Section ${section.section}`}</td>
+                        <td className="py-3 px-4 text-[#5C5046] dark:text-[#E7E0D6]">{section.grade}</td>
+                        <td className="py-3 px-4 font-mono">{section.student_count ?? 0}</td>
+                        <td className="py-3 px-4 font-mono">{section.average_score ?? "—"}</td>
+                        <td className="py-3 px-4 font-mono text-amber-700 font-semibold">{section.at_risk_count ?? 0}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr><td colSpan={5} className="py-8 text-center text-stone-500 dark:text-[#A89C90]">No section data yet.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* At-Risk Modal/List (Audit Logged) */}
           {atRiskList && (
-            <div className="bg-white border border-amber-200 rounded-[8px] overflow-hidden shadow-xs">
+            <div className="bg-white dark:bg-[#261E1A] border border-amber-200 rounded-[8px] overflow-hidden shadow-xs">
               <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-amber-900 font-semibold text-xs">
                   <AlertTriangle className="w-4 h-4 text-amber-700" />
@@ -423,24 +428,24 @@ export default function PeopleView(): React.ReactElement {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                    <tr className="bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E7E0D6] dark:border-white/10 text-stone-500 dark:text-[#A89C90] font-semibold uppercase tracking-wider text-[11px]">
                       <th className="py-2.5 px-4">Student Name</th>
                       <th className="py-2.5 px-4">Grade & Section</th>
-                      <th className="py-2.5 px-4">Predicted Score</th>
-                      <th className="py-2.5 px-4">Attendance</th>
-                      <th className="py-2.5 px-4">Alert Level</th>
+                      <th className="py-2.5 px-4">Score</th>
+                      <th className="py-2.5 px-4">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E2E8F0]">
-                    {atRiskList.map((stu) => (
-                      <tr key={stu.id} className="hover:bg-[#F8FAFC]">
-                        <td className="py-3 px-4 font-semibold text-[#0F172A]">{stu.name}</td>
-                        <td className="py-3 px-4 text-[#475569]">{stu.grade} - {stu.section}</td>
+                  <tbody className="divide-y divide-[#E7E0D6]">
+                    {atRiskList.length === 0 ? (
+                      <tr><td colSpan={4} className="py-8 text-center text-stone-500 dark:text-[#A89C90]">No students are below their goal.</td></tr>
+                    ) : atRiskList.map((stu) => (
+                      <tr key={stu.id} className="hover:bg-[#FAF8F5] dark:hover:bg-white/5">
+                        <td className="py-3 px-4 font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{stu.name}</td>
+                        <td className="py-3 px-4 text-[#5C5046] dark:text-[#E7E0D6]">{stu.grade} - {stu.section}</td>
                         <td className="py-3 px-4 font-mono text-rose-700 font-semibold">{stu.predicted_score}</td>
-                        <td className="py-3 px-4 font-mono">{stu.attendance_rate}%</td>
                         <td className="py-3 px-4">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                            {stu.status || "At-Risk"}
+                            Needs support
                           </span>
                         </td>
                       </tr>
@@ -453,40 +458,39 @@ export default function PeopleView(): React.ReactElement {
         </div>
       )}
 
-      {/* Parents Tab */}
       {activeTab === "parents" && (
-        <div className="bg-white border border-[#E2E8F0] rounded-[8px] overflow-hidden shadow-xs">
-          <div className="px-4 py-3 bg-[#F8FAFC] border-b border-[#E2E8F0]">
-            <h2 className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
-              Enrolled Parent Contacts
+        <div className="bg-white dark:bg-[#261E1A] border border-[#E7E0D6] dark:border-white/10 rounded-[8px] overflow-hidden shadow-xs">
+          <div className="px-4 py-3 bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E7E0D6] dark:border-white/10">
+            <h2 className="text-xs font-semibold text-[#261E1A] dark:text-[#FDFBF7] uppercase tracking-wider">
+              Parent contacts
             </h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                <tr className="bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E7E0D6] dark:border-white/10 text-stone-500 dark:text-[#A89C90] font-semibold uppercase tracking-wider text-[11px]">
                   <th className="py-3 px-4">Parent Name</th>
                   <th className="py-3 px-4">Contact Info</th>
                   <th className="py-3 px-4">Linked Children</th>
                   <th className="py-3 px-4">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2E8F0] text-[#0F172A]">
+              <tbody className="divide-y divide-[#E7E0D6] text-[#261E1A] dark:text-[#FDFBF7]">
                 {parents.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-8 text-center text-slate-400">
-                      No parent or guardian contacts enrolled.
+                    <td colSpan={4} className="py-8 text-center text-stone-400 dark:text-[#A89C90]">
+                      No parent contacts.
                     </td>
                   </tr>
                 ) : (
                   parents.map((p) => (
-                    <tr key={p.id} className="hover:bg-[#F8FAFC]">
-                      <td className="py-3 px-4 font-semibold text-[#0F172A]">{p.name}</td>
-                      <td className="py-3 px-4 text-[#475569]">
+                    <tr key={p.id} className="hover:bg-[#FAF8F5] dark:hover:bg-white/5">
+                      <td className="py-3 px-4 font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{p.name}</td>
+                      <td className="py-3 px-4 text-[#5C5046] dark:text-[#E7E0D6]">
                         <div>{p.email}</div>
-                        <div className="text-[11px] text-slate-400">{p.phone}</div>
+                        <div className="text-[11px] text-stone-400 dark:text-[#A89C90]">{p.phone}</div>
                       </td>
-                      <td className="py-3 px-4 text-[#475569]">
+                      <td className="py-3 px-4 text-[#5C5046] dark:text-[#E7E0D6]">
                         {p.linked_children.join(", ")}
                       </td>
                       <td className="py-3 px-4">
@@ -503,59 +507,46 @@ export default function PeopleView(): React.ReactElement {
         </div>
       )}
 
-      {/* Teacher Workload Detail Modal (Workload and counts only, no student records) */}
       {selectedTeacher && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-xl w-full max-w-lg overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#261E1A] border border-[#E7E0D6] dark:border-white/10 rounded-[8px] shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#E7E0D6] dark:border-white/10 flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-semibold text-[#0F172A]">{selectedTeacher.name} Workload</h2>
-                <p className="text-xs text-[#475569]">{selectedTeacher.subject} Specialist</p>
+                <h2 className="text-sm font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{selectedTeacher.name}</h2>
+                <p className="text-xs text-[#5C5046] dark:text-[#E7E0D6]">{selectedTeacher.subject} Specialist</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedTeacher(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
+                className="p-1 text-stone-400 dark:text-[#A89C90] hover:text-stone-600 rounded cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px]">
-                  <div className="text-slate-500">Active Sections</div>
-                  <div className="text-lg font-bold text-[#0F172A] mt-1">
-                    {(selectedTeacher.assigned_classrooms || []).length || 2}
-                  </div>
-                </div>
-                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px]">
-                  <div className="text-slate-500">Exams Published</div>
-                  <div className="text-lg font-bold text-[#0F172A] mt-1">
-                    {selectedTeacher.exams_published_count ?? 4}
-                  </div>
-                </div>
-                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px]">
-                  <div className="text-slate-500">Tasks Assigned</div>
-                  <div className="text-lg font-bold text-[#0F172A] mt-1">
-                    {selectedTeacher.tasks_assigned_count ?? 12}
-                  </div>
-                </div>
-                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px]">
-                  <div className="text-slate-500">Grading Backlog</div>
-                  <div className="text-lg font-bold text-amber-700 mt-1">
-                    {selectedTeacher.grading_backlog_count ?? 0}
-                  </div>
-                </div>
+              <div className="rounded-lg border border-[#E7E0D6] dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1C1512] p-4">
+                <h3 className="font-semibold text-[#261E1A] dark:text-[#FDFBF7]">
+                  Assigned classes ({selectedTeacher.sections_count ?? (selectedTeacher.assigned_classrooms || []).length})
+                </h3>
+                {selectedTeacher.assigned_classrooms?.length ? (
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {selectedTeacher.assigned_classrooms.map((section: string) => (
+                      <li key={section} className="rounded-full border border-stone-200 dark:border-white/10 bg-white dark:bg-[#261E1A] px-2.5 py-1 text-stone-700 dark:text-[#E7E0D6]">{section}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-stone-600 dark:text-[#E7E0D6]">No class assignments yet.</p>
+                )}
               </div>
-              <p className="text-[11px] text-slate-500">
-                School Directors view teacher workload statistics and aggregate deliverables. Individual exam items and student grades are maintained exclusively by the teacher.
+              <p className="text-[11px] text-stone-500 dark:text-[#A89C90]">
+                Current class assignments for this teacher.
               </p>
             </div>
-            <div className="px-5 py-3 border-t border-[#E2E8F0] bg-[#F8FAFC] flex justify-end">
+            <div className="px-5 py-3 border-t border-[#E7E0D6] dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1C1512] flex justify-end">
               <button
                 type="button"
                 onClick={() => setSelectedTeacher(null)}
-                className="px-3.5 py-1.5 rounded-[6px] border border-[#E2E8F0] bg-white text-xs font-semibold cursor-pointer min-h-[36px]"
+                className="px-3.5 py-1.5 rounded-[6px] border border-[#E7E0D6] dark:border-white/10 bg-white dark:bg-[#261E1A] text-xs font-semibold cursor-pointer min-h-[36px]"
               >
                 Close
               </button>
@@ -564,16 +555,15 @@ export default function PeopleView(): React.ReactElement {
         </div>
       )}
 
-      {/* Invite Teacher Modal (Max 4 fields: email, subject, sections) */}
       {showInviteModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[#0F172A]">Invite teacher</h2>
+        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#261E1A] border border-[#E7E0D6] dark:border-white/10 rounded-[8px] shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#E7E0D6] dark:border-white/10 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-[#261E1A] dark:text-[#FDFBF7]">Invite teacher</h2>
               <button
                 type="button"
                 onClick={() => setShowInviteModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
+                className="p-1 text-stone-400 dark:text-[#A89C90] hover:text-stone-600 rounded cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -586,26 +576,24 @@ export default function PeopleView(): React.ReactElement {
                 </div>
               )}
 
-              {/* Field 1: Email */}
               <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Teacher Email Address</label>
+                <label className="block font-semibold text-[#261E1A] dark:text-[#FDFBF7] mb-1">Email</label>
                 <input
                   type="email"
                   required
                   placeholder="teacher@school.edu.et"
                   value={inviteForm.email}
                   onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
+                  className="w-full px-3 py-2 border border-[#E7E0D6] dark:border-white/10 rounded-[6px] bg-white dark:bg-[#261E1A] text-xs focus:outline-none focus:ring-2 focus:ring-[#881337]"
                 />
               </div>
 
-              {/* Field 2: Fixed Subject (Single subject rule) */}
               <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Assigned Subject</label>
+                <label className="block font-semibold text-[#261E1A] dark:text-[#FDFBF7] mb-1">Subject</label>
                 <select
                   value={inviteForm.subject}
                   onChange={(e) => setInviteForm({ ...inviteForm, subject: e.target.value })}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
+                  className="w-full px-3 py-2 border border-[#E7E0D6] dark:border-white/10 rounded-[6px] bg-white dark:bg-[#261E1A] text-xs focus:outline-none focus:ring-2 focus:ring-[#881337]"
                 >
                   <option value="Biology">Biology</option>
                   <option value="Mathematics">Mathematics</option>
@@ -613,19 +601,15 @@ export default function PeopleView(): React.ReactElement {
                   <option value="Chemistry">Chemistry</option>
                   <option value="English">English</option>
                 </select>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Enforced rule: Each teacher holds exactly one subject for the academic year.
-                </p>
               </div>
 
-              {/* Field 3: Target Sections */}
               <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Target sections</label>
-                <div className="max-h-32 overflow-y-auto border border-[#E2E8F0] rounded-[6px] p-2 space-y-1 bg-white">
+                <label className="block font-semibold text-[#261E1A] dark:text-[#FDFBF7] mb-1">Classes</label>
+                <div className="max-h-32 overflow-y-auto border border-[#E7E0D6] dark:border-white/10 rounded-[6px] p-2 space-y-1 bg-white dark:bg-[#261E1A]">
                   {classrooms.map((c) => {
                     const isChecked = inviteForm.section_ids.includes(c.id);
                     return (
-                      <label key={c.id} className="flex items-center gap-2 cursor-pointer text-xs p-1 hover:bg-slate-50 rounded">
+                      <label key={c.id} className="flex items-center gap-2 cursor-pointer text-xs p-1 hover:bg-stone-50 dark:hover:bg-white/5 rounded">
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -636,7 +620,7 @@ export default function PeopleView(): React.ReactElement {
                               setInviteForm({ ...inviteForm, section_ids: inviteForm.section_ids.filter((id) => id !== c.id) });
                             }
                           }}
-                          className="rounded text-[#1D4ED8] focus:ring-[#1D4ED8]"
+                          className="rounded text-[#881337] focus:ring-[#881337]"
                         />
                         <span>{c.name || `${c.grade} - ${c.section}`}</span>
                       </label>
@@ -645,26 +629,26 @@ export default function PeopleView(): React.ReactElement {
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2 border-t border-[#E2E8F0]">
+              <div className="pt-2 flex justify-end gap-2 border-t border-[#E7E0D6] dark:border-white/10">
                 <button
                   type="button"
                   onClick={() => setShowInviteModal(false)}
-                  className="px-3.5 py-2 border border-[#E2E8F0] rounded-[6px] hover:bg-slate-50 font-semibold text-[#475569] cursor-pointer min-h-[38px]"
+                  className="px-3.5 py-2 border border-[#E7E0D6] dark:border-white/10 rounded-[6px] hover:bg-stone-50 dark:hover:bg-white/5 font-semibold text-[#5C5046] dark:text-[#E7E0D6] cursor-pointer min-h-[38px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={inviting}
-                  className="px-3.5 py-2 bg-[#1D4ED8] hover:bg-[#1E40AF] disabled:opacity-50 text-white rounded-[6px] font-semibold cursor-pointer min-h-[38px]"
+                  className="px-3.5 py-2 bg-[#881337] hover:bg-[#9F1239] disabled:opacity-50 text-white rounded-[6px] font-semibold cursor-pointer min-h-[38px]"
                 >
-                  {inviting ? "Sending invite..." : "Invite teacher"}
+                  {inviting ? "Sending invitation..." : "Send invitation"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </div>
+    </PortalPage>
   );
 }

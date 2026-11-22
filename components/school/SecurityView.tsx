@@ -1,24 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   KeyRound,
   ShieldCheck,
   Smartphone,
   Laptop,
-  Lock,
   LogOut,
-  CheckCircle2,
   AlertCircle,
   Clock,
+  Check,
   Eye,
   EyeOff,
-  Copy,
   RefreshCw,
-  Check,
-  ShieldAlert,
   Save,
 } from "lucide-react";
+import PortalPage from "../shared/PortalPage";
 import useAuthStore from "../../store/authStore";
 import { useToast } from "../ui/Toast";
+import { changeSchoolPassword, getAccountSessions, getAuditLogs, revokeAccountSession, revokeSchoolSessions, type AccountSession } from "../../services/schoolService";
+import PageHeader from "../shared/PageHeader";
 
 export default function SecurityView(): React.ReactElement {
   useEffect(() => {
@@ -26,9 +26,10 @@ export default function SecurityView(): React.ReactElement {
   }, []);
 
   const { user } = useAuthStore();
+  const logout = useAuthStore((state) => state.logout);
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
-  // Password state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -36,76 +37,106 @@ export default function SecurityView(): React.ReactElement {
   const [showNew, setShowNew] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
 
-  // 2FA state
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
-  const [show2FAModal, setShow2FAModal] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
-  const [twoFactorMethod, setTwoFactorMethod] = useState<"totp" | "sms">("totp");
-  const [copiedKey, setCopiedKey] = useState(false);
-
-  // Sessions state
   const [revokingSessions, setRevokingSessions] = useState(false);
-  const [sessions, setSessions] = useState([
-    {
-      id: "sess-1",
-      device: "Current Browser (Chrome on Desktop)",
-      location: "Addis Ababa, Ethiopia",
-      ip: "197.156.103.14",
-      lastActive: "Active right now",
-      isCurrent: true,
-      type: "laptop",
-    },
-    {
-      id: "sess-2",
-      device: "Mobile Portal (Android Chrome)",
-      location: "Hawassa, Ethiopia",
-      ip: "196.189.44.82",
-      lastActive: "2 hours ago",
-      isCurrent: false,
-      type: "mobile",
-    },
-    {
-      id: "sess-3",
-      device: "Administrative Lab Terminal",
-      location: "Adama, Ethiopia",
-      ip: "197.156.77.21",
-      lastActive: "3 days ago",
-      isCurrent: false,
-      type: "laptop",
-    },
-  ]);
+  const [sessions, setSessions] = useState<AccountSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [sessionsError, setSessionsError] = useState("");
+  const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditLoading, setAuditLoading] = useState(true);
+  const [auditError, setAuditError] = useState("");
 
-  // Security Audit Log State
-  const [auditLogs] = useState([
-    {
-      id: "log-1",
-      event: "Password updated successfully",
-      timestamp: "Today, 14:22 EAT",
-      ip: "197.156.103.14",
-      status: "Success",
-    },
-    {
-      id: "log-2",
-      event: "Two-factor authentication verified",
-      timestamp: "Today, 08:30 EAT",
-      ip: "197.156.103.14",
-      status: "Success",
-    },
-    {
-      id: "log-3",
-      event: "New sign-in from Mobile Chrome",
-      timestamp: "Yesterday, 19:14 EAT",
-      ip: "196.189.44.82",
-      status: "Verified",
-    },
-    {
-      id: "log-4",
-      event: "Institutional role access reviewed",
-      timestamp: "4 days ago, 11:05 EAT",
-      ip: "197.156.103.14",
-      status: "Success",
-    },
-  ]);
+  const loadAuditLogs = useCallback(async () => {
+    setAuditLoading(true);
+    setAuditError("");
+    try {
+      const res = await getAuditLogs();
+      const logs = res.data?.logs || res.data?.results || (Array.isArray(res.data) ? res.data : []);
+      setAuditLogs(logs.map((l: any, idx: number) => ({
+        id: l.id || `log-${idx}`,
+        event: l.action || l.event || "System access",
+        timestamp: l.timestamp || l.created_at || "Recent",
+        ip: l.ip_address || "Not recorded",
+        status: l.severity === "ERROR" ? "Failed" : "Recorded",
+      })));
+    } catch (error: any) {
+      setAuditLogs([]);
+      setAuditError(error?.response?.status === 403
+        ? "Security activity is available to school administrators only."
+        : "Security activity could not be loaded.");
+    } finally {
+      setAuditLoading(false);
+    }
+  }, []);
+
+  const loadSessions = useCallback(async () => {
+    setSessionsLoading(true);
+    setSessionsError("");
+    try {
+      const response = await getAccountSessions();
+      const items = Array.isArray(response.data?.sessions) ? response.data.sessions : [];
+      setSessions(items);
+      if (items.length > 0 && !items.some((session) => session.is_current)) {
+        setSessionsError("Sign in again to identify this device before managing other sessions.");
+      }
+    } catch (error: any) {
+      setSessions([]);
+      setSessionsError(error?.response?.data?.error || "Active sessions could not be loaded.");
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, []);
+
+  const refreshSecurityData = useCallback(async () => {
+    await Promise.all([loadAuditLogs(), loadSessions()]);
+  }, [loadAuditLogs, loadSessions]);
+
+  useEffect(() => {
+    void refreshSecurityData();
+  }, [refreshSecurityData]);
+
+  /*
+   * Session and activity information are independently loaded so one unavailable
+   * endpoint does not hide the other security control.
+   */
+  useEffect(() => {
+    return () => undefined;
+  }, []);
+
+  /*
+   * Keep the existing page title for browser history and assistive technology.
+   */
+  useEffect(() => {
+    document.title = "Account Security & Credentials — Finkison";
+  }, []);
+
+  /* Legacy request logic intentionally replaced by the dedicated loaders above. */
+  /*
+    getAuditLogs()
+      .then((res) => {
+        const logs = res.data?.logs || res.data?.results || (Array.isArray(res.data) ? res.data : []);
+        setAuditLogs(logs.map((l: any, idx: number) => ({
+          id: l.id || `log-${idx}`,
+          event: l.action || l.event || "System access",
+          timestamp: l.timestamp || l.created_at || "Recent",
+          ip: l.ip_address || "Not recorded",
+          status: l.severity === "ERROR" ? "Failed" : "Recorded",
+        })));
+      })
+      .catch((error: any) => setAuditError(error?.response?.status === 403
+        ? "Security activity is available to school administrators only."
+        : "Security activity could not be loaded."));
+    getAccountSessions()
+      .then((response) => {
+        const items = Array.isArray(response.data?.sessions) ? response.data.sessions : [];
+        setSessions(items);
+        if (items.length > 0 && !items.some((session) => session.is_current)) {
+          setSessionsError("Sign in again to identify this device before managing other sessions.");
+        }
+      })
+      .catch((error: any) => setSessionsError(error?.response?.data?.error || "Active sessions could not be loaded."))
+      .finally(() => setSessionsLoading(false));
+  */
 
   // Password Strength Calculation
   const hasMinLength = newPassword.length >= 8;
@@ -114,7 +145,7 @@ export default function SecurityView(): React.ReactElement {
   const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
   const strengthScore = [hasMinLength, hasMixedCase, hasNumber, hasSpecial].filter(Boolean).length;
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPassword) {
       showToast({
@@ -144,124 +175,114 @@ export default function SecurityView(): React.ReactElement {
     }
 
     setUpdatingPassword(true);
-    setTimeout(() => {
-      setUpdatingPassword(false);
+    try {
+      await changeSchoolPassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       showToast({
         type: "success",
         title: "Password Updated",
-        message: "Your account credentials have been securely updated.",
+        message: "Your password changed. Sign in again with your new password.",
       });
-    }, 1000);
+      logout();
+      navigate("/login?password=updated", { replace: true });
+    } catch (err: any) {
+      showToast({
+        type: "error",
+        title: "Update Failed",
+        message: err?.userMessage || err?.response?.data?.message || "Failed to update password. Please check your credentials.",
+      });
+    } finally {
+      setUpdatingPassword(false);
+    }
   };
 
-  const handleRevokeOtherSessions = () => {
+  const refreshSessions = loadSessions;
+
+  const handleRevokeOtherSessions = async () => {
     setRevokingSessions(true);
-    setTimeout(() => {
-      setSessions((prev) => prev.filter((s) => s.isCurrent));
-      setRevokingSessions(false);
+    try {
+      const response = await revokeSchoolSessions();
+      await refreshSessions();
       showToast({
         type: "success",
         title: "Sessions Terminated",
-        message: "All other device sessions have been revoked successfully.",
+        message: response.data?.message || "Other device sessions have been revoked.",
       });
-    }, 900);
-  };
-
-  const handleCopySecret = () => {
-    navigator.clipboard.writeText("ET-FINK-9942-X821-SEC");
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
-    showToast({
-      type: "success",
-      title: "Secret Key Copied",
-      message: "Authenticator setup key copied to clipboard.",
-    });
-  };
-
-  const handleToggle2FA = () => {
-    if (twoFactorEnabled) {
-      setTwoFactorEnabled(false);
-      showToast({
-        type: "info",
-        title: "Two-Factor Disabled",
-        message: "Two-factor authentication has been turned off for this account.",
-      });
-    } else {
-      setShow2FAModal(true);
-    }
-  };
-
-  const handleVerify2FA = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpCode.length !== 6) {
+    } catch (err: any) {
       showToast({
         type: "error",
-        title: "Invalid Verification Code",
-        message: "Please enter the 6-digit code from your authenticator app.",
+        title: "Revocation Failed",
+        message: err?.userMessage || err?.response?.data?.message || "Unable to revoke active sessions.",
       });
-      return;
+    } finally {
+      setRevokingSessions(false);
     }
+  };
 
-    setTwoFactorEnabled(true);
-    setShow2FAModal(false);
-    setOtpCode("");
-    showToast({
-      type: "success",
-      title: "2FA Activated",
-      message: "Two-factor authentication is now protecting this account.",
-    });
+  const handleRevokeSession = async (session: AccountSession) => {
+    setRevokingSessionId(session.token_id);
+    try {
+      await revokeAccountSession(session.token_id);
+      setSessions((current) => current.filter((item) => item.token_id !== session.token_id));
+      showToast({ type: "success", title: "Session revoked", message: "That device can no longer refresh its sign-in." });
+    } catch (error: any) {
+      showToast({ type: "error", title: "Could not revoke session", message: error?.response?.data?.error || "Try again." });
+    } finally {
+      setRevokingSessionId(null);
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 font-sans animate-fade-in text-start pb-12">
-      {/* Header */}
+    <PortalPage className="max-w-4xl space-y-8 animate-fade-in text-start">
+
       <div className="space-y-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-[#F0F9FF] border border-[#BAE6FD] text-[#0369A1]">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-[#FFF1F2] dark:bg-[#4C0519]/40 border border-[#FECDD3] dark:border-[#881337]/50 text-[#881337]">
           <ShieldCheck className="w-3.5 h-3.5" />
           <span>Account Security & Credentials</span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#0F172A]">
-          Password, 2FA & Session Controls
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#261E1A] dark:text-[#FDFBF7]">
+          Password & session controls
         </h1>
-        <p className="text-sm text-[#475569] max-w-2xl">
-          Manage your login credentials, multi-factor authentication, and active signed-in devices for {user?.email || "your account"}.
+        <p className="text-sm text-[#5C5046] dark:text-[#E7E0D6] max-w-2xl">
+          Manage your password and signed-in devices for {user?.email || "your account"}.
         </p>
       </div>
 
-      {/* SECTION 1: CHANGE PASSWORD FORM */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-6 sm:p-8 space-y-6">
-        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-          <div className="w-10 h-10 rounded-xl bg-[#F0F9FF] border border-[#BAE6FD] flex items-center justify-center text-[#0369A1]">
+      <div className="bg-white dark:bg-[#261E1A] rounded-2xl border border-[#E7E0D6] dark:border-white/10 shadow-xs p-6 sm:p-8 space-y-6">
+        <div className="flex items-center gap-3 border-b border-stone-100 dark:border-white/10 pb-4">
+          <div className="w-10 h-10 rounded-xl bg-[#FFF1F2] dark:bg-[#4C0519]/40 border border-[#FECDD3] dark:border-[#881337]/50 flex items-center justify-center text-[#881337]">
             <KeyRound className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-[#0F172A]">Change Password</h2>
-            <p className="text-xs text-[#475569]">
+            <h2 className="text-lg font-bold text-[#261E1A] dark:text-[#FDFBF7]">Change Password</h2>
+            <p className="text-xs text-[#5C5046] dark:text-[#E7E0D6]">
               Ensure your account uses a strong, unique passphrase with at least 8 characters.
             </p>
           </div>
         </div>
 
         <form onSubmit={handlePasswordSubmit} className="space-y-5 max-w-2xl">
-          {/* Current Password */}
+
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#0F172A] block">Current Password</label>
+            <label className="text-xs font-semibold text-[#261E1A] dark:text-[#FDFBF7] block">Current Password</label>
             <div className="relative">
               <input
                 type={showCurrent ? "text" : "password"}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="Enter your current password"
-                className="w-full px-3.5 py-2.5 rounded-[8px] border border-[#CBD5E1] text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] focus:border-transparent pr-10"
+                className="w-full px-3.5 py-2.5 rounded-[8px] border border-[#D5CBC0] text-sm focus:outline-none focus:ring-2 focus:ring-[#881337] focus:border-transparent pr-10"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowCurrent(!showCurrent)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 dark:text-[#A89C90] hover:text-stone-600"
                 aria-label={showCurrent ? "Hide password" : "Show password"}
               >
                 {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -269,53 +290,51 @@ export default function SecurityView(): React.ReactElement {
             </div>
           </div>
 
-          {/* New Password */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#0F172A] block">New Password</label>
+            <label className="text-xs font-semibold text-[#261E1A] dark:text-[#FDFBF7] block">New Password</label>
             <div className="relative">
               <input
                 type={showNew ? "text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Enter at least 8 characters"
-                className="w-full px-3.5 py-2.5 rounded-[8px] border border-[#CBD5E1] text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] focus:border-transparent pr-10"
+                className="w-full px-3.5 py-2.5 rounded-[8px] border border-[#D5CBC0] text-sm focus:outline-none focus:ring-2 focus:ring-[#881337] focus:border-transparent pr-10"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowNew(!showNew)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 dark:text-[#A89C90] hover:text-stone-600"
                 aria-label={showNew ? "Hide password" : "Show password"}
               >
                 {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
 
-            {/* Live Strength Meter */}
             {newPassword.length > 0 && (
               <div className="space-y-2 pt-2">
                 <div className="flex items-center gap-1.5">
                   <div
                     className={`h-1.5 flex-1 rounded-full ${
-                      strengthScore >= 1 ? "bg-red-500" : "bg-slate-200"
+                      strengthScore >= 1 ? "bg-red-500" : "bg-stone-200 dark:bg-white/10"
                     }`}
                   />
                   <div
                     className={`h-1.5 flex-1 rounded-full ${
-                      strengthScore >= 2 ? "bg-amber-500" : "bg-slate-200"
+                      strengthScore >= 2 ? "bg-amber-500" : "bg-stone-200 dark:bg-white/10"
                     }`}
                   />
                   <div
                     className={`h-1.5 flex-1 rounded-full ${
-                      strengthScore >= 3 ? "bg-[#0369A1]" : "bg-slate-200"
+                      strengthScore >= 3 ? "bg-[#881337]" : "bg-stone-200 dark:bg-white/10"
                     }`}
                   />
                   <div
                     className={`h-1.5 flex-1 rounded-full ${
-                      strengthScore >= 4 ? "bg-emerald-500" : "bg-slate-200"
+                      strengthScore >= 4 ? "bg-emerald-500" : "bg-stone-200 dark:bg-white/10"
                     }`}
                   />
-                  <span className="text-[11px] font-semibold text-slate-600 pl-1">
+                  <span className="text-[11px] font-semibold text-stone-600 dark:text-[#E7E0D6] pl-1">
                     {strengthScore <= 1
                       ? "Weak"
                       : strengthScore === 2
@@ -326,21 +345,21 @@ export default function SecurityView(): React.ReactElement {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500 pt-1">
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-stone-500 dark:text-[#A89C90] pt-1">
                   <span className={`flex items-center gap-1 ${hasMinLength ? "text-emerald-700 font-medium" : ""}`}>
-                    {hasMinLength ? <Check className="w-3 h-3 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300 ml-1 mr-0.5" />}
+                    {hasMinLength ? <Check className="w-3 h-3 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-stone-300 ml-1 mr-0.5" />}
                     8+ characters
                   </span>
                   <span className={`flex items-center gap-1 ${hasMixedCase ? "text-emerald-700 font-medium" : ""}`}>
-                    {hasMixedCase ? <Check className="w-3 h-3 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300 ml-1 mr-0.5" />}
+                    {hasMixedCase ? <Check className="w-3 h-3 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-stone-300 ml-1 mr-0.5" />}
                     Uppercase & lowercase
                   </span>
                   <span className={`flex items-center gap-1 ${hasNumber ? "text-emerald-700 font-medium" : ""}`}>
-                    {hasNumber ? <Check className="w-3 h-3 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300 ml-1 mr-0.5" />}
+                    {hasNumber ? <Check className="w-3 h-3 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-stone-300 ml-1 mr-0.5" />}
                     At least one number
                   </span>
                   <span className={`flex items-center gap-1 ${hasSpecial ? "text-emerald-700 font-medium" : ""}`}>
-                    {hasSpecial ? <Check className="w-3 h-3 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300 ml-1 mr-0.5" />}
+                    {hasSpecial ? <Check className="w-3 h-3 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-stone-300 ml-1 mr-0.5" />}
                     Special symbol
                   </span>
                 </div>
@@ -348,15 +367,14 @@ export default function SecurityView(): React.ReactElement {
             )}
           </div>
 
-          {/* Confirm Password */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#0F172A] block">Confirm New Password</label>
+            <label className="text-xs font-semibold text-[#261E1A] dark:text-[#FDFBF7] block">Confirm New Password</label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Re-enter your new password"
-              className="w-full px-3.5 py-2.5 rounded-[8px] border border-[#CBD5E1] text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] focus:border-transparent"
+              className="w-full px-3.5 py-2.5 rounded-[8px] border border-[#D5CBC0] text-sm focus:outline-none focus:ring-2 focus:ring-[#881337] focus:border-transparent"
               required
             />
           </div>
@@ -365,7 +383,7 @@ export default function SecurityView(): React.ReactElement {
             <button
               type="submit"
               disabled={updatingPassword}
-              className="min-h-[44px] px-6 py-2.5 rounded-[8px] bg-[#0369A1] hover:bg-[#075985] text-white text-sm font-semibold transition-colors inline-flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+              className="min-h-[44px] px-6 py-2.5 rounded-[8px] bg-[#881337] hover:bg-[#9F1239] text-white text-sm font-semibold transition-colors inline-flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
             >
               {updatingPassword ? (
                 <>
@@ -383,84 +401,25 @@ export default function SecurityView(): React.ReactElement {
         </form>
       </div>
 
-      {/* SECTION 2: TWO-FACTOR AUTHENTICATION */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-6 sm:p-8 space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-center text-[#15803D]">
-              <Smartphone className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-[#0F172A]">Two-factor authentication</h2>
-                {twoFactorEnabled ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]">
-                    Enabled
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                    Recommended
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-[#475569]">
-                Add an extra layer of protection during administrator sign-in using an authenticator app.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleToggle2FA}
-            className={`min-h-[38px] px-4 py-1.5 rounded-[6px] text-xs font-semibold transition-colors cursor-pointer border ${
-              twoFactorEnabled
-                ? "border-red-200 text-red-600 hover:bg-red-50"
-                : "border-[#BAE6FD] bg-[#F0F9FF] text-[#0369A1] hover:bg-[#E0F2FE]"
-            }`}
-          >
-            {twoFactorEnabled ? "Disable 2FA" : "Enable 2FA"}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-slate-100 bg-[#F8FAFC] space-y-2">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-[#15803D]" />
-              <span className="text-xs font-bold text-[#0F172A]">Authenticator app</span>
-            </div>
-            <p className="text-xs text-[#475569] leading-relaxed">
-              Google Authenticator, Microsoft Authenticator, or 1Password generate temporary 6-digit codes.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl border border-slate-100 bg-[#F8FAFC] space-y-2">
-            <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-[#0369A1]" />
-              <span className="text-xs font-bold text-[#0F172A]">Emergency Recovery Codes</span>
-            </div>
-            <p className="text-xs text-[#475569] leading-relaxed">
-              8 single-use emergency bypass codes stored securely for backup verification.
-            </p>
-          </div>
-        </div>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/40 dark:bg-amber-950/20">
+        <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" /><div><h2 className="text-sm font-semibold text-amber-950 dark:text-amber-100">Two-step verification</h2><p className="mt-1 text-xs leading-5 text-amber-900 dark:text-amber-200">Not available for school accounts yet. Use a unique password and review signed-in devices.</p></div></div>
       </div>
 
-      {/* SECTION 3: ACTIVE SESSIONS & DEVICE MANAGEMENT */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-6 sm:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+      <div className="bg-white dark:bg-[#261E1A] rounded-2xl border border-[#E7E0D6] dark:border-white/10 shadow-xs p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 dark:border-white/10 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#F0F9FF] border border-[#BAE6FD] flex items-center justify-center text-[#0369A1]">
+            <div className="w-10 h-10 rounded-xl bg-[#FFF1F2] dark:bg-[#4C0519]/40 border border-[#FECDD3] dark:border-[#881337]/50 flex items-center justify-center text-[#881337]">
               <Laptop className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-[#0F172A]">Active Signed-In Devices</h2>
-              <p className="text-xs text-[#475569]">
+              <h2 className="text-lg font-bold text-[#261E1A] dark:text-[#FDFBF7]">Active Signed-In Devices</h2>
+              <p className="text-xs text-[#5C5046] dark:text-[#E7E0D6]">
                 These devices are currently authenticated to access your account.
               </p>
             </div>
           </div>
 
-          {sessions.length > 1 && (
+          {!sessionsLoading && !sessionsError && sessions.filter((session) => !session.is_current).length > 0 && (
             <button
               type="button"
               onClick={handleRevokeOtherSessions}
@@ -473,12 +432,19 @@ export default function SecurityView(): React.ReactElement {
           )}
         </div>
 
-        <div className="divide-y divide-slate-100">
-          {sessions.map((sess) => (
-            <div key={sess.id} className="py-3.5 flex items-center justify-between gap-4">
+        {sessionsLoading ? <p role="status" className="py-6 text-sm text-stone-500 dark:text-[#A89C90]">Loading active sessions…</p>
+          : sessionsError ? <p role="alert" className="py-6 text-sm text-rose-700 dark:text-rose-200">{sessionsError}</p>
+            : sessions.length === 0 ? <p className="py-6 text-sm text-stone-500 dark:text-[#A89C90]">No active sessions.</p>
+              : <div className="divide-y divide-stone-100 dark:divide-white/10">
+          {sessions.map((sess) => {
+            const userAgent = sess.device_info?.user_agent || "Device details unavailable";
+            const isMobile = /android|iphone|ipad|mobile/i.test(userAgent);
+            const browserName = /edg\//i.test(userAgent) ? "Microsoft Edge" : /firefox\//i.test(userAgent) ? "Firefox" : /chrome\//i.test(userAgent) ? "Chrome" : /safari\//i.test(userAgent) ? "Safari" : "Browser session";
+            const createdAt = sess.created_at ? new Date(sess.created_at * 1000).toLocaleString() : "Sign-in time unavailable";
+            return <div key={sess.token_id} className="py-3.5 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
-                <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600">
-                  {sess.type === "mobile" ? (
+                <div className="w-9 h-9 rounded-lg bg-stone-50 dark:bg-[#1C1512] border border-stone-200 dark:border-white/10 flex items-center justify-center text-stone-600 dark:text-[#E7E0D6]">
+                  {isMobile ? (
                     <Smartphone className="w-4 h-4" />
                   ) : (
                     <Laptop className="w-4 h-4" />
@@ -486,53 +452,46 @@ export default function SecurityView(): React.ReactElement {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="text-xs font-bold text-[#0F172A]">{sess.device}</p>
-                    {sess.isCurrent && (
+                    <p className="text-xs font-bold text-[#261E1A] dark:text-[#FDFBF7]">{browserName}{isMobile ? " on mobile" : ""}</p>
+                    {sess.is_current && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]">
                         THIS DEVICE
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-[#64748B] flex items-center gap-2 mt-0.5">
-                    <span>{sess.location}</span>
+                  <p className="text-[11px] text-[#A89C90] flex items-center gap-2 mt-0.5">
+                    <span>Signed in {createdAt}</span>
                     <span>•</span>
-                    <span className="font-mono">{sess.ip}</span>
+                    <span className="font-mono">{sess.device_info?.ip || "IP unavailable"}</span>
                     <span>•</span>
-                    <span>{sess.lastActive}</span>
+                    <span>{sess.expires_at ? `Expires ${new Date(sess.expires_at * 1000).toLocaleString()}` : "Expiry unavailable"}</span>
                   </p>
                 </div>
               </div>
 
-              {!sess.isCurrent && (
+              {!sess.is_current && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setSessions((prev) => prev.filter((s) => s.id !== sess.id));
-                    showToast({
-                      type: "info",
-                      title: "Session Revoked",
-                      message: `Terminated session on ${sess.device}.`,
-                    });
-                  }}
-                  className="text-xs text-red-600 hover:text-red-700 font-medium px-2.5 py-1 rounded hover:bg-red-50"
+                  onClick={() => void handleRevokeSession(sess)}
+                  disabled={revokingSessionId === sess.token_id}
+                  className="min-h-9 rounded-lg px-3 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60 dark:text-red-300"
                 >
-                  Revoke
+                  {revokingSessionId === sess.token_id ? "Revoking…" : "Revoke"}
                 </button>
               )}
-            </div>
-          ))}
-        </div>
+            </div>;
+          })}
+        </div>}
       </div>
 
-      {/* SECTION 4: SECURITY AUDIT & LOGIN ACTIVITY */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-6 sm:p-8 space-y-4">
-        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-          <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700">
+      <div className="bg-white dark:bg-[#261E1A] rounded-2xl border border-[#E7E0D6] dark:border-white/10 shadow-xs p-6 sm:p-8 space-y-4">
+        <div className="flex items-center gap-3 border-b border-stone-100 dark:border-white/10 pb-4">
+          <div className="w-10 h-10 rounded-xl bg-stone-50 dark:bg-[#1C1512] border border-stone-200 dark:border-white/10 flex items-center justify-center text-stone-700 dark:text-[#E7E0D6]">
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-[#0F172A]">Recent Security Activity</h2>
-            <p className="text-xs text-[#475569]">
+            <h2 className="text-lg font-bold text-[#261E1A] dark:text-[#FDFBF7]">Recent Security Activity</h2>
+            <p className="text-xs text-[#5C5046] dark:text-[#E7E0D6]">
               Authentication events and credential modifications associated with this account.
             </p>
           </div>
@@ -541,22 +500,23 @@ export default function SecurityView(): React.ReactElement {
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-start">
             <thead>
-              <tr className="border-b border-slate-100 text-[#475569] font-semibold">
+              <tr className="border-b border-stone-100 dark:border-white/10 text-[#5C5046] dark:text-[#E7E0D6] font-semibold">
                 <th className="py-2.5 pr-4 text-start">Event</th>
                 <th className="py-2.5 px-4 text-start">Timestamp</th>
                 <th className="py-2.5 px-4 text-start">IP Address</th>
                 <th className="py-2.5 pl-4 text-end">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-stone-100">
+              {auditError && <tr><td colSpan={4} className="py-4 text-center text-xs text-stone-500 dark:text-[#A89C90]">{auditError}</td></tr>}
+              {!auditError && auditLogs.length === 0 && <tr><td colSpan={4} className="py-4 text-center text-xs text-stone-500 dark:text-[#A89C90]">No security activity yet.</td></tr>}
               {auditLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-50/60">
-                  <td className="py-2.5 pr-4 font-medium text-[#0F172A]">{log.event}</td>
-                  <td className="py-2.5 px-4 text-[#64748B]">{log.timestamp}</td>
-                  <td className="py-2.5 px-4 font-mono text-slate-600">{log.ip}</td>
+                <tr key={log.id} className="hover:bg-stone-50/60">
+                  <td className="py-2.5 pr-4 font-medium text-[#261E1A] dark:text-[#FDFBF7]">{log.event}</td>
+                  <td className="py-2.5 px-4 text-[#A89C90]">{log.timestamp}</td>
+                  <td className="py-2.5 px-4 font-mono text-stone-600 dark:text-[#E7E0D6]">{log.ip}</td>
                   <td className="py-2.5 pl-4 text-end">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-[#ECFDF5] border border-[#A7F3D0] px-2 py-0.5 rounded-[4px]">
-                      <Check className="w-3 h-3" />
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-[4px] ${log.status === "Failed" ? "text-rose-700 bg-rose-50 border border-rose-200" : "text-stone-700 bg-stone-100 border border-stone-200 dark:bg-white/5 dark:text-[#E7E0D6] dark:border-white/10"}`}>
                       <span>{log.status}</span>
                     </span>
                   </td>
@@ -567,73 +527,7 @@ export default function SecurityView(): React.ReactElement {
         </div>
       </div>
 
-      {/* 2FA SETUP MODAL */}
-      {show2FAModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 border border-[#E2E8F0] shadow-xl animate-fade-in text-start">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-[#0F172A]">Set up Authenticator App</h3>
-              <button
-                type="button"
-                onClick={() => setShow2FAModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-semibold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-[#475569] leading-relaxed">
-              Scan this key or enter it manually into Google Authenticator or 1Password to begin receiving verification codes.
-            </p>
-
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
-              <span className="font-mono text-xs font-bold text-[#0F172A]">
-                ET-FINK-9942-X821-SEC
-              </span>
-              <button
-                type="button"
-                onClick={handleCopySecret}
-                className="text-xs text-[#0369A1] hover:text-[#075985] font-semibold inline-flex items-center gap-1"
-              >
-                {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedKey ? "Copied" : "Copy"}</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleVerify2FA} className="space-y-3 pt-1">
-              <label className="text-xs font-semibold text-[#0F172A] block">
-                Enter 6-digit Code from Authenticator
-              </label>
-              <input
-                type="text"
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                placeholder="123456"
-                className="w-full px-3.5 py-2.5 rounded-[8px] border border-[#CBD5E1] text-base font-mono tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
-                required
-              />
-
-              <div className="flex justify-end gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShow2FAModal(false)}
-                  className="px-4 py-2 rounded-[6px] text-xs font-medium text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-[6px] text-xs font-semibold bg-[#0369A1] hover:bg-[#075985] text-white"
-                >
-                  Verify & Activate
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+    </PortalPage>
   );
 }
 

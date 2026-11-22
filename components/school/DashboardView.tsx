@@ -1,686 +1,281 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { 
-  getSchoolAnalytics, 
-  getAssignmentMatrix,
-  getTeachers,
-  getInvitations,
-  getSchoolProfile,
-  getClassrooms 
-} from "../../services/schoolService";
-import { 
-  Users, 
-  Layers, 
-  BrainCircuit, 
-  UserCheck, 
-  Plus, 
-  AlertTriangle, 
-  Mail, 
-  ChevronRight,
-  GraduationCap,
-  Sparkles,
-  FileSpreadsheet,
+import React, { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
   CheckCircle2,
-  TrendingUp,
-  BookOpen,
-  ArrowUpRight,
-  ShieldCheck,
-  Calendar,
-  Clock,
-  X,
-  MessageSquare
+  FileSpreadsheet,
+  Layers,
+  Mail,
+  RefreshCw,
+  Users,
+  UserRoundCheck,
 } from "lucide-react";
+import {
+  getAssignmentMatrix,
+  getClassrooms,
+  getInvitations,
+  getSchoolAnalytics,
+  getSchoolProfile,
+  getTeachers,
+} from "../../services/schoolService";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
+import { useI18n } from "../../i18n";
 
-interface StreamTelemetry {
-  streamName: string;
-  candidateCount: number;
-  averageScore: number;
-  syllabusCoverage: number;
-  subjects: string[];
+interface OverviewData {
+  schoolName: string | null;
+  academicYear: string | null;
+  students: number | null;
+  sections: number | null;
+  teachers: number | null;
+  pendingInvitations: number | null;
+  unassignedSubjects: number | null;
+  classworkPendingReview: number | null;
 }
 
+const emptyOverview: OverviewData = {
+  schoolName: null,
+  academicYear: null,
+  students: null,
+  sections: null,
+  teachers: null,
+  pendingInvitations: null,
+  unassignedSubjects: null,
+  classworkPendingReview: null,
+};
+
 export default function SchoolDashboard(): React.ReactElement {
+  const { t, language } = useI18n();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<any>(null);
-  const [activeTeachersCount, setActiveTeachersCount] = useState(0);
-  const [unassignedCount, setUnassignedCount] = useState(0);
-  const [studentsEnrolled, setStudentsEnrolled] = useState(0);
-  const [aiCreditsLeft, setAiCreditsLeft] = useState(10000);
-  const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
-  const [atRiskSectionsCount, setAtRiskSectionsCount] = useState(0);
-  const [sectionsList, setSectionsList] = useState<any[]>([]);
+  const [overview, setOverview] = useState<OverviewData>(emptyOverview);
   const [loading, setLoading] = useState(true);
-  const [showOutliersModal, setShowOutliersModal] = useState(false);
+  const [hasLoadError, setHasLoadError] = useState(false);
 
-  // Stream breakdown computed state
-  const [streamData, setStreamData] = useState<{
-    natural: StreamTelemetry;
-    social: StreamTelemetry;
-  }>({
-    natural: {
-      streamName: "Natural Science",
-      candidateCount: 0,
-      averageScore: 492,
-      syllabusCoverage: 84,
-      subjects: ["Biology", "Chemistry", "Physics", "Math-Natural"]
-    },
-    social: {
-      streamName: "Social Science",
-      candidateCount: 0,
-      averageScore: 476,
-      syllabusCoverage: 88,
-      subjects: ["History", "Geography", "Economics", "Math-Social"]
-    }
-  });
+  const loadOverview = useCallback(async () => {
+    setLoading(true);
+    const [profileResult, analyticsResult, classroomsResult, teachersResult, invitationsResult, assignmentsResult] =
+      await Promise.allSettled([
+        getSchoolProfile(),
+        getSchoolAnalytics(),
+        getClassrooms(),
+        getTeachers(),
+        getInvitations(),
+        getAssignmentMatrix(),
+      ]);
 
-  useEffect(() => {
-    Promise.allSettled([
-      getSchoolProfile(),
-      getTeachers(),
-      getAssignmentMatrix(),
-      getInvitations(),
-      getSchoolAnalytics(),
-      getClassrooms()
-    ]).then(([profRes, teachRes, matrixRes, invRes, anaRes, classRes]) => {
-      if (profRes.status === "fulfilled" && profRes.value.data) {
-        setProfile(profRes.value.data);
-      }
-      if (teachRes.status === "fulfilled") {
-        const list = Array.isArray(teachRes.value.data) ? teachRes.value.data : teachRes.value.data?.data || [];
-        setActiveTeachersCount(list.length);
-      }
-      if (matrixRes.status === "fulfilled" && matrixRes.value.data) {
-        setUnassignedCount(matrixRes.value.data.unassigned_subjects_count ?? 0);
-      }
-      if (invRes.status === "fulfilled" && invRes.value.data) {
-        const invs = invRes.value.data.invitations || [];
-        setPendingInvitesCount(invs.filter((i: any) => i.status === "pending").length);
-      }
-      
-      let enrolled = 0;
-      if (anaRes.status === "fulfilled" && anaRes.value.data) {
-        enrolled = anaRes.value.data.total_students ?? 0;
-        setStudentsEnrolled(enrolled);
-      }
+    const profile = profileResult.status === "fulfilled" ? profileResult.value.data : null;
+    const analytics = analyticsResult.status === "fulfilled" ? analyticsResult.value.data : null;
+    const classroomsResponse = classroomsResult.status === "fulfilled" ? classroomsResult.value.data : null;
+    const teachersResponse = teachersResult.status === "fulfilled" ? teachersResult.value.data : null;
+    const invitationsResponse = invitationsResult.status === "fulfilled" ? invitationsResult.value.data : null;
+    const assignments = assignmentsResult.status === "fulfilled" ? assignmentsResult.value.data : null;
+    const classrooms = Array.isArray(classroomsResponse)
+      ? classroomsResponse
+      : Array.isArray(classroomsResponse?.data)
+        ? classroomsResponse.data
+        : null;
+    const teachers = Array.isArray(teachersResponse)
+      ? teachersResponse
+      : Array.isArray(teachersResponse?.data)
+        ? teachersResponse.data
+        : null;
+    const invitations = Array.isArray(invitationsResponse?.invitations)
+      ? invitationsResponse.invitations
+      : null;
 
-      if (classRes.status === "fulfilled") {
-        const classrooms = Array.isArray(classRes.value.data) 
-          ? classRes.value.data 
-          : classRes.value.data?.data || [];
-        setSectionsList(classrooms);
-
-        // Identify at-risk sections (below 85% attendance or with unassigned key subjects)
-        const atRisk = classrooms.filter((c: any) => 
-          (c.attendance_rate !== undefined && c.attendance_rate < 85) || 
-          c.status === "At Risk" ||
-          (c.unassigned_count && c.unassigned_count > 0)
-        );
-        setAtRiskSectionsCount(atRisk.length);
-
-        // Calculate stream partitioning
-        const natSections = classrooms.filter((c: any) => 
-          (c.stream || "").toLowerCase().includes("natural") || (c.name || "").includes("Nat")
-        );
-        const socSections = classrooms.filter((c: any) => 
-          (c.stream || "").toLowerCase().includes("social") || (c.name || "").includes("Soc")
-        );
-
-        const natCandidates = natSections.reduce((acc: number, curr: any) => acc + (curr.students_count || 42), 0);
-        const socCandidates = socSections.reduce((acc: number, curr: any) => acc + (curr.students_count || 38), 0);
-
-        setStreamData({
-          natural: {
-            streamName: "Natural Science",
-            candidateCount: natCandidates || Math.round((enrolled || 480) * 0.58),
-            averageScore: 494,
-            syllabusCoverage: 86,
-            subjects: ["Biology", "Chemistry", "Physics", "Math-Natural"]
-          },
-          social: {
-            streamName: "Social Science",
-            candidateCount: socCandidates || Math.round((enrolled || 480) * 0.42),
-            averageScore: 478,
-            syllabusCoverage: 89,
-            subjects: ["History", "Geography", "Economics", "Math-Social"]
-          }
-        });
-      }
-
-      setLoading(false);
+    setOverview({
+      schoolName: profile?.name || analytics?.school_name || null,
+      academicYear: profile?.academic_year || null,
+      students: typeof analytics?.total_students === "number" ? analytics.total_students : null,
+      sections: classrooms?.length ?? null,
+      teachers: teachers?.length ?? null,
+      pendingInvitations: invitations
+        ? invitations.filter((invitation: any) => invitation.status === "pending").length
+        : null,
+      unassignedSubjects:
+        typeof assignments?.unassigned_subjects_count === "number"
+          ? assignments.unassigned_subjects_count
+          : null,
+      classworkPendingReview: typeof analytics?.classwork_pending_review_count === "number"
+        ? analytics.classwork_pending_review_count
+        : null,
     });
+    setHasLoadError(
+      [profileResult, analyticsResult, classroomsResult, teachersResult, invitationsResult, assignmentsResult].some(
+        (result) => result.status === "rejected",
+      ),
+    );
+    setLoading(false);
   }, []);
 
-  const totalActionItems = 
-    (pendingInvitesCount > 0 ? 1 : 0) + 
-    (unassignedCount > 0 ? 1 : 0) + 
-    (atRiskSectionsCount > 0 ? 1 : 0);
+  useEffect(() => {
+    void loadOverview();
+  }, [loadOverview]);
+
+  const locale = language === "am" ? "am-ET" : language === "om" ? "om-ET" : "en-ET";
+  const numberFormat = new Intl.NumberFormat(locale);
+  const formatCount = (
+    key:
+      | "schoolDashboard.openItems"
+      | "schoolDashboard.invitationTitle"
+      | "schoolDashboard.unassignedTitle"
+      | "schoolDashboard.classworkTitle",
+    count: number,
+  ) => t(key).replace("{{count}}", numberFormat.format(count));
+  const metrics = [
+    { label: t("schoolDashboard.metrics.students"), value: overview.students, icon: Users, action: () => navigate("people") },
+    { label: t("schoolDashboard.metrics.classes"), value: overview.sections, icon: Layers, action: () => navigate("sections") },
+    { label: t("schoolDashboard.metrics.teachers"), value: overview.teachers, icon: UserRoundCheck, action: () => navigate("people") },
+    { label: t("schoolDashboard.metrics.pendingInvitations"), value: overview.pendingInvitations, icon: Mail, action: () => navigate("people") },
+  ];
+
+  const pendingInvitations = overview.pendingInvitations ?? 0;
+  const unassignedSubjects = overview.unassignedSubjects ?? 0;
+  const classworkPendingReview = overview.classworkPendingReview ?? 0;
+  const hasActionItems = pendingInvitations > 0 || unassignedSubjects > 0 || classworkPendingReview > 0;
+  const setupSteps = [
+    { id: "classes", done: (overview.sections ?? 0) > 0, label: t("schoolDashboard.setupClasses"), href: "/school/sections" },
+    { id: "teachers", done: (overview.teachers ?? 0) > 0 || pendingInvitations > 0, label: t("schoolDashboard.setupTeachers"), href: "/school/people" },
+    { id: "assignments", done: (overview.sections ?? 0) > 0 && unassignedSubjects === 0, label: t("schoolDashboard.setupAssignments"), href: "/school/assignments" },
+  ];
+  const showSetupGuide = !loading && !hasLoadError && setupSteps.some((step) => !step.done);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 font-sans pb-12">
-      {/* Executive Command Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFF1F2] text-[#881337] border border-[#FECDD3]">
-              <ShieldCheck className="w-3 h-3" />
-              Director overview
-            </span>
-            <span className="text-xs text-slate-400 font-mono">•</span>
-            <span className="text-xs font-medium text-slate-500">
-              Current academic year
-            </span>
-          </div>
-          <h1 className="text-2xl font-semibold text-[#0F172A] tracking-tight mt-1">
-            {profile?.name || "School overview"}
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Institutional governance, curriculum pacing, and national exam readiness telemetry.
-          </p>
-        </div>
+    <PortalPage>
+      <PageHeader
+        eyebrow={t("schoolDashboard.eyebrow")}
+        title={overview.schoolName || t("schoolDashboard.title")}
+        description={t("schoolDashboard.description")}
+        badge={overview.academicYear ? { text: overview.academicYear, variant: "neutral" } : undefined}
+        secondaryActions={[{ label: t("schoolDashboard.reports"), href: "/school/reports", icon: FileSpreadsheet }]}
+        primaryAction={{ label: t("schoolDashboard.managePeople"), href: "/school/people", icon: Users }}
+      />
 
-        {/* Executive Action Deck */}
-        <div className="flex items-center gap-2.5">
+      {hasLoadError && (
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+          <p>{t("schoolDashboard.partialLoadError")}</p>
           <button
             type="button"
-            onClick={() => navigate("reports")}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs cursor-pointer min-h-[38px] transition-colors"
+            onClick={() => void loadOverview()}
+            disabled={loading}
+            className="inline-flex min-h-9 items-center gap-2 self-start rounded-lg border border-amber-300 bg-white dark:bg-[#261E1A] px-3 py-1.5 font-semibold hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60 sm:self-auto"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />
-            <span>Export audit</span>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
+            {t("schoolDashboard.tryAgain")}
           </button>
+        </div>
+      )}
 
+      <section aria-label={t("schoolDashboard.metricsLabel")} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map(({ label, value, icon: Icon, action }) => (
           <button
+            key={label}
             type="button"
-            onClick={() => navigate("assignments")}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs cursor-pointer min-h-[38px] transition-colors"
+            onClick={action}
+            className="group rounded-xl border border-stone-200 dark:border-white/10 bg-white dark:bg-[#261E1A] p-5 text-left shadow-xs transition-colors hover:border-[#881337]/35 focus:outline-none focus:ring-2 focus:ring-[#881337]"
           >
-            <Layers className="w-3.5 h-3.5 text-slate-500" />
-            <span>Subject matrix</span>
+            <span className="flex items-center justify-between text-sm font-medium text-stone-600 dark:text-[#E7E0D6]">
+              {label}
+              <Icon className="h-4 w-4 text-[#881337]" aria-hidden="true" />
+            </span>
+            <span className="mt-3 block text-3xl font-semibold tabular-nums text-[#261E1A] dark:text-[#FDFBF7]">
+              {loading && value === null ? "…" : value === null ? "—" : numberFormat.format(value)}
+            </span>
+            <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#881337]">
+              {t("schoolDashboard.viewDetails")}
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </span>
           </button>
+        ))}
+      </section>
 
-          <button
-            type="button"
-            onClick={() => navigate("people")}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#881337] hover:bg-[#9F1239] text-white text-xs font-semibold shadow-xs cursor-pointer min-h-[38px] transition-colors focus:outline-none focus:ring-2 focus:ring-[#881337]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Invite faculty</span>
-          </button>
-        </div>
-      </div>
-
-      {/* National Examination Milestones Timeline */}
-      <div className="bg-[#FAF8F5] rounded-xl border border-slate-200/90 p-4 shadow-xs">
-        <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/70">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[#881337]" />
-            <span className="text-xs font-semibold text-[#0F172A] tracking-tight">
-              National Examination Milestones — EAES Accreditation Calendar
-            </span>
-          </div>
-          <span className="text-[11px] font-mono text-slate-500">
-            Academic Term: Semester 2
-          </span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="p-3 bg-white rounded-lg border border-slate-200 text-xs space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-800">EUEE Candidate Registration</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                100% Verified
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              Closed Megabit 24 • All {studentsEnrolled || 480} candidates confirmed with Woreda Bureau.
-            </p>
-          </div>
-
-          <div className="p-3 bg-white rounded-lg border border-slate-200 text-xs space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-800">Regional Preparatory Mock 2</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                In 14 Days
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              Window: Miazia 05 – 12 • Standardized digital assessment across Natural & Social streams.
-            </p>
-          </div>
-
-          <div className="p-3 bg-white rounded-lg border border-slate-200 text-xs space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-800">Hall Ticket Issuance & Seal</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                Sene 01
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              Ministry candidate admission cards validated & stamped by Head of Center.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Dual-Pillar Executive KPI Deck */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: University Cutoff Projection */}
-        <div className="bg-white p-5 rounded-[8px] border border-slate-200 space-y-2 hover:border-slate-300 transition-colors shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-medium">EUEE Cutoff Forecast</span>
-            <div className="w-7 h-7 rounded-[6px] bg-[#FFF1F2] text-[#881337] flex items-center justify-center">
-              <GraduationCap className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-semibold text-[#0F172A] tabular-nums font-mono">
-              84.6%
-            </span>
-            <span className="text-[11px] font-semibold text-emerald-700 flex items-center">
-              <TrendingUp className="w-3 h-3 mr-0.5 inline" />
-              +3.2%
-            </span>
-          </div>
-          <div className="text-[11px] text-slate-500">
-            Candidates pacing above 350 pts
-          </div>
-        </div>
-
-        {/* Metric 2: Enrolled Candidates */}
-        <div className="bg-white p-5 rounded-[8px] border border-slate-200 space-y-2 hover:border-slate-300 transition-colors shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-medium">Registered Candidates</span>
-            <div className="w-7 h-7 rounded-[6px] bg-slate-100 text-slate-600 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-semibold text-[#0F172A] tabular-nums font-mono">
-            {studentsEnrolled || 480}
-          </div>
-          <div className="text-[11px] text-slate-500">
-            {streamData.natural.candidateCount} Nat • {streamData.social.candidateCount} Soc
-          </div>
-        </div>
-
-        {/* Metric 3: Faculty Assignment Rate */}
-        <div className="bg-white p-5 rounded-[8px] border border-slate-200 space-y-2 hover:border-slate-300 transition-colors shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-medium">Faculty Deployment</span>
-            <div className="w-7 h-7 rounded-[6px] bg-amber-50 text-amber-700 flex items-center justify-center">
-              <UserCheck className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-semibold text-[#0F172A] tabular-nums font-mono">
-              {activeTeachersCount}
-            </span>
-            {unassignedCount > 0 ? (
-              <span className="text-[11px] font-medium text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                {unassignedCount} unassigned
-              </span>
-            ) : (
-              <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                100% paired
-              </span>
-            )}
-          </div>
-          <div className="text-[11px] text-slate-500">
-            Active certified subject educators
-          </div>
-        </div>
-
-        {/* Metric 4: AI Credits Quota */}
-        <div className="bg-white p-5 rounded-[8px] border border-slate-200 space-y-2 hover:border-slate-300 transition-colors shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-medium">Institutional AI Quota</span>
-            <div className="w-7 h-7 rounded-[6px] bg-[#FFF1F2] text-[#881337] flex items-center justify-center">
-              <BrainCircuit className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-semibold text-[#0F172A] tabular-nums font-mono">
-            {aiCreditsLeft.toLocaleString()}
-          </div>
-          <div className="text-[11px] text-slate-500">
-            Monthly exam generation credits
-          </div>
-        </div>
-      </div>
-
-      {/* Stream Pacing & Academic Performance Grid */}
-      <div className="bg-white rounded-[8px] border border-slate-200 p-6 space-y-5 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+      {showSetupGuide && <section className="rounded-xl border border-[#E7E0D6] bg-[#FAF8F5] p-5 dark:border-white/10 dark:bg-[#261E1A]" aria-labelledby="school-setup-heading">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-[#0F172A]">
-              Grade 12 Curriculum Streams & Mock Exam Pacing
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Comparative syllabus velocity and mock exam performance across national examination tracks.
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#881337] dark:text-[#FBBF24]">{t("schoolDashboard.setupEyebrow")}</p>
+            <h2 id="school-setup-heading" className="mt-1 text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("schoolDashboard.setupTitle")}</h2>
+            <p className="mt-1 text-sm text-stone-600 dark:text-[#E7E0D6]">{t("schoolDashboard.setupDescription")}</p>
           </div>
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => setShowOutliersModal(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] bg-[#FFF1F2] text-[#881337] border border-[#FECDD3] hover:bg-[#FFE4E6] text-xs font-semibold cursor-pointer transition-colors"
-            >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span>Inspect Pacing Outliers</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("sections")}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[#881337] hover:text-[#9F1239] cursor-pointer"
-            >
-              <span>View all sections</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          <span className="text-xs font-medium text-stone-500 dark:text-[#A89C90]">{t("schoolDashboard.setupProgress", { done: setupSteps.filter((step) => step.done).length, total: setupSteps.length })}</span>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Natural Science Card */}
-          <div className="p-4 rounded-[6px] bg-[#FAF8F5] border border-slate-200/80 space-y-3.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#881337]" />
-                <span className="text-xs font-semibold text-[#0F172A]">
-                  Natural Science Stream
-                </span>
-              </div>
-              <span className="text-[11px] text-slate-500 font-mono">
-                {streamData.natural.candidateCount} candidates
-              </span>
+        <ol className="mt-4 grid gap-3 md:grid-cols-3">
+          {setupSteps.map((step, index) => <li key={step.id} className="flex min-w-0 items-start gap-3 rounded-lg border border-stone-200 bg-white p-4 dark:border-white/10 dark:bg-[#1C1512]">
+            <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${step.done ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200" : "bg-stone-100 text-stone-700 dark:bg-white/10 dark:text-[#E7E0D6]"}`} aria-label={step.done ? t("schoolDashboard.setupComplete") : t("schoolDashboard.setupStep", { number: index + 1 })}>
+              {step.done ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-stone-800 dark:text-[#FDFBF7]">{step.label}</p>
+              <Link to={step.href} className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-[#881337] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:text-[#FBBF24]">{step.done ? t("schoolDashboard.setupReview") : t("schoolDashboard.setupAction")}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
             </div>
+          </li>)}
+        </ol>
+      </section>}
 
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600">Syllabus pacing</span>
-                <span className="font-semibold text-slate-900 font-mono">
-                  {streamData.natural.syllabusCoverage}%
-                </span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                <div 
-                  className="bg-[#881337] h-2 rounded-full transition-all duration-500" 
-                  style={{ width: `${streamData.natural.syllabusCoverage}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
-              <span className="text-slate-500">Cohort mock average</span>
-              <span className="font-semibold text-[#0F172A] font-mono">
-                {streamData.natural.averageScore} / 600 pts
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {streamData.natural.subjects.map((sub) => (
-                <span key={sub} className="px-2 py-0.5 rounded text-[10px] font-medium bg-white text-slate-700 border border-slate-200">
-                  {sub}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Social Science Card */}
-          <div className="p-4 rounded-[6px] bg-[#FAF8F5] border border-slate-200/80 space-y-3.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" />
-                <span className="text-xs font-semibold text-[#0F172A]">
-                  Social Science Stream
-                </span>
-              </div>
-              <span className="text-[11px] text-slate-500 font-mono">
-                {streamData.social.candidateCount} candidates
-              </span>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600">Syllabus pacing</span>
-                <span className="font-semibold text-slate-900 font-mono">
-                  {streamData.social.syllabusCoverage}%
-                </span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                <div 
-                  className="bg-[#D97706] h-2 rounded-full transition-all duration-500" 
-                  style={{ width: `${streamData.social.syllabusCoverage}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
-              <span className="text-slate-500">Cohort mock average</span>
-              <span className="font-semibold text-[#0F172A] font-mono">
-                {streamData.social.averageScore} / 600 pts
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {streamData.social.subjects.map((sub) => (
-                <span key={sub} className="px-2 py-0.5 rounded text-[10px] font-medium bg-white text-slate-700 border border-slate-200">
-                  {sub}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Dynamic Director Action Queue */}
-      <div className="bg-white rounded-[8px] border border-slate-200 overflow-hidden shadow-xs">
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+      <section className="overflow-hidden rounded-xl border border-stone-200 dark:border-white/10 bg-white dark:bg-[#261E1A] shadow-xs" aria-labelledby="admin-tasks-heading">
+        <div className="flex flex-col gap-2 border-b border-stone-200 dark:border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-[#0F172A]">
-              Director Action Required
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Urgent administrative bottlenecks requiring executive sign-off or allocation.
-            </p>
+            <h2 id="admin-tasks-heading" className="text-base font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{t("schoolDashboard.attentionTitle")}</h2>
+            <p className="mt-1 text-sm text-stone-600 dark:text-[#E7E0D6]">{t("schoolDashboard.attentionDescription")}</p>
           </div>
-          {totalActionItems > 0 ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200">
-              {totalActionItems} {totalActionItems === 1 ? "item" : "items"} pending
+          {overview.pendingInvitations === null || overview.unassignedSubjects === null || overview.classworkPendingReview === null ? (
+            <span className="text-xs text-stone-500 dark:text-[#A89C90]">{t("schoolDashboard.countsUnavailable")}</span>
+          ) : hasActionItems ? (
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">
+              {formatCount("schoolDashboard.openItems", pendingInvitations + unassignedSubjects + classworkPendingReview)}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-              All systems compliant
-            </span>
+            <span className="text-xs font-medium text-emerald-700">{t("schoolDashboard.allCaughtUp")}</span>
           )}
         </div>
 
-        {totalActionItems === 0 ? (
-          <div className="p-8 text-center space-y-2">
-            <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-            <h3 className="text-xs font-semibold text-[#0F172A]">
-              No Outstanding Administrative Blockers
-            </h3>
-            <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-              All faculty invitations have been acknowledged, all section subjects have assigned educators, and attendance telemetry meets national accreditation standards.
-            </p>
-          </div>
+        {hasActionItems ? (
+          <ul className="divide-y divide-stone-100">
+            {pendingInvitations > 0 && (
+              <li className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-[#261E1A] dark:text-[#FDFBF7]">
+                    {formatCount("schoolDashboard.invitationTitle", pendingInvitations)}
+                  </h3>
+                  <p className="mt-1 text-sm text-stone-600 dark:text-[#E7E0D6]">{t("schoolDashboard.invitationDescription")}</p>
+                </div>
+                <button type="button" onClick={() => navigate("people")} className="inline-flex min-h-9 items-center gap-1 self-start rounded-lg border border-stone-300 dark:border-white/20 px-3 py-1.5 text-sm font-semibold text-stone-700 dark:text-[#E7E0D6] hover:bg-stone-50 dark:hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-[#881337] sm:self-auto">
+                  {t("schoolDashboard.manageInvitations")} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </li>
+            )}
+            {unassignedSubjects > 0 && (
+              <li className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-[#261E1A] dark:text-[#FDFBF7]">
+                    {formatCount("schoolDashboard.unassignedTitle", unassignedSubjects)}
+                  </h3>
+                  <p className="mt-1 text-sm text-stone-600 dark:text-[#E7E0D6]">{t("schoolDashboard.unassignedDescription")}</p>
+                </div>
+                <button type="button" onClick={() => navigate("assignments")} className="inline-flex min-h-9 items-center gap-1 self-start rounded-lg border border-stone-300 dark:border-white/20 px-3 py-1.5 text-sm font-semibold text-stone-700 dark:text-[#E7E0D6] hover:bg-stone-50 dark:hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-[#881337] sm:self-auto">
+                  {t("schoolDashboard.assignTeachers")} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </li>
+            )}
+            {classworkPendingReview > 0 && (
+              <li className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-[#261E1A] dark:text-[#FDFBF7]">
+                    {formatCount("schoolDashboard.classworkTitle", classworkPendingReview)}
+                  </h3>
+                  <p className="mt-1 text-sm text-stone-600 dark:text-[#E7E0D6]">{t("schoolDashboard.classworkDescription")}</p>
+                </div>
+                <button type="button" onClick={() => navigate("reports")} className="inline-flex min-h-9 items-center gap-1 self-start rounded-lg border border-stone-300 dark:border-white/20 px-3 py-1.5 text-sm font-semibold text-stone-700 dark:text-[#E7E0D6] hover:bg-stone-50 dark:hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-[#881337] sm:self-auto">
+                  {t("schoolDashboard.viewReports")} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </li>
+            )}
+          </ul>
+        ) : overview.pendingInvitations === 0 && overview.unassignedSubjects === 0 && overview.classworkPendingReview === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-stone-600 dark:text-[#E7E0D6]">{t("schoolDashboard.noActionItems")}</p>
         ) : (
-          <div className="divide-y divide-slate-200">
-            {/* Task 1: Pending teacher invites */}
-            {pendingInvitesCount > 0 && (
-              <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5] transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-[6px] bg-[#FFF1F2] text-[#881337] flex items-center justify-center shrink-0 mt-0.5">
-                    <Mail className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-[#0F172A]">
-                      {pendingInvitesCount} pending teacher invitation{pendingInvitesCount > 1 ? "s" : ""} awaiting response
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Invited faculty have not yet verified credentials. Access to curriculum tools and question banks remains restricted.
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate("people")}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[6px] border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-800 cursor-pointer self-start sm:self-auto shrink-0 transition-colors"
-                >
-                  <span>Manage invites</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              </div>
-            )}
-
-            {/* Task 2: Unassigned subjects */}
-            {unassignedCount > 0 && (
-              <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5] transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-[6px] bg-amber-50 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
-                    <Layers className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-[#0F172A]">
-                      {unassignedCount} section-subject pair{unassignedCount > 1 ? "s" : ""} without assigned teacher
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Assign accredited subject specialists to prevent learning deficits and ensure quiz generation continuity.
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate("assignments")}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[6px] border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-800 cursor-pointer self-start sm:self-auto shrink-0 transition-colors"
-                >
-                  <span>Assign teachers</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              </div>
-            )}
-
-            {/* Task 3: Sections needing attention */}
-            {atRiskSectionsCount > 0 && (
-              <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5] transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-[6px] bg-rose-50 text-rose-800 flex items-center justify-center shrink-0 mt-0.5">
-                    <AlertTriangle className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-[#0F172A]">
-                      {atRiskSectionsCount} section{atRiskSectionsCount > 1 ? "s" : ""} require academic supervision
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Syllabus progress or mock completion rates in these sections lag the school-wide benchmark.
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate("sections")}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[6px] border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-800 cursor-pointer self-start sm:self-auto shrink-0 transition-colors"
-                >
-                  <span>Review sections</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              </div>
-            )}
-          </div>
+          <p className="px-5 py-8 text-center text-sm text-stone-600 dark:text-[#E7E0D6]">{t("schoolDashboard.actionItemsUnavailable")}</p>
         )}
-      </div>
-
-      {/* Pacing Outliers Analysis Modal */}
-      {showOutliersModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-[#881337]" />
-                <h2 className="text-sm font-semibold text-[#0F172A]">
-                  Curriculum Velocity Outlier Audit
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowOutliersModal(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 text-xs">
-              <p className="text-slate-600">
-                The following section-subject pairs fall &gt;25% behind national curriculum pacing milestones for the current academic year.
-              </p>
-
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
-                {[
-                  { section: "Section 12-B", subject: "Physics", teacher: "Mr. Henok Bekele", coverage: 42, benchmark: 85, lag: "-43%", stream: "Natural Science" },
-                  { section: "Section 11-A", subject: "Chemistry", teacher: "Ms. Bethlehem Haile", coverage: 48, benchmark: 85, lag: "-37%", stream: "Natural Science" },
-                  { section: "Section 12-C", subject: "Economics", teacher: "Mr. Solomon Tadesse", coverage: 56, benchmark: 85, lag: "-29%", stream: "Social Science" }
-                ].map((item, idx) => (
-                  <div key={idx} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white hover:bg-slate-50/60">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-900">{item.section}</span>
-                        <span className="text-slate-400">•</span>
-                        <span className="font-bold text-[#881337]">{item.subject}</span>
-                        <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-100 text-slate-600">
-                          {item.stream}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        Assigned Educator: <span className="font-medium text-slate-700">{item.teacher}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] pt-0.5">
-                        <span className="text-slate-600">Current Pacing: <strong className="text-rose-700">{item.coverage}%</strong></span>
-                        <span className="text-slate-300">|</span>
-                        <span className="text-slate-500">Required Benchmark: {item.benchmark}%</span>
-                        <span className="text-slate-300">|</span>
-                        <span className="text-rose-700 font-bold">{item.lag} deficit</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowOutliersModal(false);
-                          navigate("messages");
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] border border-slate-300 hover:bg-slate-50 text-[11px] font-semibold text-slate-700 cursor-pointer"
-                      >
-                        <MessageSquare className="w-3 h-3 text-slate-500" />
-                        <span>Message</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowOutliersModal(false);
-                          navigate("assignments");
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] bg-[#FFF1F2] text-[#881337] border border-[#FECDD3] hover:bg-[#FFE4E6] text-[11px] font-semibold cursor-pointer"
-                      >
-                        <span>Reassign</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowOutliersModal(false)}
-                className="px-3.5 py-1.5 rounded-[6px] border border-slate-300 bg-white text-slate-700 text-xs font-semibold cursor-pointer"
-              >
-                Close Audit
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      </section>
+    </PortalPage>
   );
 }

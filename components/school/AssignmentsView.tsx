@@ -8,6 +8,11 @@ import {
   getClassrooms 
 } from "../../services/schoolService";
 import { useToast } from "../ui/Toast";
+import PageHeader from "../shared/PageHeader";
+import PortalPage from "../shared/PortalPage";
+import PortalLoading from "../shared/PortalLoading";
+import PortalError from "../shared/PortalError";
+import { getApiErrorMessage } from "../../services/api";
 import { 
   Users, 
   BookOpen, 
@@ -54,6 +59,7 @@ interface TeacherWorkload {
 export default function AssignmentsView(): React.ReactElement {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [matrixData, setMatrixData] = useState<{
     academic_year: string;
     sections: Array<{ id: string; name: string; grade: string; section: string }>;
@@ -65,7 +71,6 @@ export default function AssignmentsView(): React.ReactElement {
 
   const [teachers, setTeachers] = useState<any[]>([]);
 
-  // Assign Modal
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignForm, setAssignForm] = useState({
     section_id: "",
@@ -79,7 +84,6 @@ export default function AssignmentsView(): React.ReactElement {
   const [highWorkloadConfirm, setHighWorkloadConfirm] = useState(false);
   const [workloadWarningMessage, setWorkloadWarningMessage] = useState<string | null>(null);
 
-  // Reassign Modal
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [reassignForm, setReassignForm] = useState({
     section_id: "",
@@ -90,7 +94,6 @@ export default function AssignmentsView(): React.ReactElement {
   const [reassigning, setReassigning] = useState(false);
   const [reassignError, setReassignError] = useState<string | null>(null);
 
-  // Bulk Assign Modal
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkSubjectId, setBulkSubjectId] = useState("");
   const [bulkAssignments, setBulkAssignments] = useState<Record<string, string>>({});
@@ -99,6 +102,7 @@ export default function AssignmentsView(): React.ReactElement {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [matrixRes, teacherRes] = await Promise.all([
         getAssignmentMatrix(),
@@ -106,8 +110,8 @@ export default function AssignmentsView(): React.ReactElement {
       ]);
       setMatrixData(matrixRes.data);
       setTeachers(teacherRes.data?.data || teacherRes.data || []);
-    } catch (err: any) {
-      showToast({ title: "Error", message: "Failed to load assignment data.", type: "error" });
+    } catch (err) {
+      setLoadError(getApiErrorMessage(err) || "Failed to load assignment data.");
     } finally {
       setLoading(false);
     }
@@ -163,7 +167,7 @@ export default function AssignmentsView(): React.ReactElement {
         setWorkloadWarningMessage(errorData.message);
         setHighWorkloadConfirm(true);
       } else {
-        setAssignError(errorData?.error || "Assignment failed.");
+        setAssignError(getApiErrorMessage(err) || "Assignment failed.");
       }
     } finally {
       setAssigning(false);
@@ -182,8 +186,8 @@ export default function AssignmentsView(): React.ReactElement {
       showToast({ title: "Success", message: "Teacher reassigned successfully.", type: "success" });
       setShowReassignModal(false);
       loadData();
-    } catch (err: any) {
-      setReassignError(err.response?.data?.error || "Reassignment failed.");
+    } catch (err) {
+      setReassignError(getApiErrorMessage(err) || "Reassignment failed.");
     } finally {
       setReassigning(false);
     }
@@ -211,8 +215,8 @@ export default function AssignmentsView(): React.ReactElement {
       setBulkSummaryMessage(res.data.validation_summary);
       showToast({ title: "Success", message: res.data.message, type: "success" });
       loadData();
-    } catch (err: any) {
-      showToast({ title: "Error", message: err.response?.data?.error || "Bulk assign failed.", type: "error" });
+    } catch (err) {
+      showToast({ title: "Error", message: getApiErrorMessage(err) || "Bulk assign failed.", type: "error" });
     } finally {
       setBulkLoading(false);
     }
@@ -220,9 +224,14 @@ export default function AssignmentsView(): React.ReactElement {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-3 border-slate-200 border-t-emerald-600 rounded-full animate-spin" />
-      </div>
+      <PortalPage className="max-w-6xl"><PortalLoading message="Loading teaching assignments…" /></PortalPage>
+    );
+  }
+  if (loadError) {
+    return (
+      <PortalPage className="max-w-6xl">
+        <PortalError message={loadError} actionLabel="Retry" onAction={() => void loadData()} />
+      </PortalPage>
     );
   }
 
@@ -233,85 +242,78 @@ export default function AssignmentsView(): React.ReactElement {
   const workloads = matrixData?.teacher_workloads || [];
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Assignments</h1>
-          <p className="text-xs text-slate-500 mt-1">Manage section and subject teacher pairings</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              setBulkSubjectId(subjects[0]?.id || "");
-              setBulkAssignments({});
-              setBulkSummaryMessage(null);
-              setShowBulkModal(true);
-            }}
-            className="px-3.5 py-2 text-xs font-semibold rounded-[8px] bg-[#881337] hover:bg-[#9F1239] text-white transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer min-h-[38px] focus:outline-none focus:ring-2 focus:ring-[#881337]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Bulk assign</span>
-          </button>
-        </div>
-      </div>
+    <PortalPage className="space-y-6">
 
-      {/* Metrics Banner */}
+      <PageHeader
+        title="Teaching assignments"
+        description="Match teachers and subjects to each class."
+        primaryAction={{
+          label: "Assign in bulk",
+          onClick: () => {
+            setBulkSubjectId(subjects[0]?.id || "");
+            setBulkAssignments({});
+            setBulkSummaryMessage(null);
+            setShowBulkModal(true);
+          },
+          icon: Plus,
+        }}
+        secondaryActions={[{ label: "Refresh", onClick: loadData, icon: RefreshCw, loading }]}
+      />
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-[8px] border border-[#E2E8F0] bg-white">
-          <span className="text-xs font-medium text-slate-500 block">Academic year</span>
-          <span className="text-base font-bold text-[#0F172A] mt-1 block">{matrixData?.academic_year || "2026"}</span>
+        <div className="p-4 rounded-[8px] border border-[#E7E0D6] dark:border-white/10 bg-white dark:bg-[#261E1A]">
+          <span className="text-xs font-medium text-stone-500 dark:text-[#A89C90] block">Academic year</span>
+          <span className="text-base font-bold text-[#261E1A] dark:text-[#FDFBF7] mt-1 block">{matrixData?.academic_year || "2026"}</span>
         </div>
-        <div className="p-4 rounded-[8px] border border-[#E2E8F0] bg-white">
-          <span className="text-xs font-medium text-slate-500 block">Teacher coverage</span>
+        <div className="p-4 rounded-[8px] border border-[#E7E0D6] dark:border-white/10 bg-white dark:bg-[#261E1A]">
+          <span className="text-xs font-medium text-stone-500 dark:text-[#A89C90] block">Teacher coverage</span>
           <span className={`text-base font-bold mt-1 block ${unassignedCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>
-            {unassignedCount > 0 ? `${unassignedCount} section-subjects have no teacher` : "All section-subjects assigned"}
+            {unassignedCount > 0 ? `${unassignedCount} classes need a teacher` : "All classes staffed"}
           </span>
         </div>
-        <div className="p-4 rounded-[8px] border border-[#E2E8F0] bg-white">
-          <span className="text-xs font-medium text-slate-500 block">Active Sections</span>
-          <span className="text-base font-bold text-[#0F172A] mt-1 block">{sections.length} sections</span>
+        <div className="p-4 rounded-[8px] border border-[#E7E0D6] dark:border-white/10 bg-white dark:bg-[#261E1A]">
+          <span className="text-xs font-medium text-stone-500 dark:text-[#A89C90] block">Classes</span>
+          <span className="text-base font-bold text-[#261E1A] dark:text-[#FDFBF7] mt-1 block">{sections.length}</span>
         </div>
       </div>
 
-      {/* Matrix Table */}
-      <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-xs">
+      <div className="border border-stone-200 dark:border-white/10 rounded-xl bg-white dark:bg-[#261E1A] overflow-hidden shadow-xs">
         <div className="overflow-x-auto max-h-[600px]">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 sticky top-0 z-20">
+            <thead className="bg-stone-50 dark:bg-[#1C1512] text-stone-700 dark:text-[#E7E0D6] border-b border-stone-200 dark:border-white/10 sticky top-0 z-20">
               <tr>
-                <th className="p-3 font-semibold border-r border-slate-200 min-w-[160px] sticky left-0 z-30 bg-slate-100 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)]">
-                  Section & Stream
+                <th className="p-3 font-semibold border-r border-stone-200 dark:border-white/10 min-w-[160px] sticky left-0 z-30 bg-stone-100 dark:bg-[#201815] shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)]">
+                  Class & stream
                 </th>
                 {subjects.map((sub) => (
-                  <th key={sub.id} className="p-3 font-semibold border-r border-slate-200 min-w-[150px] bg-slate-50">
+                  <th key={sub.id} className="p-3 font-semibold border-r border-stone-200 dark:border-white/10 min-w-[150px] bg-stone-50 dark:bg-[#1C1512]">
                     {sub.name}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-stone-200">
               {matrix.map((row) => (
-                <tr key={row.section_id} className="hover:bg-slate-50/50">
-                  <td className="p-3 font-medium text-slate-900 border-r border-slate-200 sticky left-0 z-10 bg-white/95 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)]">
-                    <span className="block font-semibold text-[#0F172A]">{row.section_name}</span>
-                    <span className="text-[11px] text-slate-500">{row.stream}</span>
+                <tr key={row.section_id} className="hover:bg-stone-50/50">
+                  <td className="p-3 font-medium text-stone-900 dark:text-[#FDFBF7] border-r border-stone-200 dark:border-white/10 sticky left-0 z-10 bg-white/95 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)]">
+                    <span className="block font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{row.section_name}</span>
+                    <span className="text-[11px] text-stone-500 dark:text-[#A89C90]">{row.stream}</span>
                   </td>
                   {subjects.map((sub) => {
                     const cell = row.subjects[sub.id];
                     const isAssigned = cell && cell.status === "active";
                     return (
-                      <td key={sub.id} className="p-3 border-r border-slate-200 align-top">
+                      <td key={sub.id} className="p-3 border-r border-stone-200 dark:border-white/10 align-top">
                         {isAssigned ? (
                           <div className="flex flex-col gap-1">
-                            <span className="font-semibold text-slate-800">{cell.teacher_name}</span>
+                            <span className="font-semibold text-stone-800 dark:text-[#FDFBF7]">{cell.teacher_name}</span>
                             <div className="flex flex-wrap gap-1">
                               {cell.is_substitute && (
                                 <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded w-fit">
                                   Substitute
                                 </span>
                               )}
-                              <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium">
+                              <span className="text-[9px] bg-stone-100 dark:bg-[#201815] text-stone-600 dark:text-[#E7E0D6] px-1.5 py-0.2 rounded font-medium">
                                 Specialist
                               </span>
                             </div>
@@ -324,10 +326,10 @@ export default function AssignmentsView(): React.ReactElement {
                           </div>
                         ) : (
                           <div className="flex flex-col gap-1.5">
-                            <span className="text-slate-400 font-normal">Unassigned</span>
+                            <span className="text-stone-400 dark:text-[#A89C90] font-normal">Unassigned</span>
                             <button
                               onClick={() => handleOpenAssign(row.section_id, sub.id)}
-                              className="px-2.5 py-1 text-[11px] font-semibold rounded-[6px] bg-[#FFF1F2] text-[#881337] hover:bg-[#FFE4E6] border border-[#FECDD3] w-fit cursor-pointer transition-colors"
+                              className="px-2.5 py-1 text-[11px] font-semibold rounded-[6px] bg-[#FFF1F2] dark:bg-[#4C0519]/40 text-[#881337] hover:bg-[#FFE4E6] dark:hover:bg-[#4C0519]/60 border border-[#FECDD3] dark:border-[#881337]/50 w-fit cursor-pointer transition-colors"
                             >
                               Assign
                             </button>
@@ -343,27 +345,26 @@ export default function AssignmentsView(): React.ReactElement {
         </div>
       </div>
 
-      {/* Teacher Workload Table */}
-      <div className="border border-slate-200 rounded-xl bg-white p-5 shadow-xs">
-        <h2 className="text-sm font-bold text-slate-900 mb-3">Teacher Workload Summary</h2>
+      <div className="border border-stone-200 dark:border-white/10 rounded-xl bg-white dark:bg-[#261E1A] p-5 shadow-xs">
+        <h2 className="text-sm font-bold text-stone-900 dark:text-[#FDFBF7] mb-3">Teacher workload</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-700 border-b border-slate-200">
+            <thead className="bg-stone-50 dark:bg-[#1C1512] text-stone-700 dark:text-[#E7E0D6] border-b border-stone-200 dark:border-white/10">
               <tr>
                 <th className="p-2.5 font-semibold">Teacher</th>
                 <th className="p-2.5 font-semibold">Department</th>
-                <th className="p-2.5 font-semibold">Sections count</th>
+                <th className="p-2.5 font-semibold">Classes</th>
                 <th className="p-2.5 font-semibold">Weekly periods</th>
                 <th className="p-2.5 font-semibold">Workload status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-stone-100">
               {workloads.map((w) => (
-                <tr key={w.teacher_id} className="hover:bg-slate-50/40">
-                  <td className="p-2.5 font-medium text-slate-900">{w.name}</td>
-                  <td className="p-2.5 text-slate-600">{w.department}</td>
-                  <td className="p-2.5 text-slate-900 font-semibold">{w.sections_count}</td>
-                  <td className="p-2.5 text-slate-900 font-semibold">{w.weekly_periods} hrs</td>
+                <tr key={w.teacher_id} className="hover:bg-stone-50/40">
+                  <td className="p-2.5 font-medium text-stone-900 dark:text-[#FDFBF7]">{w.name}</td>
+                  <td className="p-2.5 text-stone-600 dark:text-[#E7E0D6]">{w.department}</td>
+                  <td className="p-2.5 text-stone-900 dark:text-[#FDFBF7] font-semibold">{w.sections_count}</td>
+                  <td className="p-2.5 text-stone-900 dark:text-[#FDFBF7] font-semibold">{w.weekly_periods} hrs</td>
                   <td className="p-2.5">
                     {w.is_overloaded ? (
                       <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded text-[11px] font-medium border border-amber-200">
@@ -383,13 +384,12 @@ export default function AssignmentsView(): React.ReactElement {
         </div>
       </div>
 
-      {/* Assign Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h2 className="text-base font-bold text-slate-900">Assign Teacher</h2>
-              <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600">
+        <div className="fixed inset-0 bg-stone-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#261E1A] rounded-xl border border-stone-200 dark:border-white/10 shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-white/10 pb-3">
+              <h2 className="text-base font-bold text-stone-900 dark:text-[#FDFBF7]">Assign teacher</h2>
+              <button onClick={() => setShowAssignModal(false)} className="text-stone-400 dark:text-[#A89C90] hover:text-stone-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -408,11 +408,11 @@ export default function AssignmentsView(): React.ReactElement {
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Select Teacher</label>
+                <label className="font-semibold text-stone-700 dark:text-[#E7E0D6] block mb-1">Teacher</label>
                 <select
                   value={assignForm.teacher_id}
                   onChange={(e) => setAssignForm({ ...assignForm, teacher_id: e.target.value })}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs"
+                  className="w-full p-2.5 border border-stone-300 dark:border-white/20 rounded-lg text-xs"
                 >
                   {teachers.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -430,22 +430,22 @@ export default function AssignmentsView(): React.ReactElement {
                   onChange={(e) => setAssignForm({ ...assignForm, is_substitute: e.target.checked })}
                   className="rounded text-emerald-600"
                 />
-                <label htmlFor="substituteCheck" className="text-slate-700 font-medium">
-                  Substitute teacher (temporary assignment)
+                <label htmlFor="substituteCheck" className="text-stone-700 dark:text-[#E7E0D6] font-medium">
+                  Temporary substitute
                 </label>
               </div>
 
               {highWorkloadConfirm && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs">
-                  <p className="font-medium text-slate-800">Do you want to confirm adding another section?</p>
+                <div className="p-3 bg-stone-50 dark:bg-[#1C1512] border border-stone-200 dark:border-white/10 rounded-lg text-xs">
+                  <p className="font-medium text-stone-800 dark:text-[#FDFBF7]">This teacher is above the recommended workload. Continue?</p>
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <div className="flex justify-end gap-2 pt-3 border-t border-stone-200 dark:border-white/10">
               <button
                 onClick={() => setShowAssignModal(false)}
-                className="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700"
+                className="px-3 py-2 text-xs font-semibold rounded-lg border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-[#E7E0D6]"
               >
                 Cancel
               </button>
@@ -461,13 +461,12 @@ export default function AssignmentsView(): React.ReactElement {
         </div>
       )}
 
-      {/* Reassign Modal */}
       {showReassignModal && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h2 className="text-base font-bold text-slate-900">Reassign Teacher</h2>
-              <button onClick={() => setShowReassignModal(false)} className="text-slate-400 hover:text-slate-600">
+        <div className="fixed inset-0 bg-stone-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#261E1A] rounded-xl border border-stone-200 dark:border-white/10 shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-white/10 pb-3">
+              <h2 className="text-base font-bold text-stone-900 dark:text-[#FDFBF7]">Reassign teacher</h2>
+              <button onClick={() => setShowReassignModal(false)} className="text-stone-400 dark:text-[#A89C90] hover:text-stone-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -479,17 +478,17 @@ export default function AssignmentsView(): React.ReactElement {
             )}
 
             <div className="text-xs space-y-3">
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-slate-600">
-                Current teacher: <span className="font-semibold text-slate-900">{reassignForm.current_teacher_name}</span>.
-                Past records remain linked to this teacher.
+              <div className="p-3 bg-stone-50 dark:bg-[#1C1512] rounded-lg border border-stone-200 dark:border-white/10 text-stone-600 dark:text-[#E7E0D6]">
+                Current teacher: <span className="font-semibold text-stone-900 dark:text-[#FDFBF7]">{reassignForm.current_teacher_name}</span>.
+                Past records stay with the previous teacher.
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">New Teacher</label>
+                <label className="font-semibold text-stone-700 dark:text-[#E7E0D6] block mb-1">New teacher</label>
                 <select
                   value={reassignForm.new_teacher_id}
                   onChange={(e) => setReassignForm({ ...reassignForm, new_teacher_id: e.target.value })}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs"
+                  className="w-full p-2.5 border border-stone-300 dark:border-white/20 rounded-lg text-xs"
                 >
                   {teachers.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -500,10 +499,10 @@ export default function AssignmentsView(): React.ReactElement {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <div className="flex justify-end gap-2 pt-3 border-t border-stone-200 dark:border-white/10">
               <button
                 onClick={() => setShowReassignModal(false)}
-                className="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700"
+                className="px-3 py-2 text-xs font-semibold rounded-lg border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-[#E7E0D6]"
               >
                 Cancel
               </button>
@@ -519,13 +518,12 @@ export default function AssignmentsView(): React.ReactElement {
         </div>
       )}
 
-      {/* Bulk Assign Modal */}
       {showBulkModal && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-2xl w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h2 className="text-base font-bold text-slate-900">Bulk Assign</h2>
-              <button onClick={() => setShowBulkModal(false)} className="text-slate-400 hover:text-slate-600">
+        <div className="fixed inset-0 bg-stone-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#261E1A] rounded-xl border border-stone-200 dark:border-white/10 shadow-xl max-w-2xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-white/10 pb-3">
+              <h2 className="text-base font-bold text-stone-900 dark:text-[#FDFBF7]">Assign by subject</h2>
+              <button onClick={() => setShowBulkModal(false)} className="text-stone-400 dark:text-[#A89C90] hover:text-stone-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -538,11 +536,11 @@ export default function AssignmentsView(): React.ReactElement {
 
             <div className="space-y-4 text-xs">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Select Subject</label>
+                <label className="font-semibold text-stone-700 dark:text-[#E7E0D6] block mb-1">Subject</label>
                 <select
                   value={bulkSubjectId}
                   onChange={(e) => setBulkSubjectId(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs font-medium"
+                  className="w-full p-2.5 border border-stone-300 dark:border-white/20 rounded-lg text-xs font-medium"
                 >
                   {subjects.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -553,17 +551,17 @@ export default function AssignmentsView(): React.ReactElement {
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-2">Assign Teacher per Section</label>
-                <div className="max-h-[300px] overflow-y-auto space-y-2 border border-slate-200 rounded-lg p-3">
+                <label className="font-semibold text-stone-700 dark:text-[#E7E0D6] block mb-2">Teacher for each class</label>
+                <div className="max-h-[300px] overflow-y-auto space-y-2 border border-stone-200 dark:border-white/10 rounded-lg p-3">
                   {sections.map((sec) => (
-                    <div key={sec.id} className="flex items-center justify-between gap-4 p-2 bg-slate-50 rounded">
-                      <span className="font-medium text-slate-900 min-w-[120px]">{sec.name}</span>
+                    <div key={sec.id} className="flex items-center justify-between gap-4 p-2 bg-stone-50 dark:bg-[#1C1512] rounded">
+                      <span className="font-medium text-stone-900 dark:text-[#FDFBF7] min-w-[120px]">{sec.name}</span>
                       <select
                         value={bulkAssignments[sec.id] || ""}
                         onChange={(e) => setBulkAssignments({ ...bulkAssignments, [sec.id]: e.target.value })}
-                        className="flex-1 p-2 border border-slate-300 rounded text-xs bg-white"
+                        className="flex-1 p-2 border border-stone-300 dark:border-white/20 rounded text-xs bg-white dark:bg-[#261E1A]"
                       >
-                        <option value="">Leave Unassigned</option>
+                        <option value="">Leave unassigned</option>
                         {teachers.map((t) => (
                           <option key={t.id} value={t.id}>
                             {t.name}
@@ -576,10 +574,10 @@ export default function AssignmentsView(): React.ReactElement {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <div className="flex justify-end gap-2 pt-3 border-t border-stone-200 dark:border-white/10">
               <button
                 onClick={() => setShowBulkModal(false)}
-                className="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700"
+                className="px-3 py-2 text-xs font-semibold rounded-lg border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-[#E7E0D6]"
               >
                 Cancel
               </button>
@@ -594,6 +592,6 @@ export default function AssignmentsView(): React.ReactElement {
           </div>
         </div>
       )}
-    </div>
+    </PortalPage>
   );
 }

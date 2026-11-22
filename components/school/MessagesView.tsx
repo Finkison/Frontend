@@ -1,245 +1,292 @@
-import React, { useState, useEffect } from "react";
-import { getSchoolMessages, replySchoolMessage, broadcastAnnouncement } from "../../services/schoolService";
-import { MessageSquare, Send, Bell, Plus, Users, Check, AlertCircle } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { AlertCircle, Bell, MessageSquare, Send, Users } from "lucide-react";
+import { broadcastAnnouncement, getSchoolMessages, replySchoolMessage } from "../../services/schoolService";
 import { useToast } from "../ui/Toast";
+import { Modal } from "../ui/Modal";
+import PageHeader from "../shared/PageHeader";
+import { useI18n } from "../../i18n";
+import PortalPage from "../shared/PortalPage";
+
+interface SchoolMessage {
+  id: string | number;
+  sender_name?: string;
+  student_name?: string | null;
+  student_grade?: string | null;
+  subject?: string;
+  content?: string;
+  created_at?: string;
+  date?: string;
+}
+
+interface BroadcastForm {
+  title: string;
+  message: string;
+  target_grade: string;
+  alert_type: string;
+}
+
+const emptyBroadcast: BroadcastForm = {
+  title: "",
+  message: "",
+  target_grade: "all",
+  alert_type: "announcement",
+};
 
 export default function SchoolMessagesView(): React.ReactElement {
   const { showToast } = useToast();
-  const [messages, setMessages] = useState<any[]>([]);
+  const { t, language } = useI18n();
+  const [messages, setMessages] = useState<SchoolMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<SchoolMessage | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
-
-  // Broadcast modal
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
-  const [broadcastForm, setBroadcastForm] = useState({
-    title: "",
-    message: "",
-    target_grade: "All Grades",
-    alert_type: "info"
-  });
+  const [broadcastForm, setBroadcastForm] = useState<BroadcastForm>(emptyBroadcast);
   const [broadcasting, setBroadcasting] = useState(false);
 
   const fetchMessages = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
-      const res = await getSchoolMessages();
-      const list = res.data?.messages || (Array.isArray(res.data) ? res.data : []);
+      const response = await getSchoolMessages();
+      const list = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.messages)
+          ? response.data.messages
+          : [];
       setMessages(list);
-      if (list.length > 0 && !selectedMessage) {
-        setSelectedMessage(list[0]);
-      }
+      setSelectedMessage((current) => {
+        if (current) return list.find((message: SchoolMessage) => String(message.id) === String(current.id)) || list[0] || null;
+        return list[0] || null;
+      });
     } catch {
       setMessages([]);
       setSelectedMessage(null);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchMessages();
+    void fetchMessages();
   }, []);
 
-  const handleSendReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyText.trim() || !selectedMessage) return;
+  const formatMessageDate = (message: SchoolMessage) => {
+    const rawDate = message.created_at || message.date;
+    if (!rawDate) return t("schoolMessages.dateUnavailable");
+    const parsedDate = new Date(rawDate);
+    if (Number.isNaN(parsedDate.getTime())) return rawDate;
+    const locale = language === "am" ? "am-ET" : language === "om" ? "om-ET" : "en-ET";
+    return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(parsedDate);
+  };
+
+  const handleSendReply = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!replyText.trim() || !selectedMessage || sendingReply) return;
     setSendingReply(true);
     try {
       await replySchoolMessage({
-        message_id: selectedMessage.id,
-        reply_content: replyText
+        message_id: String(selectedMessage.id),
+        reply_content: replyText.trim(),
       });
-      showToast({ title: "Reply sent", message: "Response delivered to faculty member.", type: "success" });
+      showToast({
+        title: t("schoolMessages.replySentTitle"),
+        message: t("schoolMessages.replySentMessage"),
+        type: "success",
+      });
       setReplyText("");
     } catch {
-      showToast({ title: "Reply sent", message: "Response recorded.", type: "success" });
-      setReplyText("");
+      showToast({
+        title: t("schoolMessages.replyErrorTitle"),
+        message: t("schoolMessages.replyErrorMessage"),
+        type: "error",
+      });
     } finally {
       setSendingReply(false);
     }
   };
 
-  const handleBroadcast = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleBroadcast = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (broadcasting) return;
     setBroadcasting(true);
     try {
-      await broadcastAnnouncement(broadcastForm);
-      showToast({ title: "Announcement published", message: "Dispatched to all faculty and classrooms.", type: "success" });
+      const response = await broadcastAnnouncement({
+        ...broadcastForm,
+        title: broadcastForm.title.trim(),
+        message: broadcastForm.message.trim(),
+      });
+      const recipientsCount = Number(response.data?.recipients_count ?? 0);
+      if (recipientsCount < 1) {
+        showToast({
+          title: t("schoolMessages.noRecipientsTitle"),
+          message: t("schoolMessages.noRecipientsMessage"),
+          type: "warning",
+        });
+        return;
+      }
+      showToast({
+        title: t("schoolMessages.announcementSentTitle"),
+        message: t("schoolMessages.announcementSentMessage", { count: recipientsCount }),
+        type: "success",
+      });
       setShowBroadcastModal(false);
-      setBroadcastForm({ title: "", message: "", target_grade: "All Grades", alert_type: "info" });
+      setBroadcastForm(emptyBroadcast);
     } catch {
-      showToast({ title: "Error", message: "Failed to broadcast announcement.", type: "error" });
+      showToast({
+        title: t("schoolMessages.announcementErrorTitle"),
+        message: t("schoolMessages.announcementErrorMessage"),
+        type: "error",
+      });
     } finally {
       setBroadcasting(false);
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
-        <div>
-          <h1 className="text-xl font-semibold text-[#0F172A] tracking-tight">Messages</h1>
-          <p className="text-xs text-[#475569] mt-0.5">
-            Broadcast school-wide announcements and communicate directly with faculty.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowBroadcastModal(true)}
-          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs cursor-pointer min-h-[40px]"
-        >
-          <Bell className="w-4 h-4" />
-          <span>New announcement</span>
-        </button>
-      </div>
+    <PortalPage className="max-w-6xl space-y-6">
+      <PageHeader
+        title={t("schoolMessages.title")}
+        description={t("schoolMessages.description")}
+        primaryAction={{
+          label: t("schoolMessages.newAnnouncement"),
+          onClick: () => setShowBroadcastModal(true),
+          icon: Bell,
+        }}
+      />
 
-      {/* Messaging Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white border border-[#E2E8F0] rounded-[8px] min-h-[480px] overflow-hidden">
-        {/* Thread List */}
-        <div className="border-r border-[#E2E8F0] flex flex-col">
-          <div className="p-3 bg-[#F8FAFC] border-b border-[#E2E8F0] text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Faculty Inquiries
-          </div>
-          <div className="divide-y divide-[#E2E8F0] overflow-y-auto flex-1">
-            {messages.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400">
-                No faculty messages found.
-              </div>
-            ) : (
-              messages.map((m) => (
+      {loadError ? (
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-100 sm:flex-row sm:items-center">
+          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <p className="flex-1">{t("schoolMessages.loadError")}</p>
+          <button type="button" onClick={() => void fetchMessages()} className="min-h-10 rounded-lg border border-current px-3 font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337]">
+            {t("schoolMessages.retry")}
+          </button>
+        </div>
+      ) : loading ? (
+        <div role="status" className="rounded-xl border border-[#E7E0D6] bg-white p-10 text-center text-sm text-stone-500 dark:border-white/10 dark:bg-[#261E1A] dark:text-[#A89C90]">
+          {t("schoolMessages.loading")}
+        </div>
+      ) : messages.length === 0 ? (
+        <section className="rounded-xl border border-dashed border-[#D5CBC0] bg-white p-10 text-center dark:border-white/15 dark:bg-[#261E1A]">
+          <MessageSquare className="mx-auto h-8 w-8 text-stone-400" aria-hidden="true" />
+          <h2 className="mt-3 text-base font-semibold text-stone-900 dark:text-[#FDFBF7]">{t("schoolMessages.emptyTitle")}</h2>
+          <p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-stone-600 dark:text-[#A89C90]">{t("schoolMessages.emptyDescription")}</p>
+        </section>
+      ) : (
+        <section aria-label={t("schoolMessages.inboxLabel")} className="grid min-h-[520px] grid-cols-1 overflow-hidden rounded-2xl border border-[#E7E0D6] bg-white dark:border-white/10 dark:bg-[#261E1A] md:grid-cols-3">
+          <div className="flex min-h-60 flex-col border-b border-[#E7E0D6] dark:border-white/10 md:border-b-0 md:border-r">
+            <h2 className="border-b border-[#E7E0D6] bg-[#FAF8F5] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-stone-600 dark:border-white/10 dark:bg-[#1C1512] dark:text-[#A89C90]">
+              {t("schoolMessages.familyInquiries", { count: messages.length })}
+            </h2>
+            <div className="flex-1 divide-y divide-[#E7E0D6] overflow-y-auto dark:divide-white/10">
+              {messages.map((message) => (
                 <button
-                  key={m.id}
+                  key={message.id}
                   type="button"
-                  onClick={() => setSelectedMessage(m)}
-                  className={`w-full p-3.5 text-left transition-colors cursor-pointer text-xs ${
-                    selectedMessage?.id === m.id ? "bg-[#EFF6FF] border-l-3 border-[#1D4ED8]" : "hover:bg-slate-50"
+                  aria-pressed={String(selectedMessage?.id) === String(message.id)}
+                  onClick={() => setSelectedMessage(message)}
+                  className={`w-full p-4 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#881337] dark:focus-visible:ring-[#FBBF24] ${
+                    String(selectedMessage?.id) === String(message.id)
+                      ? "bg-[#FFF1F2] dark:bg-[#4C0519]/40"
+                      : "hover:bg-stone-50 dark:hover:bg-white/5"
                   }`}
                 >
-                  <div className="font-semibold text-[#0F172A] truncate">{m.sender_name}</div>
-                  <div className="font-medium text-slate-700 truncate mt-0.5">{m.subject}</div>
-                  <div className="text-[11px] text-slate-400 mt-1">{m.date}</div>
+                  <span className="block truncate text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">{message.sender_name || t("schoolMessages.parentFallback")}</span>
+                  <span className="mt-1 block truncate text-sm text-stone-700 dark:text-[#E7E0D6]">{message.subject || t("schoolMessages.noSubject")}</span>
+                  {message.student_name && <span className="mt-1 block truncate text-xs text-stone-500 dark:text-[#A89C90]">{t("schoolMessages.aboutStudent", { name: message.student_name })}{message.student_grade ? ` · ${message.student_grade}` : ""}</span>}
+                  <time className="mt-2 block text-xs text-stone-500 dark:text-[#A89C90]">{formatMessageDate(message)}</time>
                 </button>
-              ))
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col p-4 sm:p-6 md:col-span-2">
+            {selectedMessage ? (
+              <>
+                <div className="border-b border-[#E7E0D6] pb-4 dark:border-white/10">
+                  <h2 className="text-lg font-semibold text-stone-900 dark:text-[#FDFBF7]">{selectedMessage.subject || t("schoolMessages.noSubject")}</h2>
+                  <p className="mt-1 text-sm text-stone-600 dark:text-[#A89C90]">
+                    {t("schoolMessages.fromParent", { name: selectedMessage.sender_name || t("schoolMessages.parentFallback") })}
+                    {selectedMessage.student_name ? ` · ${t("schoolMessages.studentContext", { name: selectedMessage.student_name })}` : ""}
+                  </p>
+                  <time className="mt-1 block text-xs text-stone-500 dark:text-[#A89C90]">{formatMessageDate(selectedMessage)}</time>
+                </div>
+
+                <div className="mt-4 flex-1 rounded-xl border border-[#E7E0D6] bg-[#FAF8F5] p-4 text-sm leading-6 text-stone-800 dark:border-white/10 dark:bg-[#1C1512] dark:text-[#FDFBF7]">
+                  {selectedMessage.content || t("schoolMessages.emptyMessage")}
+                </div>
+
+                <form onSubmit={(event) => void handleSendReply(event)} className="mt-5 space-y-3 border-t border-[#E7E0D6] pt-4 dark:border-white/10">
+                  <label htmlFor="school-message-reply" className="block text-sm font-semibold text-stone-800 dark:text-[#FDFBF7]">{t("schoolMessages.replyLabel")}</label>
+                  <textarea
+                    id="school-message-reply"
+                    rows={3}
+                    required
+                    maxLength={1000}
+                    placeholder={t("schoolMessages.replyPlaceholder")}
+                    value={replyText}
+                    onChange={(event) => setReplyText(event.target.value)}
+                    aria-describedby="school-message-reply-hint"
+                    className="w-full resize-y rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]"
+                  />
+                  <p id="school-message-reply-hint" className="text-xs leading-5 text-stone-500 dark:text-[#A89C90]">{t("schoolMessages.replyDeliveryHint")}</p>
+                  <div className="flex justify-end">
+                    <button type="submit" disabled={!replyText.trim() || sendingReply} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#881337] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#9F1239] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#FBBF24] dark:text-[#1C1512]">
+                      <Send className="h-4 w-4" aria-hidden="true" />
+                      {sendingReply ? t("schoolMessages.sendingReply") : t("schoolMessages.sendReply")}
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center text-center text-sm text-stone-500 dark:text-[#A89C90]">
+                <Users className="h-8 w-8 text-stone-300 dark:text-stone-600" aria-hidden="true" />
+                <p className="mt-3">{t("schoolMessages.selectThread")}</p>
+              </div>
             )}
           </div>
-        </div>
-
-        {/* Conversation View */}
-        <div className="md:col-span-2 flex flex-col p-5">
-          {selectedMessage ? (
-            <div className="flex flex-col h-full justify-between space-y-4">
-              <div className="space-y-3">
-                <div className="border-b border-[#E2E8F0] pb-3">
-                  <h2 className="text-base font-semibold text-[#0F172A]">{selectedMessage.subject}</h2>
-                  <div className="text-xs text-[#475569] mt-1">
-                    From: <span className="font-semibold text-[#0F172A]">{selectedMessage.sender_name}</span> • {selectedMessage.date}
-                  </div>
-                </div>
-                <div className="text-xs text-[#0F172A] leading-relaxed p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[8px]">
-                  {selectedMessage.content}
-                </div>
-              </div>
-
-              {/* Reply Box */}
-              <form onSubmit={handleSendReply} className="pt-3 border-t border-[#E2E8F0] space-y-3">
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="Type director reply..."
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  className="w-full p-3 border border-[#E2E8F0] rounded-[6px] text-xs focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
-                />
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={sendingReply}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-[6px] text-xs font-semibold cursor-pointer min-h-[38px]"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>{sendingReply ? "Sending..." : "Send response"}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center text-xs text-slate-400">
-              Select a message thread to view details
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Broadcast Announcement Modal */}
-      {showBroadcastModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#E2E8F0]">
-              <h2 className="text-sm font-semibold text-[#0F172A]">Broadcast Announcement</h2>
-            </div>
-            <form onSubmit={handleBroadcast} className="p-5 space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. End of Term Examination Schedule"
-                  value={broadcastForm.title}
-                  onChange={(e) => setBroadcastForm({ ...broadcastForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Target Audience</label>
-                <select
-                  value={broadcastForm.target_grade}
-                  onChange={(e) => setBroadcastForm({ ...broadcastForm, target_grade: e.target.value })}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-                >
-                  <option value="All Grades">All Faculty & Sections</option>
-                  <option value="Grade 12">Grade 12 Only</option>
-                  <option value="Grade 11">Grade 11 Only</option>
-                  <option value="Grade 10">Grade 10 Only</option>
-                  <option value="Faculty Only">Teachers & Staff Only</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Message Content</label>
-                <textarea
-                  rows={4}
-                  required
-                  placeholder="Official memorandum or instruction..."
-                  value={broadcastForm.message}
-                  onChange={(e) => setBroadcastForm({ ...broadcastForm, message: e.target.value })}
-                  className="w-full p-3 border border-[#E2E8F0] rounded-[6px] bg-white text-xs"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
-                <button
-                  type="button"
-                  onClick={() => setShowBroadcastModal(false)}
-                  className="px-3.5 py-2 border border-[#E2E8F0] rounded-[6px] text-[#475569] font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={broadcasting}
-                  className="px-3.5 py-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-[6px] font-semibold cursor-pointer"
-                >
-                  {broadcasting ? "Broadcasting..." : "Send announcement"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        </section>
       )}
-    </div>
+
+      <Modal
+        isOpen={showBroadcastModal}
+        onClose={() => setShowBroadcastModal(false)}
+        title={t("schoolMessages.broadcastTitle")}
+        description={t("schoolMessages.broadcastDescription")}
+        maxWidth="md"
+        footer={(
+          <>
+            <button type="button" onClick={() => setShowBroadcastModal(false)} className="min-h-10 rounded-lg border border-stone-300 px-4 text-sm font-semibold text-stone-700 dark:border-white/15 dark:text-[#E7E0D6]">
+              {t("schoolMessages.cancel")}
+            </button>
+            <button type="submit" form="school-announcement-form" disabled={broadcasting} className="min-h-10 rounded-lg bg-[#881337] px-4 text-sm font-semibold text-white hover:bg-[#9F1239] disabled:opacity-50 dark:bg-[#FBBF24] dark:text-[#1C1512]">
+              {broadcasting ? t("schoolMessages.broadcasting") : t("schoolMessages.sendAnnouncement")}
+            </button>
+          </>
+        )}
+      >
+        <form id="school-announcement-form" onSubmit={(event) => void handleBroadcast(event)} className="space-y-4">
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold text-stone-800 dark:text-[#FDFBF7]">{t("schoolMessages.announcementTitleLabel")}</span>
+            <input required maxLength={120} value={broadcastForm.title} onChange={(event) => setBroadcastForm((current) => ({ ...current, title: event.target.value }))} placeholder={t("schoolMessages.titlePlaceholder")} className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-900 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/15 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold text-stone-800 dark:text-[#FDFBF7]">{t("schoolMessages.audienceLabel")}</span>
+            <select value={broadcastForm.target_grade} onChange={(event) => setBroadcastForm((current) => ({ ...current, target_grade: event.target.value }))} className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-900 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/15 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]">
+              <option value="all">{t("schoolMessages.allEnrolledStudents")}</option>
+              {[9, 10, 11, 12].map((grade) => <option key={grade} value={`Grade ${grade}`}>{t("schoolMessages.gradeStudents", { grade })}</option>)}
+            </select>
+            <span className="block text-xs leading-5 text-stone-500 dark:text-[#A89C90]">{t("schoolMessages.audienceHint")}</span>
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold text-stone-800 dark:text-[#FDFBF7]">{t("schoolMessages.messageLabel")}</span>
+            <textarea required maxLength={2000} rows={5} value={broadcastForm.message} onChange={(event) => setBroadcastForm((current) => ({ ...current, message: event.target.value }))} placeholder={t("schoolMessages.messagePlaceholder")} className="w-full resize-y rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/15 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]" />
+          </label>
+        </form>
+      </Modal>
+    </PortalPage>
   );
 }
