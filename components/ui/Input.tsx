@@ -37,7 +37,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-xs font-semibold text-slate-800 dark:text-slate-200"
+            className="block text-xs font-semibold text-stone-800 dark:text-stone-200"
           >
             {label}
             {required && <span className="text-rose-500 ml-1" aria-hidden="true">*</span>}
@@ -46,7 +46,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
         <div className="relative">
           {LeftIcon && (
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400 dark:text-stone-500">
               <LeftIcon className="w-4 h-4" aria-hidden="true" />
             </div>
           )}
@@ -60,18 +60,18 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             aria-describedby={
               error ? errorId : helperText ? helperId : undefined
             }
-            className={`w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-900/60 placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-colors focus:outline-none disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border text-sm text-stone-900 dark:text-white bg-white dark:bg-stone-900/60 placeholder:text-stone-400 dark:placeholder:text-stone-500 transition-colors focus:outline-none disabled:bg-stone-50 dark:disabled:bg-stone-800 disabled:text-stone-400 disabled:cursor-not-allowed ${
               LeftIcon ? "pl-10" : ""
             } ${RightIcon ? "pr-10" : ""} ${
               error
                 ? "border-rose-400 dark:border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-200 dark:focus:ring-rose-950/50"
-                : "border-slate-200 dark:border-white/15 hover:border-slate-300 dark:hover:border-white/25 focus:border-[#881337] dark:focus:border-[#FBBF24] focus:ring-2 focus:ring-[#881337]/20 dark:focus:ring-[#FBBF24]/20"
+                : "border-stone-200 dark:border-white/15 hover:border-stone-300 dark:hover:border-white/25 focus:border-[#881337] dark:focus:border-[#FBBF24] focus:ring-2 focus:ring-[#881337]/20 dark:focus:ring-[#FBBF24]/20"
             } ${className}`}
             {...props}
           />
 
           {RightIcon && (
-            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-stone-400 dark:text-stone-500">
               <RightIcon className="w-4 h-4" aria-hidden="true" />
             </div>
           )}
@@ -87,7 +87,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             <span>{error}</span>
           </p>
         ) : helperText ? (
-          <p id={helperId} className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+          <p id={helperId} className="text-xs text-stone-500 dark:text-stone-400 line-clamp-1">
             {helperText}
           </p>
         ) : null}

@@ -1,24 +1,3 @@
-/**
- * PricingCard - Display pricing tiers with features and CTA
- * 
- * @example
- * ```tsx
- * <PricingCard
- *   tier="School"
- *   price="3,500 Birr"
- *   period="per student/year"
- *   description="Complete school management platform"
- *   features={[
- *     "Unlimited practice questions",
- *     "Teacher dashboard",
- *     "Gradebook & analytics"
- *   ]}
- *   cta="Request Demo"
- *   ctaLink="/contact"
- *   highlighted={true}
- * />
- * ```
- */
 
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -58,12 +37,12 @@ export default function PricingCard({
         relative p-8 rounded-xl transition-all
         ${highlighted
           ? 'bg-emerald-700 text-white border-2 border-emerald-700 shadow-xl scale-105'
-          : 'bg-white border border-neutral-200 hover:shadow-lg hover:border-neutral-300'
+          : 'bg-white dark:bg-[#261E1A] border border-neutral-200 hover:shadow-lg hover:border-neutral-300'
         }
         ${className}
       `}
     >
-      {/* Badge (if highlighted) */}
+
       {badge && highlighted && (
         <div className="absolute -top-4 left-1/2 -translate-x-1/2">
           <div className="px-4 py-1 rounded-full bg-warning-400 text-neutral-900 text-xs font-semibold uppercase tracking-wider">
@@ -72,7 +51,6 @@ export default function PricingCard({
         </div>
       )}
 
-      {/* Tier Name */}
       <h3
         className={`text-xl font-bold mb-2 ${
           highlighted ? 'text-white' : 'text-neutral-900'
@@ -81,7 +59,6 @@ export default function PricingCard({
         {tier}
       </h3>
 
-      {/* Price */}
       <div className="mb-4">
         <div className="flex items-baseline gap-2">
           <span
@@ -103,7 +80,6 @@ export default function PricingCard({
         </div>
       </div>
 
-      {/* Description */}
       <p
         className={`text-sm mb-6 ${
           highlighted ? 'text-emerald-100' : 'text-neutral-600'
@@ -112,7 +88,6 @@ export default function PricingCard({
         {description}
       </p>
 
-      {/* CTA Button */}
       {ctaLink ? (
         <Button
           variant={highlighted ? 'secondary' : 'primary'}
@@ -133,7 +108,6 @@ export default function PricingCard({
         </Button>
       )}
 
-      {/* Features List */}
       <div className="space-y-3 pt-6 border-t border-neutral-200">
         {features.map((feature, index) => (
           <div key={index} className="flex items-start gap-3">

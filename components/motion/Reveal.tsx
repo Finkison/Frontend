@@ -5,10 +5,10 @@ import { MOTION_TOKENS } from "../../styles/motionTokens";
 interface RevealProps {
   children: React.ReactNode;
   className?: string;
-  staggerIndex?: number; // 0 to 5
+  staggerIndex?: number;
   delayMs?: number;
   durationMs?: number;
-  distancePx?: number; // max 16px
+  distancePx?: number;
 }
 
 export default function Reveal({
@@ -37,7 +37,6 @@ export default function Reveal({
     const node = containerRef.current;
     if (!node) return;
 
-    // IntersectionObserver playing once
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -46,7 +45,6 @@ export default function Reveal({
             setHasRevealed(true);
             observer.unobserve(entry.target);
 
-            // Clean up will-change after animation finishes
             const timer = setTimeout(() => {
               setIsAnimating(false);
             }, durationMs + computedDelay + 50);
@@ -68,7 +66,6 @@ export default function Reveal({
     };
   }, [canAnimate, durationMs, computedDelay]);
 
-  // If animations disabled (reduced motion / low-end / save-data), show final state instantly
   if (!canAnimate) {
     return <div className={className}>{children}</div>;
   }

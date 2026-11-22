@@ -7,17 +7,13 @@ export interface MotionPreferences {
   canAnimate: boolean;
 }
 
-/**
- * Hook to inspect accessibility motion preferences, Save-Data network flags,
- * and background tab visibility.
- */
 export function useMotionPreferences(): MotionPreferences {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [isTabHidden, setIsTabHidden] = useState(false);
   const [isSaveDataActive, setIsSaveDataActive] = useState(false);
 
   useEffect(() => {
-    // 1. Check prefers-reduced-motion
+
     const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
     setPrefersReducedMotion(mql.matches);
 
@@ -29,13 +25,11 @@ export function useMotionPreferences(): MotionPreferences {
       mql.addEventListener("change", onMediaChange);
     }
 
-    // 2. Check document visibility (hidden tab pause)
     const onVisibilityChange = () => {
       setIsTabHidden(document.hidden);
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
 
-    // 3. Check Save-Data / low-end network header
     const nav = navigator as any;
     if (nav?.connection?.saveData) {
       setIsSaveDataActive(true);

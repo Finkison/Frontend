@@ -5,7 +5,7 @@ import { getSubjects } from "../../services/curriculumService";
 
 export interface SearchResultItem {
   id: string;
-  category: "Preparatory Courses" | "National Exam Papers" | "Curriculum Standards";
+  category: "Courses" | "National Exam Papers" | "Curriculum Standards";
   title: string;
   description: string;
   link: string;
@@ -14,28 +14,28 @@ export interface SearchResultItem {
 const VERIFIED_CURRICULUM_CATALOG: SearchResultItem[] = [
   {
     id: "euee-math",
-    category: "Preparatory Courses",
+    category: "Courses",
     title: "Grade 12 Mathematics (Calculus & Vectors)",
-    description: "Standardized university entrance prep for natural science candidates.",
+    description: "Curriculum-aligned practice in calculus, vectors, and core mathematics.",
     link: "/academics",
   },
   {
     id: "euee-physics",
-    category: "Preparatory Courses",
+    category: "Courses",
     title: "Grade 11-12 Physics & Thermodynamics",
-    description: "In-depth problem solving calibrated against historical university cutoffs.",
+    description: "Step-by-step physics practice with curriculum-aligned explanations.",
     link: "/academics",
   },
   {
     id: "euee-chem",
-    category: "Preparatory Courses",
+    category: "Courses",
     title: "Grade 12 Chemistry (Organic & Physical)",
     description: "Reaction kinetics and laboratory calculations mapped to national curriculum.",
     link: "/academics",
   },
   {
     id: "euee-history",
-    category: "Preparatory Courses",
+    category: "Courses",
     title: "Grade 12 History & Civics",
     description: "Essential social science mastery units with source document analysis.",
     link: "/academics",
@@ -62,6 +62,13 @@ const VERIFIED_CURRICULUM_CATALOG: SearchResultItem[] = [
     link: "/ai-features",
   },
 ];
+
+const getStreamLabel = (stream: string): string => {
+  const normalizedStream = stream.trim().toLowerCase();
+  if (normalizedStream.includes("natural")) return "Natural Science";
+  if (normalizedStream.includes("social")) return "Social Science";
+  return stream.trim() || "All streams";
+};
 
 export interface EnterpriseSearchAutocompleteProps {
   placeholder?: string;
@@ -100,12 +107,12 @@ export default function EnterpriseSearchAutocomplete({
     let isMounted = true;
     getSubjects()
       .then((res) => {
-        if (!isMounted || !Array.isArray(res.data)) return;
-        const liveItems: SearchResultItem[] = res.data.map((subj: any) => ({
-          id: String(subj.id),
-          category: "Preparatory Courses",
-          title: subj.name,
-          description: `${subj.stream === "NATURAL_SCIENCE" ? "Natural Science" : "Social Science"} • ${subj.unitsCount || 6} Units • ${subj.totalQuestions || 200}+ Exam Questions`,
+        if (!isMounted || !Array.isArray(res.data.data)) return;
+        const liveItems: SearchResultItem[] = res.data.data.map((subject) => ({
+          id: subject.id,
+          category: "Courses",
+          title: subject.name,
+          description: `${getStreamLabel(subject.stream)} - ${subject.unitsCount} units - ${subject.totalQuestions} practice questions`,
           link: "/academics",
         }));
         setCatalogItems([...liveItems, ...VERIFIED_CURRICULUM_CATALOG]);
@@ -190,11 +197,11 @@ export default function EnterpriseSearchAutocomplete({
 
   return (
     <div className={`relative w-full ${className}`}>
-      {/* Combobox Input Field: 48px height, 16px font to prevent mobile zoom */}
+
       <div className="relative flex items-center">
         <Search
           size={18}
-          className="absolute left-3.5 text-slate-400 pointer-events-none"
+          className="absolute left-3.5 text-stone-400 dark:text-[#A89C90] pointer-events-none"
           aria-hidden="true"
         />
         <input
@@ -215,7 +222,7 @@ export default function EnterpriseSearchAutocomplete({
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full h-12 pl-10 pr-10 text-base text-slate-900 bg-white border border-slate-300 rounded-[6px] focus:outline-none focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/20 shadow-xs transition-colors"
+          className="w-full h-12 pl-10 pr-10 text-base text-stone-900 dark:text-[#FDFBF7] bg-white dark:bg-[#261E1A] border border-stone-300 dark:border-white/20 rounded-[6px] focus:outline-none focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/20 shadow-xs transition-colors"
         />
         {query && (
           <button
@@ -226,14 +233,13 @@ export default function EnterpriseSearchAutocomplete({
               inputRef.current?.focus();
             }}
             aria-label="Clear search input"
-            className="absolute right-3 text-slate-400 hover:text-slate-600 focus:outline-none"
+            className="absolute right-3 text-stone-400 dark:text-[#A89C90] hover:text-stone-600 focus:outline-none"
           >
             <X size={16} aria-hidden="true" />
           </button>
         )}
       </div>
 
-      {/* Floating Dropdown Results Panel */}
       {isOpen && (
         <>
           <div
@@ -244,13 +250,13 @@ export default function EnterpriseSearchAutocomplete({
           />
 
           <div
-            className="absolute top-full left-0 right-0 mt-2 bg-white rounded-[12px] border border-slate-200 shadow-xl overflow-hidden max-h-[380px] overflow-y-auto z-dropdown animate-fade-in"
+            className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#261E1A] rounded-[12px] border border-stone-200 dark:border-white/10 shadow-xl overflow-hidden max-h-[380px] overflow-y-auto z-dropdown animate-fade-in"
             style={{ zIndex: "calc(var(--z-dropdown, 200) + 1)" }}
           >
-            {/* When Query is Empty: Show Recent Searches */}
+
             {!query.trim() && recentSearches.length > 0 && (
               <div className="p-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-2 py-1 flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-stone-500 dark:text-[#A89C90] uppercase tracking-wider px-2 py-1 flex items-center gap-1.5">
                   <Clock size={12} aria-hidden="true" />
                   <span>Recent Searches</span>
                 </p>
@@ -265,19 +271,18 @@ export default function EnterpriseSearchAutocomplete({
                         setQuery(search);
                         inputRef.current?.focus();
                       }}
-                      className={`px-3 py-2 text-sm rounded-[6px] cursor-pointer flex items-center justify-between text-slate-700 transition-colors ${
-                        activeIndex === idx ? "bg-slate-100 text-[#881337] font-medium" : "hover:bg-slate-50"
+                      className={`px-3 py-2 text-sm rounded-[6px] cursor-pointer flex items-center justify-between text-stone-700 dark:text-[#E7E0D6] transition-colors ${
+                        activeIndex === idx ? "bg-stone-100 dark:bg-[#201815] text-[#881337] font-medium" : "hover:bg-stone-50 dark:hover:bg-white/5"
                       }`}
                     >
                       <span>{search}</span>
-                      <ArrowRight size={14} className="text-slate-400" aria-hidden="true" />
+                      <ArrowRight size={14} className="text-stone-400 dark:text-[#A89C90]" aria-hidden="true" />
                     </li>
                   ))}
                 </ul>
               </div>
             )}
 
-            {/* When Results Found: Grouped View */}
             {query.trim() && results.length > 0 && (
               <div className="p-3 space-y-4" role="listbox" id={listboxId}>
                 {Object.entries(groupedResults).map(([cat, items]) => (
@@ -296,16 +301,16 @@ export default function EnterpriseSearchAutocomplete({
                           aria-selected={isSelected}
                           onClick={() => handleSelect(item)}
                           className={`p-2.5 rounded-[6px] cursor-pointer text-start transition-colors ${
-                            isSelected ? "bg-slate-100 border-l-2 border-[#881337]" : "hover:bg-slate-50"
+                            isSelected ? "bg-stone-100 dark:bg-[#201815] border-l-2 border-[#881337]" : "hover:bg-stone-50 dark:hover:bg-white/5"
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-slate-900">
+                            <span className="text-sm font-semibold text-stone-900 dark:text-[#FDFBF7]">
                               {item.title}
                             </span>
-                            <ArrowRight size={14} className="text-slate-400" aria-hidden="true" />
+                            <ArrowRight size={14} className="text-stone-400 dark:text-[#A89C90]" aria-hidden="true" />
                           </div>
-                          <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+                          <p className="text-xs text-stone-500 dark:text-[#A89C90] mt-0.5 line-clamp-1">
                             {item.description}
                           </p>
                         </div>
@@ -316,13 +321,12 @@ export default function EnterpriseSearchAutocomplete({
               </div>
             )}
 
-            {/* When Query Has No Matches: Empty State */}
             {query.trim() && results.length === 0 && (
               <div className="p-6 text-center space-y-2">
-                <p className="text-sm font-semibold text-slate-800">
+                <p className="text-sm font-semibold text-stone-800 dark:text-[#FDFBF7]">
                   No matching academic modules found
                 </p>
-                <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                <p className="text-xs text-stone-500 dark:text-[#A89C90] max-w-xs mx-auto">
                   Try searching for "Grade 12", "Calculus", "Physics", or "National Exam".
                 </p>
               </div>

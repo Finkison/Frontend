@@ -1,8 +1,3 @@
-/**
- * Button Component - Unified design system implementation
- * Replaces 100+ inline button variations with consistent, accessible component
- * WCAG AA compliant with proper focus states and keyboard navigation
- */
 
 import React, { forwardRef } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -56,7 +51,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const isLoading = propIsLoading || loading;
     const resolvedIcon = typeof icon === 'function' ? React.createElement(icon, { className: iconSizes[size] }) : icon;
     const leftIcon = propLeftIcon || resolvedIcon;
-    // Variant styles
+
     const variantStyles: Record<ButtonVariant, string> = {
       primary: `
         bg-[#881337] text-white
@@ -67,26 +62,26 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         shadow-xs
       `,
       secondary: `
-        bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white
-        hover:bg-slate-200 dark:hover:bg-white/15
-        focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
-        active:bg-slate-300 dark:active:bg-white/20 active:scale-[0.98]
-        disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400
-        border border-slate-200 dark:border-white/15
+        bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-white
+        hover:bg-stone-200 dark:hover:bg-white/15
+        focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2
+        active:bg-stone-300 dark:active:bg-white/20 active:scale-[0.98]
+        disabled:bg-stone-100 dark:disabled:bg-stone-800 disabled:text-stone-400
+        border border-stone-200 dark:border-white/15
       `,
       ghost: `
-        bg-transparent text-slate-700 dark:text-slate-200
-        hover:bg-slate-100 dark:hover:bg-white/10
-        focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2
-        active:bg-slate-200 dark:active:bg-white/15 active:scale-[0.98]
-        disabled:text-slate-400
+        bg-transparent text-stone-700 dark:text-stone-200
+        hover:bg-stone-100 dark:hover:bg-white/10
+        focus-visible:ring-2 focus-visible:ring-stone-300 focus-visible:ring-offset-2
+        active:bg-stone-200 dark:active:bg-white/15 active:scale-[0.98]
+        disabled:text-stone-400
       `,
       danger: `
         bg-rose-600 text-white
         hover:bg-rose-700
         focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2
         active:bg-rose-800 active:scale-[0.98]
-        disabled:bg-slate-300 disabled:text-slate-500
+        disabled:bg-stone-300 disabled:text-stone-500
         shadow-xs
       `,
       destructive: `
@@ -94,7 +89,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         hover:bg-rose-700
         focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2
         active:bg-rose-800 active:scale-[0.98]
-        disabled:bg-slate-300 disabled:text-slate-500
+        disabled:bg-stone-300 disabled:text-stone-500
         shadow-xs
       `,
       success: `
@@ -102,19 +97,18 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         hover:bg-emerald-800
         focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2
         active:bg-emerald-900 active:scale-[0.98]
-        disabled:bg-slate-300 disabled:text-slate-500
+        disabled:bg-stone-300 disabled:text-stone-500
         shadow-xs
       `,
       outline: `
-        bg-transparent text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-white/20
-        hover:bg-slate-50 dark:hover:bg-white/10
+        bg-transparent text-stone-800 dark:text-stone-200 border border-stone-300 dark:border-white/20
+        hover:bg-stone-50 dark:hover:bg-white/10
         focus-visible:ring-2 focus-visible:ring-[#881337] focus-visible:ring-offset-2
-        active:bg-slate-100 dark:active:bg-white/15 active:scale-[0.98]
-        disabled:border-slate-200 disabled:text-slate-400
+        active:bg-stone-100 dark:active:bg-white/15 active:scale-[0.98]
+        disabled:border-stone-200 disabled:text-stone-400
       `
     };
 
-    // Size styles
     const sizeStyles: Record<ButtonSize, string> = {
       sm: 'px-3 py-1.5 text-xs gap-1.5',
       md: 'px-4 py-2.5 text-sm gap-2',

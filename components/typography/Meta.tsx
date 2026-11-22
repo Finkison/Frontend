@@ -8,35 +8,27 @@ export interface MetaItem {
 }
 
 export interface MetaProps {
-  /** Metadata items list. Maximum of 3 items enforced to eliminate UI clutter */
+
   items: MetaItem[];
-  /** Optional delimiter between items, defaults to middle dot '•' */
+
   separator?: string;
-  /** Optional container class */
+
   className?: string;
 }
 
-/**
- * Meta - Enterprise Standard Metadata Row Pattern
- * Enforces:
- * - Cap at maximum 3 items (trims excess to keep clean UI)
- * - Single line with overflow ellipsis (.text-meta)
- * - 13-14px font size, 500 weight, muted contrast
- * - Proper ARIA labels and decorative icon hiding
- */
 export const Meta: React.FC<MetaProps> = ({
   items,
   separator = "•",
   className = "",
 }) => {
-  // Strict rule: Cap at 3 items maximum
+
   const displayItems = items.slice(0, 3);
 
   if (displayItems.length === 0) return null;
 
   return (
     <div
-      className={`text-meta flex items-center flex-wrap gap-2 text-[var(--txt3,#64748B)] ${className}`}
+      className={`text-meta flex items-center flex-wrap gap-2 text-[var(--txt3,#A89C90)] ${className}`}
       role="list"
       aria-label="Metadata"
     >
@@ -51,7 +43,7 @@ export const Meta: React.FC<MetaProps> = ({
             >
               {Icon && (
                 <Icon
-                  className="w-3.5 h-3.5 shrink-0 icon-first-line text-[var(--txt3,#64748B)]"
+                  className="w-3.5 h-3.5 shrink-0 icon-first-line text-[var(--txt3,#A89C90)]"
                   aria-hidden="true"
                 />
               )}

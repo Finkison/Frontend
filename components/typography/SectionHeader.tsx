@@ -1,34 +1,26 @@
 import React from "react";
 
 export interface SectionHeaderProps {
-  /** Optional eyebrow text (max 3 words recommended, ALL CAPS allowed only here) */
+
   eyebrow?: string;
-  /** Section title */
+
   title: string;
-  /** Optional subtitle or lead paragraph */
+
   subtitle?: string;
-  /** If true, renders as H1 instead of H2 */
+
   asH1?: boolean;
-  /** Optional CTA buttons or action elements */
+
   actions?: React.ReactNode;
-  /** Optional HTML ID for landmark anchor */
+
   id?: string;
-  /** Additional custom class names */
+
   className?: string;
-  /** Alignment: 'center' (default) or 'start' */
+
   align?: "center" | "start";
-  /** If true, inverts colors to crisp white and bright stone for dark/crimson sections */
+
   invertColors?: boolean;
 }
 
-/**
- * SectionHeader - Enterprise Standard Typography Pattern
- * Enforces:
- * - Centered high-impact kicker / eyebrow (bolder font-extrabold, tracking-wider)
- * - Refined unbolded section title (font-medium, sleek modern enterprise)
- * - Centered subtitle with optimal line length
- * - Semantic H1/H2 hierarchy
- */
 export const SectionHeader: React.FC<SectionHeaderProps> = ({
   eyebrow,
   title,
@@ -46,6 +38,11 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
       className={`section-header-block ${isCenter ? "text-center mx-auto" : "text-start"} ${className}`}
       id={id}
     >
+      {eyebrow && (
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-[#881337]">
+          {eyebrow}
+        </p>
+      )}
       {asH1 ? (
         <h1
           className={`text-h1 font-medium ${

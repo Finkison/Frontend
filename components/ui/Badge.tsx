@@ -22,10 +22,6 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   ariaLabel?: string;
 }
 
-/**
- * Standardized Badge Component
- * Strictly adheres to 24px height, 12px font size, 6px radius, and WCAG AA semantic tokens.
- */
 export function Badge({
   children,
   variant,
@@ -38,7 +34,7 @@ export function Badge({
 }: BadgeProps): React.ReactElement {
   const content = value || children;
 
-  let colorClass = "bg-[#F8FAFC] text-[#334155] border-[#E2E8F0] dark:bg-[#1E293B] dark:text-[#CBD5E1] dark:border-[#334155]";
+  let colorClass = "bg-[#FAF8F5] text-[#5C5046] border-[#E7E0D6] dark:bg-[#261E1A] dark:text-[#E7E0D6] dark:border-white/10";
 
   if (variant) {
     const variantStyles: Record<BadgeVariant, string> = {
@@ -46,8 +42,8 @@ export function Badge({
       success: "bg-[#F0FDF4] text-[#15803D] border-[#BBF7D0] dark:bg-[#052E16] dark:text-[#86EFAC] dark:border-[#166534]",
       warning: "bg-[#FFFBEB] text-[#92400E] border-[#FDE68A] dark:bg-[#451A03] dark:text-[#FCD34D] dark:border-[#B45309]",
       error: "bg-[#FEF2F2] text-[#991B1B] border-[#FECACA] dark:bg-[#450A0A] dark:text-[#FCA5A5] dark:border-[#991B1B]",
-      info: "bg-[#FFFBEB] text-[#B45309] border-[#FDE68A] dark:bg-[#451A03] dark:text-[#FCD34D] dark:border-[#B45309]",
-      neutral: "bg-[#F8FAFC] text-[#334155] border-[#E2E8F0] dark:bg-[#1E293B] dark:text-[#CBD5E1] dark:border-[#334155]",
+      info: "bg-[#FFF1F2] text-[#881337] border-[#FECDD3] dark:bg-[#4C0519] dark:text-[#FECDD3] dark:border-[#881337]",
+      neutral: "bg-[#FAF8F5] text-[#5C5046] border-[#E7E0D6] dark:bg-[#261E1A] dark:text-[#E7E0D6] dark:border-white/10",
     };
     colorClass = variantStyles[variant] || colorClass;
   } else if (type === "status") {
@@ -57,12 +53,12 @@ export function Badge({
     } else if (textStr.includes("progress")) {
       colorClass = "bg-[#FFFBEB] text-[#92400E] border-[#FDE68A] dark:bg-[#451A03] dark:text-[#FCD34D] dark:border-[#B45309]";
     } else {
-      colorClass = "bg-[#F8FAFC] text-[#334155] border-[#E2E8F0] dark:bg-[#1E293B] dark:text-[#CBD5E1] dark:border-[#334155]";
+      colorClass = "bg-[#FAF8F5] text-[#5C5046] border-[#E7E0D6] dark:bg-[#261E1A] dark:text-[#E7E0D6] dark:border-white/10";
     }
   } else if (type === "level") {
     colorClass = "bg-[#FFF1F2] text-[#881337] border-[#FECDD3] dark:bg-[#4C0519] dark:text-[#FECDD3] dark:border-[#881337]";
   } else if (type === "access") {
-    colorClass = "bg-[#F8FAFC] text-[#334155] border-[#CBD5E1] dark:bg-[#1E293B] dark:text-[#E2E8F0] dark:border-[#475569]";
+    colorClass = "bg-[#FAF8F5] text-[#5C5046] border-[#D5CBC0] dark:bg-[#261E1A] dark:text-[#E7E0D6] dark:border-white/10";
   } else if (type === "recency") {
     colorClass = "bg-[#FFFBEB] text-[#B45309] border-[#FDE68A] dark:bg-[#451A03] dark:text-[#FCD34D] dark:border-[#B45309]";
   }

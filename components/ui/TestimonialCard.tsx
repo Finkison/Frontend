@@ -1,23 +1,3 @@
-/**
- * TestimonialCard - Social proof with educator testimonials
- * 
- * @example
- * ```tsx
- * <TestimonialCard
- *   quote="Pass rate improved from 68% to 91%"
- *   author={{
- *     name: "Alemayehu Tadesse",
- *     role: "Math Teacher",
- *     school: "Addis Ababa Bole HS",
- *     avatar: "/avatars/alemayehu.jpg"
- *   }}
- *   metric={{
- *     label: "Pass Rate Improvement",
- *     value: "68% → 91%"
- *   }}
- * />
- * ```
- */
 
 import React from 'react';
 import { Quote, User } from 'lucide-react';
@@ -52,22 +32,20 @@ export default function TestimonialCard({
   return (
     <div
       className={`
-        p-6 rounded-xl border border-neutral-200 bg-white
+        p-6 rounded-xl border border-neutral-200 bg-white dark:bg-[#261E1A]
         hover:shadow-lg transition-shadow
         ${className}
       `}
     >
-      {/* Quote Icon */}
+
       <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mb-4">
         <Quote className="w-5 h-5" />
       </div>
 
-      {/* Quote Text */}
       <p className="text-base text-neutral-700 leading-relaxed mb-4">
         "{quote}"
       </p>
 
-      {/* Metric (if provided) */}
       {metric && (
         <div className="p-3 rounded-lg bg-neutral-50 border border-neutral-200 mb-4">
           <p className="text-xs text-neutral-500 mb-0.5">{metric.label}</p>
@@ -75,7 +53,6 @@ export default function TestimonialCard({
         </div>
       )}
 
-      {/* Rating (if provided) */}
       {rating && (
         <div className="flex gap-1 mb-4">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -91,7 +68,6 @@ export default function TestimonialCard({
         </div>
       )}
 
-      {/* Author */}
       <div className="flex items-center gap-3 pt-4 border-t border-neutral-200">
         <div className="w-12 h-12 rounded-full bg-neutral-200 overflow-hidden flex items-center justify-center shrink-0">
           {author.avatar ? (

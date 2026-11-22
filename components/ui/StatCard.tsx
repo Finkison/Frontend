@@ -1,16 +1,3 @@
-/**
- * StatCard - Display key metrics with optional trend indicators
- * 
- * @example
- * ```tsx
- * <StatCard
- *   value="320,000+"
- *   label="Active Students"
- *   icon={<Users />}
- *   trend={{ value: 15, direction: 'up' }}
- * />
- * ```
- */
 
 import React from 'react';
 import { TrendingUp, TrendingDown, type LucideIcon } from 'lucide-react';
@@ -47,7 +34,7 @@ export default function StatCard({
         p-6 rounded-xl border transition-shadow
         ${variant === 'emphasized' 
           ? 'border-emerald-200 bg-emerald-50' 
-          : 'border-neutral-200 bg-white hover:shadow-lg'
+          : 'border-neutral-200 bg-white dark:bg-[#261E1A] hover:shadow-lg'
         }
         ${className}
       `}
@@ -65,7 +52,7 @@ export default function StatCard({
               {subtitle}
             </p>
           )}
-          
+
           {trend && (
             <div className="flex items-center gap-1.5 mt-2">
               {trend.direction === 'up' ? (
@@ -85,7 +72,7 @@ export default function StatCard({
             </div>
           )}
         </div>
-        
+
         {icon && (
           <div className="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
             {icon}

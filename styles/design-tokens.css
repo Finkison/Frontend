@@ -58,7 +58,7 @@
   --stone-600: #5C5046;
   --stone-700: #443932;
   --stone-800: #312722;
-  --stone-900: #261E1A; /* Rich Cocoa Slate (Replaces #0F172A) */
+  --stone-900: #261E1A; /* Rich Cocoa */
   --stone-950: #1C1512; /* Deep Espresso Anchor (Replaces #000000) */
 
   /* Backward Compatibility Aliases */
@@ -296,7 +296,7 @@
   /* =========================================================================
      FLUID TYPOGRAPHY (Clamp Scale - Inter + Roboto Mono, 4 Weights)
      ========================================================================= */
-  --font-family-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-sans: "Inter", "Noto Sans Ethiopic", "Nyala", "Ebrima", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-family-mono: "Roboto Mono", ui-monospace, SFMono-Regular, monospace;
 
   /* H1: 48-64px desktop / 32-40px mobile, LH 1.15 */
@@ -328,7 +328,7 @@
   /* Legacy color aliases for existing component compatibility */
   --color-navy:        var(--brand-navy);
   --color-navy-dark:   var(--brand-navy-dark);
-  --color-navy-surface: #0F172A;
+  --color-navy-surface: #261E1A;
   --color-brand-sky:   var(--brand-sky);
   --color-brand-sky-hover: var(--brand-sky-hover);
   --color-brand-sky-active: var(--brand-sky-active);

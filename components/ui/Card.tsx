@@ -21,10 +21,10 @@ export function Card({
   const baseStyles = "rounded-xl transition-all duration-200";
 
   const variantStyles = {
-    flat: "border border-transparent bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white shadow-none",
-    outlined: "border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1B3A] text-slate-900 dark:text-white shadow-none",
-    raised: "border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#0B1B3A] text-slate-900 dark:text-white shadow-sm hover:shadow-md",
-    floating: "border border-slate-200/60 dark:border-white/10 bg-white dark:bg-[#0E2046] text-slate-900 dark:text-white shadow-xl",
+    flat: "border border-transparent bg-stone-50 dark:bg-white/5 text-stone-900 dark:text-white shadow-none",
+    outlined: "border border-stone-200 dark:border-white/10 bg-white dark:bg-[#4C0519] text-stone-900 dark:text-white shadow-none",
+    raised: "border border-stone-200/80 dark:border-white/10 bg-white dark:bg-[#4C0519] text-stone-900 dark:text-white shadow-sm hover:shadow-md",
+    floating: "border border-stone-200/60 dark:border-white/10 bg-white dark:bg-[#261E1A] text-stone-900 dark:text-white shadow-xl",
   };
 
   const paddingStyles = {
@@ -35,7 +35,7 @@ export function Card({
   };
 
   const interactiveStyles = interactive
-    ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:border-slate-300 dark:hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] active:translate-y-0"
+    ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:border-stone-300 dark:hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] active:translate-y-0"
     : "";
 
   return (
@@ -44,13 +44,13 @@ export function Card({
       {...props}
     >
       {header && (
-        <div className="mb-4 pb-4 border-b border-slate-200 dark:border-white/10">
+        <div className="mb-4 pb-4 border-b border-stone-200 dark:border-white/10">
           {header}
         </div>
       )}
       {children}
       {footer && (
-        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
+        <div className="mt-4 pt-4 border-t border-stone-200 dark:border-white/10">
           {footer}
         </div>
       )}
@@ -77,7 +77,7 @@ export function CardTitle({
 }: React.HTMLAttributes<HTMLHeadingElement>): React.ReactElement {
   return (
     <h3
-      className={`text-base font-semibold text-slate-900 dark:text-white leading-6 ${className}`}
+      className={`text-base font-semibold text-stone-900 dark:text-white leading-6 ${className}`}
       {...props}
     >
       {children}
@@ -91,7 +91,7 @@ export function CardDescription({
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>): React.ReactElement {
   return (
-    <p className={`text-xs text-slate-500 dark:text-slate-400 leading-5 ${className}`} {...props}>
+    <p className={`text-xs text-stone-500 dark:text-stone-400 leading-5 ${className}`} {...props}>
       {children}
     </p>
   );
@@ -116,7 +116,7 @@ export function CardFooter({
 }: React.HTMLAttributes<HTMLDivElement>): React.ReactElement {
   return (
     <div
-      className={`mt-4 pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 ${className}`}
+      className={`mt-4 pt-3 border-t border-stone-200 dark:border-white/10 flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 ${className}`}
       {...props}
     >
       {children}

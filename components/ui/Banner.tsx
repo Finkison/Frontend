@@ -43,28 +43,21 @@ export function Banner({
   const Icon = icons[variant];
 
   const variantStyles = {
-    info: "bg-[#EFF6FF] border-[#BFDBFE] text-[#1D4ED8]",
-    success: "bg-[#F0FDF4] border-[#BBF7D0] text-[#15803D]",
-    warning: "bg-[#FFFBEB] border-[#FDE68A] text-[#B45309]",
-    error: "bg-[#FEF2F2] border-[#FECACA] text-[#B91C1C]",
-  };
-
-  const iconColors = {
-    info: "text-[#1D4ED8]",
-    success: "text-[#15803D]",
-    warning: "text-[#B45309]",
-    error: "text-[#B91C1C]",
+    info: "border-[#FECDD3] bg-[#FFF1F2] text-[#881337] dark:border-[#881337]/50 dark:bg-[#4C0519]/40 dark:text-[#FBBF24]",
+    success: "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D] dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200",
+    warning: "border-[#FDE68A] bg-[#FFFBEB] text-[#B45309] dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200",
+    error: "border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C] dark:border-red-900 dark:bg-red-950/30 dark:text-red-200",
   };
 
   return (
     <div
       role="alert"
-      className={`border rounded-[8px] p-3.5 flex items-start gap-3 text-xs leading-5 ${variantStyles[variant]} ${className}`}
+      className={`flex items-start gap-3 rounded-xl border p-3.5 text-xs leading-5 ${variantStyles[variant]} ${className}`}
     >
-      <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${iconColors[variant]}`} aria-hidden="true" />
+      <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <div className="flex-1 space-y-0.5">
         {title && <p className="font-semibold">{title}</p>}
-        <p className="text-slate-700">{message}</p>
+        <p className="text-stone-700 dark:text-[#E7E0D6]">{message}</p>
         {action && (
           <button
             type="button"
@@ -80,7 +73,7 @@ export function Banner({
         <button
           type="button"
           onClick={handleDismiss}
-          className="p-1 rounded hover:bg-black/5 text-slate-500 hover:text-slate-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+          className="p-1 rounded hover:bg-black/5 text-stone-500 dark:text-[#A89C90] hover:text-stone-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
           aria-label="Dismiss banner"
         >
           <X className="w-3.5 h-3.5" aria-hidden="true" />

@@ -1,8 +1,3 @@
-/**
- * DataTable Component - Enterprise-grade table with sorting, filtering, pagination
- * Replaces duplicate table implementations across School, Teacher, Admin views
- * Fully accessible with keyboard navigation and screen reader support
- */
 
 import React, { useState, useMemo } from 'react';
 import { 
@@ -10,19 +5,17 @@ import {
   ChevronDown, 
   ChevronsUpDown,
   Search,
-  Filter,
   Download,
-  MoreHorizontal,
   ArrowLeft,
   ArrowRight
 } from 'lucide-react';
 import Button from './Button';
+import type { ButtonVariant } from './Button';
 
 export interface Column<T> {
   key: string;
   header: string;
   sortable?: boolean;
-  filterable?: boolean;
   render?: (item: T, index: number) => React.ReactNode;
   width?: string;
   align?: 'left' | 'center' | 'right';
@@ -31,7 +24,7 @@ export interface Column<T> {
 export interface BulkActionItem<T> {
   label: string;
   onClick: (rows: T[]) => void;
-  variant?: any;
+  variant?: ButtonVariant;
 }
 
 export interface DataTableProps<T> {
@@ -39,49 +32,50 @@ export interface DataTableProps<T> {
   columns: Column<T>[];
   keyExtractor?: (item: T, index: number) => string | number;
   searchKey?: string;
-  
-  // Features
+
   searchable?: boolean;
   searchPlaceholder?: string;
-  filterable?: boolean;
   exportable?: boolean;
   onExport?: () => void;
   onExportCsv?: () => void;
-  
-  // Pagination
+
   paginated?: boolean;
   pageSize?: number;
-  
-  // Row actions
+
   onRowClick?: (item: T, index: number) => void;
   rowActions?: (item: T, index: number) => React.ReactNode;
-  
-  // Bulk actions
+
   selectable?: boolean;
   onSelectionChange?: (selectedItems: T[]) => void;
   bulkActions?: React.ReactNode | BulkActionItem<T>[];
-  
-  // Empty state
+
   emptyMessage?: string;
   emptyIcon?: React.ReactNode;
-  
-  // Loading state
+
   isLoading?: boolean;
-  
-  // Styling
+
   stickyHeader?: boolean;
   stripedRows?: boolean;
   compactMode?: boolean;
   className?: string;
 }
 
-export default function DataTable<T extends Record<string, any>>({
+const getCellValue = <T extends object>(item: T, key: string): unknown =>
+  (item as Record<string, unknown>)[key];
+
+const renderCellValue = (value: unknown): React.ReactNode => {
+  if (typeof value === 'string' || typeof value === 'number') return value;
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return null;
+};
+
+export default function DataTable<T extends object>({
   data,
   columns,
   keyExtractor,
+  searchKey,
   searchable = false,
   searchPlaceholder = 'Search...',
-  filterable = false,
   exportable = false,
   onExport,
   onExportCsv,
@@ -104,43 +98,48 @@ export default function DataTable<T extends Record<string, any>>({
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<Set<string | number>>(new Set());
+  const effectivePageSize = Number.isFinite(pageSize) ? Math.max(1, Math.floor(pageSize)) : 10;
 
-  // Search functionality
+  const getRowKey = (item: T, index: number): string | number => {
+    if (keyExtractor) return keyExtractor(item, index);
+    const id = getCellValue(item, 'id');
+    return typeof id === 'string' || typeof id === 'number' ? id : index;
+  };
+
   const searchedData = useMemo(() => {
     if (!searchable || !searchQuery.trim()) return data;
-    
+
     const query = searchQuery.toLowerCase();
     return data.filter((item) => {
-      return Object.values(item).some((value) => {
+      const values = searchKey
+        ? [getCellValue(item, searchKey)]
+        : Object.values(item as Record<string, unknown>);
+      return values.some((value) => {
         if (value === null || value === undefined) return false;
         return String(value).toLowerCase().includes(query);
       });
     });
-  }, [data, searchQuery, searchable]);
+  }, [data, searchQuery, searchable, searchKey]);
 
-  // Sort functionality
   const sortedData = useMemo(() => {
     if (!sortConfig) return searchedData;
 
     const sorted = [...searchedData].sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
+      const aValue = getCellValue(a, sortConfig.key);
+      const bValue = getCellValue(b, sortConfig.key);
 
       if (aValue === bValue) return 0;
-      
-      // Handle null/undefined
+
       if (aValue === null || aValue === undefined) return 1;
       if (bValue === null || bValue === undefined) return -1;
 
-      // Numeric comparison
       if (typeof aValue === 'number' && typeof bValue === 'number') {
         return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
       }
 
-      // String comparison
       const aStr = String(aValue).toLowerCase();
       const bStr = String(bValue).toLowerCase();
-      
+
       if (sortConfig.direction === 'asc') {
         return aStr < bStr ? -1 : 1;
       } else {
@@ -151,18 +150,16 @@ export default function DataTable<T extends Record<string, any>>({
     return sorted;
   }, [searchedData, sortConfig]);
 
-  // Pagination
   const paginatedData = useMemo(() => {
     if (!paginated) return sortedData;
-    
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
+
+    const startIndex = (currentPage - 1) * effectivePageSize;
+    const endIndex = startIndex + effectivePageSize;
     return sortedData.slice(startIndex, endIndex);
-  }, [sortedData, currentPage, pageSize, paginated]);
+  }, [sortedData, currentPage, effectivePageSize, paginated]);
 
-  const totalPages = Math.ceil(sortedData.length / pageSize);
+  const totalPages = Math.ceil(sortedData.length / effectivePageSize);
 
-  // Handlers
   const handleSort = (columnKey: string) => {
     setSortConfig((current) => {
       if (!current || current.key !== columnKey) {
@@ -177,7 +174,7 @@ export default function DataTable<T extends Record<string, any>>({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allKeys = paginatedData.map((item, idx) => keyExtractor(item, idx));
+      const allKeys = paginatedData.map((item) => getRowKey(item, data.indexOf(item)));
       setSelectedRows(new Set(allKeys));
     } else {
       setSelectedRows(new Set());
@@ -192,23 +189,22 @@ export default function DataTable<T extends Record<string, any>>({
       newSelected.delete(key);
     }
     setSelectedRows(newSelected);
-    
+
     if (onSelectionChange) {
       const selectedItems = data.filter((item, idx) => 
-        newSelected.has(keyExtractor(item, idx))
+        newSelected.has(getRowKey(item, idx))
       );
       onSelectionChange(selectedItems);
     }
   };
 
   const allSelected = paginatedData.length > 0 && 
-    paginatedData.every((item, idx) => selectedRows.has(keyExtractor(item, idx)));
-  
-  const someSelected = paginatedData.some((item, idx) => 
-    selectedRows.has(keyExtractor(item, idx))
+    paginatedData.every((item) => selectedRows.has(getRowKey(item, data.indexOf(item))));
+
+  const someSelected = paginatedData.some((item) =>
+    selectedRows.has(getRowKey(item, data.indexOf(item)))
   ) && !allSelected;
 
-  // Render functions
   const renderSortIcon = (columnKey: string) => {
     if (!sortConfig || sortConfig.key !== columnKey) {
       return <ChevronsUpDown className="w-3.5 h-3.5 text-neutral-400" />;
@@ -222,22 +218,23 @@ export default function DataTable<T extends Record<string, any>>({
 
   if (isLoading) {
     return (
-      <div className="animate-pulse space-y-4">
-        <div className="h-10 bg-neutral-100 rounded-lg" />
-        <div className="h-64 bg-neutral-50 rounded-xl border border-neutral-200" />
+      <div role="status" aria-live="polite" className="animate-pulse space-y-4">
+        <div className="h-10 rounded-lg bg-stone-100 dark:bg-white/10" />
+        <div className="h-64 rounded-xl border border-stone-200 bg-stone-50 dark:border-white/10 dark:bg-[#1C1512]" />
+        <span className="sr-only">Loading table data</span>
       </div>
     );
   }
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Toolbar */}
-      {(searchable || filterable || exportable || (selectable && selectedRows.size > 0)) && (
+
+      {(searchable || exportable || (selectable && selectedRows.size > 0)) && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2">
           <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
             {searchable && (
               <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                 <input
                   type="text"
                   placeholder={searchPlaceholder}
@@ -246,23 +243,18 @@ export default function DataTable<T extends Record<string, any>>({
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="min-h-11 w-full rounded-lg border border-stone-300 bg-white pl-9 pr-4 text-sm text-stone-900 focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20 dark:border-white/15 dark:bg-[#1C1512] dark:text-[#FDFBF7]"
                   aria-label="Search table"
                 />
               </div>
             )}
-            
-            {filterable && (
-              <Button variant="secondary" size="sm" leftIcon={<Filter />}>
-                Filter
-              </Button>
-            )}
+
           </div>
 
           <div className="flex items-center gap-2">
             {selectable && selectedRows.size > 0 && bulkActions && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
-                <span className="text-xs font-semibold text-emerald-900">
+              <div className="flex items-center gap-2 rounded-lg border border-[#FECDD3] bg-[#FFF1F2] px-3 py-1.5 dark:border-[#881337]/50 dark:bg-[#4C0519]/40">
+                <span className="text-xs font-semibold text-[#881337] dark:text-[#FBBF24]">
                   {selectedRows.size} selected
                 </span>
                 {Array.isArray(bulkActions) ? (
@@ -273,7 +265,7 @@ export default function DataTable<T extends Record<string, any>>({
                       size="sm"
                       onClick={() => {
                         const selectedItems = data.filter((item, idx) => {
-                          const key = keyExtractor ? keyExtractor(item, idx) : (item.id ?? idx);
+                          const key = getRowKey(item, idx);
                           return selectedRows.has(key);
                         });
                         action.onClick(selectedItems);
@@ -288,7 +280,7 @@ export default function DataTable<T extends Record<string, any>>({
               </div>
             )}
 
-            {exportable && (
+            {exportable && (onExport || onExportCsv) && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -302,13 +294,13 @@ export default function DataTable<T extends Record<string, any>>({
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
-        <table className="w-full text-left border-collapse">
+      <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:bg-[#261E1A] shadow-sm">
+        <table className="w-full min-w-[42rem] border-collapse text-left">
+          <caption className="sr-only">Data table</caption>
           <thead className={`${stickyHeader ? 'sticky top-0 z-10' : ''}`}>
-            <tr className="bg-neutral-50/80 border-b border-neutral-200">
+            <tr className="border-b border-stone-200 bg-stone-50/80 dark:border-white/10 dark:bg-white/5">
               {selectable && (
-                <th className="w-12 px-4 py-3">
+                <th scope="col" className="w-12 px-4 py-3">
                   <input
                     type="checkbox"
                     checked={allSelected}
@@ -321,11 +313,12 @@ export default function DataTable<T extends Record<string, any>>({
                   />
                 </th>
               )}
-              
+
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3 text-xs font-bold uppercase tracking-wider text-neutral-600 ${
+                  scope="col"
+                  className={`px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-[#E7E0D6] ${
                     column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'
                   }`}
                   style={{ width: column.width }}
@@ -333,7 +326,7 @@ export default function DataTable<T extends Record<string, any>>({
                   {column.sortable ? (
                     <button
                       onClick={() => handleSort(column.key)}
-                      className="inline-flex items-center gap-1.5 hover:text-neutral-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded px-1 -ml-1"
+                      className="ml-[-0.25rem] inline-flex items-center gap-1.5 rounded px-1 transition-colors hover:text-[#881337] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:hover:text-[#FBBF24]"
                       aria-label={`Sort by ${column.header}`}
                     >
                       <span>{column.header}</span>
@@ -346,20 +339,20 @@ export default function DataTable<T extends Record<string, any>>({
               ))}
 
               {rowActions && (
-                <th className="w-16 px-4 py-3 text-right">
+                <th scope="col" className="w-16 px-4 py-3 text-right">
                   <span className="sr-only">Actions</span>
                 </th>
               )}
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-neutral-100">
+          <tbody className="divide-y divide-stone-100 dark:divide-white/10">
             {paginatedData.length === 0 ? (
               <tr>
                 <td colSpan={columns.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} className="px-4 py-12">
                   <div className="flex flex-col items-center justify-center text-center space-y-3">
-                    {emptyIcon || <Search className="w-12 h-12 text-neutral-300" />}
-                    <p className="text-sm font-medium text-neutral-600">{emptyMessage}</p>
+                    {emptyIcon || <Search className="h-12 w-12 text-stone-300 dark:text-stone-600" />}
+                    <p className="text-sm font-medium text-stone-600 dark:text-[#E7E0D6]">{emptyMessage}</p>
                     {searchQuery && (
                       <Button
                         variant="ghost"
@@ -377,17 +370,25 @@ export default function DataTable<T extends Record<string, any>>({
               </tr>
             ) : (
               paginatedData.map((item, index) => {
-                const key = keyExtractor(item, index);
+                const key = getRowKey(item, data.indexOf(item));
                 const isSelected = selectedRows.has(key);
-                
+
                 return (
                   <tr
                     key={key}
                     onClick={() => onRowClick?.(item, index)}
+                    onKeyDown={(event) => {
+                      if (onRowClick && (event.key === 'Enter' || event.key === ' ')) {
+                        event.preventDefault();
+                        onRowClick(item, index);
+                      }
+                    }}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    aria-label={onRowClick ? `Open row ${index + 1}` : undefined}
                     className={`
-                      ${stripedRows && index % 2 === 1 ? 'bg-neutral-50/30' : ''}
-                      ${onRowClick ? 'cursor-pointer hover:bg-neutral-50' : ''}
-                      ${isSelected ? 'bg-emerald-50/50' : ''}
+                      ${stripedRows && index % 2 === 1 ? 'bg-stone-50/30 dark:bg-white/[0.02]' : ''}
+                      ${onRowClick ? 'cursor-pointer hover:bg-stone-50 dark:hover:bg-white/5' : ''}
+                      ${isSelected ? 'bg-[#FFF1F2]/60 dark:bg-[#4C0519]/30' : ''}
                       transition-colors
                     `}
                   >
@@ -405,7 +406,7 @@ export default function DataTable<T extends Record<string, any>>({
                         />
                       </td>
                     )}
-                    
+
                     {columns.map((column) => (
                       <td
                         key={column.key}
@@ -413,7 +414,7 @@ export default function DataTable<T extends Record<string, any>>({
                           column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'
                         }`}
                       >
-                        {column.render ? column.render(item, index) : item[column.key]}
+                        {column.render ? column.render(item, index) : renderCellValue(getCellValue(item, column.key))}
                       </td>
                     ))}
 
@@ -432,12 +433,11 @@ export default function DataTable<T extends Record<string, any>>({
         </table>
       </div>
 
-      {/* Pagination */}
       {paginated && totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+        <nav aria-label="Pagination" className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
           <p className="text-xs text-neutral-600">
-            Showing <span className="font-semibold">{(currentPage - 1) * pageSize + 1}</span> to{' '}
-            <span className="font-semibold">{Math.min(currentPage * pageSize, sortedData.length)}</span> of{' '}
+            Showing <span className="font-semibold">{(currentPage - 1) * effectivePageSize + 1}</span> to{' '}
+            <span className="font-semibold">{Math.min(currentPage * effectivePageSize, sortedData.length)}</span> of{' '}
             <span className="font-semibold">{sortedData.length}</span> results
           </p>
 
@@ -452,7 +452,7 @@ export default function DataTable<T extends Record<string, any>>({
             >
               Previous
             </Button>
-            
+
             <div className="flex items-center gap-1">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let pageNum;
@@ -495,11 +495,10 @@ export default function DataTable<T extends Record<string, any>>({
               Next
             </Button>
           </div>
-        </div>
+        </nav>
       )}
     </div>
   );
 }
 
 export { DataTable };
-

@@ -9,7 +9,7 @@ export interface Step {
 
 export interface StepperProps {
   steps: Step[];
-  currentStep: number; // 0-indexed
+  currentStep: number;
   onStepClick?: (stepIndex: number) => void;
   className?: string;
 }
@@ -33,7 +33,7 @@ export function Stepper({
               key={step.id}
               className={`flex-1 relative ${
                 idx !== steps.length - 1
-                  ? "after:content-[''] after:w-full after:h-0.5 after:bg-[#E2E8F0] after:inline-block after:absolute after:top-4 after:left-1/2"
+                  ? "after:content-[''] after:w-full after:h-0.5 after:bg-[#E7E0D6] after:inline-block after:absolute after:top-4 after:left-1/2"
                   : ""
               }`}
             >
@@ -46,10 +46,10 @@ export function Stepper({
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors min-h-[32px] min-w-[32px] ${
                     isComplete
-                      ? "bg-[#1D4ED8] text-white"
+                      ? "bg-[#881337] text-white"
                       : isCurrent
-                      ? "bg-white border-2 border-[#1D4ED8] text-[#1D4ED8] font-bold ring-4 ring-[#EFF6FF]"
-                      : "bg-slate-100 border border-[#E2E8F0] text-slate-400"
+                      ? "bg-white dark:bg-[#261E1A] border-2 border-[#881337] text-[#881337] font-bold ring-4 ring-rose-50"
+                      : "bg-stone-100 dark:bg-[#201815] border border-[#E7E0D6] dark:border-white/10 text-stone-400 dark:text-[#A89C90]"
                   }`}
                   aria-current={isCurrent ? "step" : undefined}
                 >
@@ -64,16 +64,16 @@ export function Stepper({
                   <p
                     className={`text-xs font-semibold ${
                       isCurrent
-                        ? "text-[#1D4ED8]"
+                        ? "text-[#881337]"
                         : isComplete
-                        ? "text-[#0F172A]"
-                        : "text-[#475569]"
+                        ? "text-[#261E1A] dark:text-[#FDFBF7]"
+                        : "text-[#5C5046] dark:text-[#E7E0D6]"
                     }`}
                   >
                     {step.title}
                   </p>
                   {step.description && (
-                    <p className="text-[11px] text-slate-400 hidden sm:block">
+                    <p className="text-[11px] text-stone-400 dark:text-[#A89C90] hidden sm:block">
                       {step.description}
                     </p>
                   )}

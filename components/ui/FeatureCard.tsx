@@ -1,16 +1,3 @@
-/**
- * FeatureCard - Display product features with icon and CTA
- * 
- * @example
- * ```tsx
- * <FeatureCard
- *   icon={<Brain />}
- *   title="AI Diagnostic Engine"
- *   description="Identifies knowledge gaps and recommends review topics"
- *   cta={{ text: "Learn more", link: "/ai-features" }}
- * />
- * ```
- */
 
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -37,16 +24,16 @@ export default function FeatureCard({
   className = '',
 }: FeatureCardProps): React.ReactElement {
   const baseStyles = 'p-6 rounded-xl transition-all group';
-  
+
   const variantStyles = {
-    default: 'bg-white border border-neutral-200 hover:shadow-lg hover:border-neutral-300',
+    default: 'bg-white dark:bg-[#261E1A] border border-neutral-200 hover:shadow-lg hover:border-neutral-300',
     outlined: 'bg-transparent border-2 border-neutral-300 hover:border-emerald-700 hover:bg-emerald-50',
     emphasized: 'bg-emerald-50 border border-emerald-200 hover:shadow-lg hover:bg-emerald-100',
   };
 
   return (
     <div className={`${baseStyles} ${variantStyles[variant]} ${className}`}>
-      {/* Icon */}
+
       <div
         className={`
           w-12 h-12 rounded-lg flex items-center justify-center mb-4
@@ -60,7 +47,6 @@ export default function FeatureCard({
         {icon}
       </div>
 
-      {/* Content */}
       <h3 className="text-lg font-semibold text-neutral-900 mb-2">
         {title}
       </h3>
@@ -68,7 +54,6 @@ export default function FeatureCard({
         {description}
       </p>
 
-      {/* CTA */}
       {cta && (
         <Link
           to={cta.link}

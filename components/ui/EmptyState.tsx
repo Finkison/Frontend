@@ -19,21 +19,23 @@ export function EmptyState({
   icon: Icon = FolderOpen,
   className = "",
 }: EmptyStateProps): React.ReactElement {
+  const titleId = title ? `empty-state-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : undefined;
+
   return (
     <div
-      className={`border border-dashed border-[#E2E8F0] rounded-[8px] p-8 text-center bg-[#F8FAFC] flex flex-col items-center justify-center space-y-3 ${className}`}
-      role="region"
-      aria-label="Empty content"
+      className={`flex flex-col items-center justify-center space-y-3 rounded-xl border border-dashed border-[#E7E0D6] bg-[#FAF8F5] p-8 text-center dark:border-white/10 dark:bg-[#1C1512] ${className}`}
+      role={title ? "region" : undefined}
+      aria-labelledby={titleId}
     >
-      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100 text-stone-400 dark:bg-[#201815] dark:text-[#A89C90]">
         <Icon className="w-5 h-5" aria-hidden="true" />
       </div>
 
       <div className="space-y-1 max-w-sm">
         {title && (
-          <h4 className="text-sm font-semibold text-[#0F172A]">{title}</h4>
+          <h4 id={titleId} className="text-sm font-semibold text-[#261E1A] dark:text-[#FDFBF7]">{title}</h4>
         )}
-        <p className="text-xs text-[#475569] leading-5">{description}</p>
+        <p className="text-xs leading-5 text-[#5C5046] dark:text-[#E7E0D6]">{description}</p>
       </div>
 
       {actionLabel && onAction && (

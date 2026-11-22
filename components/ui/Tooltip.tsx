@@ -41,7 +41,7 @@ export default function EnterpriseTooltip({
         <div
           id={tooltipId}
           role="tooltip"
-          className={`absolute ${positionClasses} px-2.5 py-1 text-xs font-medium text-white bg-slate-900 rounded-[6px] shadow-md whitespace-nowrap pointer-events-none transition-opacity duration-150 animate-fade-in`}
+          className={`absolute ${positionClasses} px-2.5 py-1 text-xs font-medium text-white bg-stone-900 rounded-[6px] shadow-md whitespace-nowrap pointer-events-none transition-opacity duration-150 animate-fade-in`}
           style={{ zIndex: "var(--z-tooltip, 600)" }}
         >
           {content}

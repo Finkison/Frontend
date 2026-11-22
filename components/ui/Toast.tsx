@@ -36,7 +36,7 @@ export function EnterpriseToastProvider({ children }: { children: React.ReactNod
   const addToast = useCallback((toast: Omit<ToastItem, "id">) => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => {
-      // Max 3 stacked toasts
+
       const updated = [...prev, { ...toast, id }];
       return updated.slice(-3);
     });
@@ -102,10 +102,10 @@ function ToastCard({
   }[toast.type];
 
   const borderClasses = {
-    success: "border-emerald-200 bg-white",
-    error: "border-red-200 bg-white",
-    warning: "border-amber-200 bg-white",
-    info: "border-rose-200 bg-white",
+    success: "border-emerald-200 bg-white dark:bg-[#261E1A]",
+    error: "border-red-200 bg-white dark:bg-[#261E1A]",
+    warning: "border-amber-200 bg-white dark:bg-[#261E1A]",
+    info: "border-rose-200 bg-white dark:bg-[#261E1A]",
   }[toast.type];
 
   const isAlert = toast.type === "error";
@@ -120,11 +120,11 @@ function ToastCard({
     >
       {icons}
       <div className="flex-1 text-start">
-        <p className="text-sm font-semibold text-slate-900 leading-tight">
+        <p className="text-sm font-semibold text-stone-900 dark:text-[#FDFBF7] leading-tight">
           {toast.title}
         </p>
         {toast.message && (
-          <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+          <p className="text-xs text-stone-600 dark:text-[#E7E0D6] mt-1 leading-relaxed">
             {toast.message}
           </p>
         )}
@@ -134,7 +134,7 @@ function ToastCard({
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss notification"
-        className="w-8 h-8 inline-flex items-center justify-center rounded-[6px] text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#881337]"
+        className="w-8 h-8 inline-flex items-center justify-center rounded-[6px] text-stone-400 dark:text-[#A89C90] hover:text-stone-700 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-[#881337]"
       >
         <X size={16} aria-hidden="true" />
       </button>

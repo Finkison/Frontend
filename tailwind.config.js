@@ -11,8 +11,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Ethiopian EdTech Brand (Emerald + Amber + Blue)
-        // WCAG AA Compliant - All colors tested for 4.5:1 contrast minimum
+        // Legacy utility palettes retained for existing product screens.
+        // The current public brand palette is defined in primary and brand below.
         emerald: {
           50: '#F0FDF4',
           100: '#DCFCE7',
@@ -178,7 +178,7 @@ export default {
       },
 
       fontFamily: {
-        sans: ['"Inter"', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        sans: ['"Inter"', '"Noto Sans Ethiopic"', '"Nyala"', '"Ebrima"', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', 'sans-serif'],
         serif: ['"Merriweather"', 'Georgia', 'serif'],
         mono: ['"Roboto Mono"', '"JetBrains Mono"', '"Courier New"', 'monospace'],
         ethiopic: ['"Noto Sans Ethiopic"', '"Inter"', 'sans-serif']

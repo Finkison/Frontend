@@ -22,17 +22,17 @@ export default function MotionAccordion({
   const { canAnimate } = useMotionPreferences();
 
   return (
-    <div className={`rounded-lg border border-slate-200 bg-white overflow-hidden ${className}`}>
+    <div className={`rounded-lg border border-stone-200 dark:border-white/10 bg-white dark:bg-[#261E1A] overflow-hidden ${className}`}>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={contentId}
-        className="w-full p-4 text-left text-xs sm:text-sm font-medium text-slate-900 flex items-center justify-between gap-4 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#1D4ED8]"
+        className="w-full p-4 text-left text-xs sm:text-sm font-medium text-stone-900 dark:text-[#FDFBF7] flex items-center justify-between gap-4 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#881337]"
       >
         <span>{question}</span>
         <ChevronDown
-          className="w-4 h-4 text-slate-400 shrink-0"
+          className="w-4 h-4 text-stone-400 dark:text-[#A89C90] shrink-0"
           style={{
             transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
             transitionProperty: "transform",
@@ -43,7 +43,6 @@ export default function MotionAccordion({
         />
       </button>
 
-      {/* Grid template rows technique: 0fr to 1fr */}
       <div
         id={contentId}
         role="region"
@@ -56,7 +55,7 @@ export default function MotionAccordion({
         }}
       >
         <div className="overflow-hidden">
-          <div className="px-4 pb-4 pt-1 text-xs text-slate-600 leading-relaxed border-t border-slate-100">
+          <div className="px-4 pb-4 pt-1 text-xs text-stone-600 dark:text-[#E7E0D6] leading-relaxed border-t border-stone-100 dark:border-white/10">
             {answer}
           </div>
         </div>

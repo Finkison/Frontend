@@ -1,15 +1,3 @@
-/**
- * Skeleton - Loading placeholders for content
- * 
- * @example
- * ```tsx
- * <Skeleton variant="text" width="200px" />
- * <Skeleton variant="circle" width="48px" height="48px" />
- * <Skeleton variant="rect" width="100%" height="120px" />
- * <SkeletonCard />
- * <SkeletonText lines={3} />
- * ```
- */
 
 import React from 'react';
 
@@ -28,8 +16,8 @@ export function Skeleton({
   animation = 'pulse',
   className = '',
 }: SkeletonProps): React.ReactElement {
-  const baseStyles = 'bg-neutral-200 rounded-md';
-  
+  const baseStyles = 'rounded-md bg-neutral-200 dark:bg-white/10';
+
   const variantStyles = {
     text: 'h-4 rounded',
     circle: 'rounded-full',
@@ -38,7 +26,7 @@ export function Skeleton({
 
   const animationStyles = {
     pulse: 'animate-pulse',
-    wave: 'animate-shimmer bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 bg-[length:200%_100%]',
+    wave: 'animate-shimmer bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 bg-[length:200%_100%] dark:from-white/10 dark:via-white/20 dark:to-white/10',
     none: '',
   };
 
@@ -49,7 +37,7 @@ export function Skeleton({
         width: width || (variant === 'text' ? '100%' : '100%'),
         height: height || (variant === 'circle' ? width : undefined),
       }}
-      aria-label="Loading..."
+      aria-hidden="true"
     />
   );
 }
@@ -85,7 +73,7 @@ export interface SkeletonCardProps {
 
 export function SkeletonCard({ className = '' }: SkeletonCardProps): React.ReactElement {
   return (
-    <div className={`p-6 rounded-xl border border-neutral-200 bg-white ${className}`}>
+    <div className={`rounded-xl border border-neutral-200 bg-white p-6 dark:border-white/10 dark:bg-[#261E1A] ${className}`}>
       <div className="flex items-start gap-4 mb-4">
         <Skeleton variant="circle" width="48px" height="48px" />
         <div className="flex-1 space-y-2">
@@ -114,18 +102,17 @@ export function SkeletonTable({
 }: SkeletonTableProps): React.ReactElement {
   return (
     <div className={`space-y-3 ${className}`}>
-      {/* Header */}
+
       <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
         {Array.from({ length: columns }).map((_, i) => (
           <Skeleton key={i} variant="text" width="80%" height="16px" />
         ))}
       </div>
 
-      {/* Rows */}
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div
           key={rowIndex}
-          className="grid gap-4 py-3 border-t border-neutral-200"
+          className="grid gap-4 border-t border-neutral-200 py-3 dark:border-white/10"
           style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
         >
           {Array.from({ length: columns }).map((_, colIndex) => (
