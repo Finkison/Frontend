@@ -1,13 +1,12 @@
 import api from "./api";
 
 export interface StudentProfileUpdate {
-  grade?: number;
+  grade?: number | string;
   stream?: string;
-  target_score?: number;
+  target_score?: number | null;
   full_name?: string;
-  phone?: string;
   region?: string;
-  school?: string;
+  preferred_language?: string;
 }
 
 export const getStudentProfile = () => api.get("/student/profile/");
@@ -19,10 +18,9 @@ export const getStudentProgress = (subject?: string) =>
 export const getStudentAIInsights = () => api.get("/student/ai-insights/");
 export const getWeakAreas = () => api.get("/student/weak-areas/");
 export const getScoreTrajectory = () => api.get("/student/score-trajectory/");
-export const getDepartments = () => api.get("/student/departments/");
 export const getExamHistory = () => api.get("/student/exam-history/");
-export const globalSearch = (q: string) => api.get(`/search/?q=${encodeURIComponent(q)}`);
+export const globalSearch = (q: string, signal?: AbortSignal) =>
+  api.get("/search/", { params: { q }, signal });
 export const getLeaderboard = (scope: "national" | "region" | "regional" | "school" | string = "national", region?: string) =>
   api.get(`/leaderboard/?scope=${scope}${region ? `&region=${encodeURIComponent(region)}` : ""}`);
 export { getPracticeHistory } from "./practiceService";
-

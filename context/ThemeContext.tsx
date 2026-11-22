@@ -19,12 +19,14 @@ const THEME_STORAGE_KEY = "finkison_theme_preference";
 export function ThemeProvider({ children }: { children: React.ReactNode }): React.ReactElement {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(THEME_STORAGE_KEY);
-      if (stored === "dark" || stored === "light") {
-        return stored;
+      try {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        if (stored === "dark" || stored === "light") return stored;
+      } catch {
+        // Keep the default when storage is unavailable.
       }
     }
-    return "light"; // Default to clean white theme as requested
+    return "light";
   });
 
   const applyTheme = (mode: ThemeMode) => {
@@ -36,7 +38,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }): Reac
       root.classList.remove("dark");
       root.setAttribute("data-theme", "light");
     }
-    localStorage.setItem(THEME_STORAGE_KEY, mode);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, mode);
+    } catch {
+      // The selected theme remains active for this session.
+    }
   };
 
   useEffect(() => {

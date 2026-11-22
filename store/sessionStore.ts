@@ -1,20 +1,59 @@
 import { create } from "zustand";
 
+export interface QuestionOption {
+  label?: string;
+  text?: string;
+  text_en?: string;
+  value?: string | number;
+  index?: number;
+}
+
 export interface Question {
-  id: string;
+  id: string | number;
   subject?: string;
   topic?: string;
   questionText?: string;
+  question_text?: string;
+  question_text_en?: string;
   question?: string;
-  options: any[];
-  correctAnswer: number;
+  options?: Array<string | QuestionOption>;
+  correctAnswer?: number;
+  correct_answer?: number;
+  correct_label?: string;
   explanation?: string;
-  [key: string]: any;
+  explanation_en?: string;
+  passage?: string;
+  section?: string;
+  section_instructions?: string;
+  question_type?: string;
+  difficulty?: "Easy" | "Medium" | "Hard" | "Challenging";
+  selected_answer?: string | number | null;
+  is_correct?: boolean;
+}
+
+export interface SessionSection {
+  id?: string | number;
+  title: string;
+  firstIndex?: number;
+  count?: number;
+  instructions?: string;
+  passage?: string;
+  questions?: Question[];
+}
+
+export interface SessionResult {
+  score_percent?: number | string;
+  duration_seconds?: number | string;
+  correct_count?: number;
+  total_questions?: number;
+  score?: number;
+  max_score?: number;
+  questions?: Question[];
 }
 
 export interface SessionAnswer {
-  questionId: string;
-  selected: number;
+  questionId: string | number;
+  selected: string | number;
   timeTaken?: number;
 }
 
@@ -22,21 +61,21 @@ export interface SessionState {
   sessionId: string | null;
   sessionType: string | null;
   questions: Question[];
-  sections: any[];
+  sections: SessionSection[];
   currentQuestionIndex: number;
   answers: SessionAnswer[];
-  bookmarkedQuestionIds: string[];
+  bookmarkedQuestionIds: Array<string | number>;
   timeRemaining: number | null;
-  result: any;
-  startSession: (id: string, type: string, questions: Question[], duration?: number, sections?: any[]) => void;
-  submitAnswer: (questionId: string, selected: number, timeTaken?: number) => void;
-  toggleBookmark: (questionId: string) => void;
+  result: SessionResult | null;
+  startSession: (id: string, type: string, questions: Question[], duration?: number, sections?: SessionSection[]) => void;
+  submitAnswer: (questionId: string | number, selected: string | number, timeTaken?: number) => void;
+  toggleBookmark: (questionId: string | number) => void;
   nextQuestion: () => void;
   prevQuestion: () => void;
   goToQuestion: (index: number) => void;
   tickTimer: () => void;
   restoreSession: () => boolean;
-  setResult: (result: any) => void;
+  setResult: (result: SessionResult) => void;
   endSession: () => void;
 }
 
@@ -53,9 +92,46 @@ const clearLocalStorage = () => {
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch {
-    // Ignore
+
   }
 };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isQuestion = (value: unknown): value is Question =>
+  isRecord(value) &&
+  (typeof value.id === "string" || typeof value.id === "number") &&
+  (value.options === undefined || (
+    Array.isArray(value.options) && value.options.every((option: unknown) =>
+      typeof option === "string" || (isRecord(option) &&
+        (option.label === undefined || typeof option.label === "string") &&
+        (option.text === undefined || typeof option.text === "string") &&
+        (option.text_en === undefined || typeof option.text_en === "string"))
+    )
+  )) &&
+  (value.question_text === undefined || typeof value.question_text === "string") &&
+  (value.question_text_en === undefined || typeof value.question_text_en === "string") &&
+  (value.question === undefined || typeof value.question === "string") &&
+  (value.questionText === undefined || typeof value.questionText === "string") &&
+  (value.section === undefined || typeof value.section === "string") &&
+  (value.passage === undefined || typeof value.passage === "string") &&
+  (value.section_instructions === undefined || typeof value.section_instructions === "string") &&
+  (value.question_type === undefined || typeof value.question_type === "string") &&
+  (value.explanation === undefined || typeof value.explanation === "string") &&
+  (value.explanation_en === undefined || typeof value.explanation_en === "string");
+
+const isSessionSection = (value: unknown): value is SessionSection =>
+  isRecord(value) &&
+  typeof value.title === "string" &&
+  (value.firstIndex === undefined || typeof value.firstIndex === "number") &&
+  (value.count === undefined || typeof value.count === "number");
+
+const isSessionAnswer = (value: unknown): value is SessionAnswer =>
+  isRecord(value) &&
+  (typeof value.questionId === "string" || typeof value.questionId === "number") &&
+  (typeof value.selected === "string" || typeof value.selected === "number") &&
+  (value.timeTaken === undefined || typeof value.timeTaken === "number");
 
 const useSessionStore = create<SessionState>((set, get) => ({
   sessionId: null,
@@ -102,7 +178,7 @@ const useSessionStore = create<SessionState>((set, get) => ({
     });
   },
 
-  toggleBookmark: (questionId: string) => {
+  toggleBookmark: (questionId: string | number) => {
     set((state) => {
       const exists = state.bookmarkedQuestionIds.includes(questionId);
       const updatedBookmarks = exists
@@ -157,24 +233,39 @@ const useSessionStore = create<SessionState>((set, get) => ({
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.sessionId && parsed.questions && parsed.questions.length > 0) {
+        const parsed: unknown = JSON.parse(raw);
+        if (
+          isRecord(parsed) &&
+          typeof parsed.sessionId === "string" &&
+          Array.isArray(parsed.questions) &&
+          parsed.questions.length > 0 &&
+          parsed.questions.every(isQuestion)
+        ) {
+          const restoredQuestions = parsed.questions.filter(isQuestion);
+          const storedIndex = typeof parsed.currentQuestionIndex === "number" && Number.isInteger(parsed.currentQuestionIndex)
+            ? parsed.currentQuestionIndex
+            : 0;
           set({
             sessionId: parsed.sessionId,
-            sessionType: parsed.sessionType,
-            questions: parsed.questions,
-            sections: parsed.sections || [],
-            currentQuestionIndex: parsed.currentQuestionIndex || 0,
-            answers: parsed.answers || [],
-            bookmarkedQuestionIds: parsed.bookmarkedQuestionIds || [],
-            timeRemaining: parsed.timeRemaining,
+            sessionType: typeof parsed.sessionType === "string" ? parsed.sessionType : null,
+            questions: restoredQuestions,
+            sections: Array.isArray(parsed.sections) ? parsed.sections.filter(isSessionSection) : [],
+            currentQuestionIndex: Math.min(Math.max(storedIndex, 0), restoredQuestions.length - 1),
+            answers: Array.isArray(parsed.answers) ? parsed.answers.filter(isSessionAnswer) : [],
+            bookmarkedQuestionIds: Array.isArray(parsed.bookmarkedQuestionIds)
+              ? parsed.bookmarkedQuestionIds.filter((id): id is string | number => typeof id === "string" || typeof id === "number")
+              : [],
+            timeRemaining: typeof parsed.timeRemaining === "number" && Number.isFinite(parsed.timeRemaining)
+              ? Math.max(0, parsed.timeRemaining)
+              : null,
             result: null
           });
           return true;
         }
+        clearLocalStorage();
       }
     } catch {
-      // Ignore corrupted json
+
     }
     return false;
   },

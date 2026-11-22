@@ -1,10 +1,6 @@
 
 import api from "./api";
 
-// ==========================================
-// TYPES
-// ==========================================
-
 export interface ReviewItem {
   concept_state_id: string;
   concept_id: string;
@@ -48,7 +44,7 @@ export interface StudyPlan {
   tasks: StudyTask[];
   xp_earned: number;
   days_until_euee: number;
-  target_score: number;
+  target_score: number | null;
   predicted_score: number;
 }
 
@@ -76,17 +72,22 @@ export interface ConceptMastery {
   name_am: string;
   subject: string;
   grade: number;
+  unit_number?: number;
+  description?: string;
   mastery: number;
   state: string;
   mastery_label: string;
   prerequisites: string[];
+  prerequisite_details?: Array<{
+    id: string;
+    name: string;
+    subject: string;
+    grade: number;
+    unit_number: number;
+  }>;
   euee_weight: number;
   next_review: string | null;
 }
-
-// ==========================================
-// SPACED REPETITION
-// ==========================================
 
 export async function getDueReviews(limit: number = 30): Promise<ReviewItem[]> {
   const res = await api.get(`/learning/reviews/due/?limit=${limit}`);

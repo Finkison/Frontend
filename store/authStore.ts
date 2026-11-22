@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 export interface User {
   id?: string;
@@ -7,21 +8,22 @@ export interface User {
   email?: string;
   phone?: string;
   role?: string;
+  subject?: string;
   grade?: string;
   stream?: string;
   school?: string;
+  schoolId?: string | null;
+  isSchoolEnrolled?: boolean;
   region?: string;
   country?: string;
-  targetUniversity?: string;
-  targetScore?: number;
-  currentPredictedScore?: number;
+  targetScore?: number | null;
+  currentPredictedScore?: number | null;
   streakDays?: number;
   xpPoints?: number;
   nationalRank?: number;
   preferredLanguage?: string;
   isSubscribed?: boolean;
   subscriptionTier?: string;
-  [key: string]: any;
 }
 
 export interface AuthState {
@@ -29,90 +31,109 @@ export interface AuthState {
   role: string | null;
   token: string | null;
   isAuthenticated: boolean;
+  sessionInitialized: boolean;
+  legacyRefreshToken: string | null;
   login: (user: User, role?: string, token?: string) => void;
+  setTokens: (token: string) => void;
+  setSessionInitialized: (initialized: boolean) => void;
+  clearLegacyRefreshToken: () => void;
+  discardPersistedCredentials: (legacyRefreshToken: string | null) => void;
   logout: () => void;
   updateUser: (partial: Partial<User>) => void;
 }
 
-const getInitialAuth = () => {
-  try {
-    const storedToken = localStorage.getItem("finkison_token");
-    const storedUserStr = localStorage.getItem("finkison_user");
-    const storedRole = localStorage.getItem("finkison_role");
-
-    if (storedToken && storedUserStr) {
-      const parsedUser = JSON.parse(storedUserStr);
-      return {
-        token: storedToken,
-        user: parsedUser,
-        role: storedRole || parsedUser.role || "STUDENT",
-        isAuthenticated: true,
-      };
-    }
-  } catch {
-  }
-  return {
-    token: null,
-    user: null,
-    role: null,
-    isAuthenticated: false,
-  };
-};
-
-const initial = getInitialAuth();
-
-const useAuthStore = create<AuthState>((set) => ({
-  user: initial.user,
-  role: initial.role,
-  token: initial.token,
-  isAuthenticated: initial.isAuthenticated,
-
-  login: (user, role, token) => {
-    const resolvedRole = role || user.role || "STUDENT";
-    const resolvedToken = token || "finkison_auth_jwt_token";
-
-    try {
-      localStorage.setItem("finkison_token", resolvedToken);
-      localStorage.setItem("finkison_user", JSON.stringify(user));
-      localStorage.setItem("finkison_role", resolvedRole);
-    } catch {}
-
-    set({
-      user,
-      role: resolvedRole,
-      token: resolvedToken,
-      isAuthenticated: true,
-    });
-  },
-
-  logout: () => {
-    try {
-      localStorage.removeItem("finkison_token");
-      localStorage.removeItem("finkison_user");
-      localStorage.removeItem("finkison_role");
-    } catch {}
-
-    set({
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
       user: null,
       role: null,
       token: null,
       isAuthenticated: false,
-    });
-  },
+      sessionInitialized: false,
+      legacyRefreshToken: null,
 
-  updateUser: (partial) =>
-    set((state) => {
-      if (!state.user) return state;
-      const updated = { ...state.user, ...partial };
-      const newRole = partial.role !== undefined ? partial.role : state.role;
-      try {
-        localStorage.setItem("finkison_user", JSON.stringify(updated));
-        if (partial.role !== undefined) {
-          localStorage.setItem("finkison_role", partial.role);
-        }
-      } catch {}
-      return { user: updated, role: newRole };
+      login: (user, role, token) => {
+        const resolvedRole = role || user.role || null;
+        const resolvedToken = token || null;
+
+        try {
+          if (resolvedToken) localStorage.setItem("finkison_token", resolvedToken);
+          if (resolvedRole) localStorage.setItem("finkison_role", resolvedRole);
+          localStorage.removeItem("finkison_refresh_token");
+          localStorage.removeItem("finkison_user");
+        } catch {}
+
+        set({
+          user,
+          role: resolvedRole,
+          token: resolvedToken,
+          isAuthenticated: Boolean(resolvedToken),
+          sessionInitialized: true,
+          legacyRefreshToken: null,
+        });
+      },
+
+      setTokens: (token) => set({ token, isAuthenticated: true }),
+
+      setSessionInitialized: (sessionInitialized) => set({ sessionInitialized }),
+
+      clearLegacyRefreshToken: () => set({ legacyRefreshToken: null }),
+
+      discardPersistedCredentials: (legacyRefreshToken) => {
+        try {
+          localStorage.removeItem("finkison_token");
+          localStorage.removeItem("finkison_refresh_token");
+          localStorage.removeItem("finkison_user");
+          localStorage.removeItem("finkison_role");
+        } catch {}
+        set({
+          token: null,
+          isAuthenticated: false,
+          sessionInitialized: false,
+          legacyRefreshToken,
+        });
+      },
+
+      logout: () => {
+        try {
+          localStorage.removeItem("finkison_token");
+          localStorage.removeItem("finkison_refresh_token");
+          localStorage.removeItem("finkison_user");
+          localStorage.removeItem("finkison_role");
+        } catch {}
+
+        set({
+          user: null,
+          role: null,
+          token: null,
+          isAuthenticated: false,
+          sessionInitialized: true,
+          legacyRefreshToken: null,
+        });
+      },
+
+      updateUser: (partial) =>
+        set((state) => {
+          if (!state.user) return state;
+          const updated = { ...state.user, ...partial };
+          const newRole = partial.role !== undefined ? partial.role : state.role;
+          return { user: updated, role: newRole };
+        }),
     }),
-}));
+    {
+      name: "finkison_auth_storage",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ user: state.user, role: state.role }),
+      onRehydrateStorage: () => (state) => {
+        const persistedState = state as (AuthState & { refreshToken?: string }) | undefined;
+        let legacyRefreshToken = persistedState?.refreshToken || null;
+        try {
+          legacyRefreshToken ||= localStorage.getItem("finkison_refresh_token");
+        } catch {}
+        persistedState?.discardPersistedCredentials(legacyRefreshToken);
+      },
+    }
+  )
+);
 
 export default useAuthStore;

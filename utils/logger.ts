@@ -1,28 +1,32 @@
-/**
- * Centralized logging utility for Finkison Frontend
- * 
- * Replaces direct console.* calls with structured logging.
- * In production, logs can be sent to external monitoring services (Sentry, LogRocket, etc.)
- * 
- * @example
- * ```ts
- * import { logger } from '@/utils/logger';
- * 
- * // Error logging
- * logger.error('Failed to load dashboard', error);
- * 
- * // Warning (development only)
- * logger.warn('API rate limit approaching', { remaining: 10 });
- * 
- * // Info (development only)
- * logger.info('User logged in', { userId: '123' });
- * ```
- */
 
 type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
 interface LogContext {
-  [key: string]: any;
+  [key: string]: unknown;
+}
+
+interface ErrorLogEntry {
+  timestamp: string;
+  level: LogLevel;
+  message: string;
+  error?: unknown;
+  context?: LogContext;
+  userAgent: string;
+  url: string;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isErrorLogEntry = (value: unknown): value is ErrorLogEntry => {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.timestamp === 'string' &&
+    (value.level === 'error' || value.level === 'warn' || value.level === 'info' || value.level === 'debug') &&
+    typeof value.message === 'string' &&
+    typeof value.userAgent === 'string' &&
+    typeof value.url === 'string'
+  );
 }
 
 class Logger {
@@ -34,10 +38,7 @@ class Logger {
     this.isProduction = import.meta.env.PROD;
   }
 
-  /**
-   * Log error - always logged, sent to error tracking in production
-   */
-  error(message: string, error?: Error | unknown, context?: LogContext): void {
+  error(message: string, error?: unknown, context?: LogContext): void {
     if (this.isDevelopment) {
       console.error(`[ERROR] ${message}`, error, context);
     }
@@ -82,7 +83,7 @@ class Logger {
   private sendToErrorTracking(
     level: LogLevel,
     message: string,
-    error?: Error | unknown,
+    error?: unknown,
     context?: LogContext
   ): void {
     // Example: Sentry integration
@@ -113,7 +114,8 @@ class Logger {
 
     // Store in localStorage for debugging (limit to last 50 errors)
     try {
-      const errorLog = JSON.parse(localStorage.getItem('finkison_error_log') || '[]');
+      const storedLog: unknown = JSON.parse(localStorage.getItem('finkison_error_log') || '[]');
+      const errorLog: unknown[] = Array.isArray(storedLog) ? storedLog : [];
       errorLog.unshift(structuredError);
       localStorage.setItem('finkison_error_log', JSON.stringify(errorLog.slice(0, 50)));
     } catch {
@@ -135,9 +137,10 @@ class Logger {
   /**
    * Get error log from localStorage (for debugging)
    */
-  getErrorLog(): any[] {
+  getErrorLog(): ErrorLogEntry[] {
     try {
-      return JSON.parse(localStorage.getItem('finkison_error_log') || '[]');
+      const storedLog: unknown = JSON.parse(localStorage.getItem('finkison_error_log') || '[]');
+      return Array.isArray(storedLog) ? storedLog.filter(isErrorLogEntry) : [];
     } catch {
       return [];
     }

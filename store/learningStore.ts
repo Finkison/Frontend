@@ -15,24 +15,22 @@ import {
 } from "../services/learningEngineService";
 
 interface LearningState {
-  // Review queue
+
   dueReviews: ReviewItem[];
   dueCount: number;
   reviewsLoading: boolean;
+  reviewQueueError: string | null;
 
-  // Study plan
   todayPlan: StudyPlan | null;
   planLoading: boolean;
+  planError: string | null;
 
-  // Mastery
   masteryMap: ConceptMastery[];
   masteryLoading: boolean;
 
-  // Ability
   abilityProfile: AbilityProfile | null;
   abilityLoading: boolean;
 
-  // Actions
   fetchDueReviews: () => Promise<void>;
   handleReviewSubmit: (
     conceptStateId: string,
@@ -47,60 +45,61 @@ interface LearningState {
   fetchAbilityProfile: () => Promise<void>;
 }
 
-export const useLearningStore = create<LearningState>((set, get) => ({
-  // Initial state
+export const useLearningStore = create<LearningState>((set) => ({
+
   dueReviews: [],
   dueCount: 0,
   reviewsLoading: false,
+  reviewQueueError: null,
   todayPlan: null,
   planLoading: false,
+  planError: null,
   masteryMap: [],
   masteryLoading: false,
   abilityProfile: null,
   abilityLoading: false,
 
   fetchDueReviews: async () => {
-    set({ reviewsLoading: true });
+    set({ reviewsLoading: true, reviewQueueError: null });
     try {
       const reviews = await getDueReviews(30);
-      set({ dueReviews: reviews, dueCount: reviews.length, reviewsLoading: false });
+      set({ dueReviews: reviews, dueCount: reviews.length, reviewsLoading: false, reviewQueueError: null });
     } catch {
-      set({ reviewsLoading: false });
+      set({ reviewsLoading: false, reviewQueueError: "Your review queue could not be loaded. Check your connection and try again." });
     }
   },
 
   handleReviewSubmit: async (conceptStateId, rating, timeTaken, confidence) => {
     const result = await submitReview(conceptStateId, rating, timeTaken, confidence);
-    get().fetchDueReviews();
     return { message: result.message, new_mastery: result.new_mastery };
   },
 
   fetchTodayPlan: async () => {
-    set({ planLoading: true });
+    set({ planLoading: true, planError: null });
     try {
       const plan = await getTodayPlan();
       set({ todayPlan: plan, planLoading: false });
     } catch {
-      set({ planLoading: false });
+      set({ planLoading: false, planError: "Your study plan could not be loaded. Check your connection and try again." });
     }
   },
 
   generatePlan: async (minutes) => {
-    set({ planLoading: true });
+    set({ planLoading: true, planError: null });
     try {
       const plan = await generateStudyPlan(minutes);
       set({ todayPlan: plan, planLoading: false });
     } catch {
-      set({ planLoading: false });
+      set({ planLoading: false, planError: "Your study plan could not be generated. Try again in a moment." });
     }
   },
 
   completeTaskAction: async (planId, taskIndex, minutes) => {
     try {
       const plan = await completeTask(planId, taskIndex, minutes);
-      set({ todayPlan: plan });
+      set({ todayPlan: plan, planError: null });
     } catch {
-      console.error("Failed to complete task");
+      set({ planError: "This task could not be updated. Check your connection and try again." });
     }
   },
 

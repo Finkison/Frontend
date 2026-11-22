@@ -28,10 +28,6 @@ export {
   SENIOR_SOCIAL_SCIENCE_SUBJECTS,
 };
 
-/**
- * useScope - RBAC & Curriculum Scope Hook
- * Powered by canonical ScopeContext in ../context/ScopeContext.tsx
- */
 export function useScope(): UserScope {
   return useScopeContext();
 }

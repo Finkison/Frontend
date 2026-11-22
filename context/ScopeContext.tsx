@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useMemo } from "react";
 import useAuthStore, { User } from "../store/authStore";
+import { isElevatedRole } from "../constants/routes";
 
 // ─── Types ───
-export type UserRole = "STUDENT" | "TEACHER" | "PRINCIPAL" | "PARENT" | "ADMIN";
+export type UserRole = "STUDENT" | "TEACHER" | "PRINCIPAL" | "SCHOOL_ADMIN" | "SUPER_ADMIN" | "PARENT" | "ADMIN" | "UNKNOWN";
 export type GradeLevel = 9 | 10 | 11 | 12;
 export type StreamType = "Natural Science" | "Social Science" | "General Secondary";
 
@@ -27,10 +28,8 @@ export interface UserScope {
   canAccessSchoolAdmin: boolean;
   canAccessParentPortal: boolean;
   canAccessBattleArena: boolean;
-  canAccessScholarships: boolean;
   canAccessScorePredictor: boolean;
   canAccessPastPapers: boolean;
-  canAccessDepartments: boolean;
   canAccessStudyPlan: boolean;
   canAccessSpacedReview: boolean;
   canAccessKnowledgeMap: boolean;
@@ -101,13 +100,15 @@ function parseStream(stream?: string, gradeLevel?: GradeLevel): StreamType {
 }
 
 function parseRole(role?: string): UserRole {
-  if (!role) return "STUDENT";
+  if (!role) return "UNKNOWN";
   const upper = role.toUpperCase();
   if (upper === "TEACHER") return "TEACHER";
   if (upper === "PRINCIPAL") return "PRINCIPAL";
+  if (upper === "SCHOOL_ADMIN") return "SCHOOL_ADMIN";
+  if (upper === "SUPER_ADMIN") return "SUPER_ADMIN";
   if (upper === "PARENT") return "PARENT";
   if (upper === "ADMIN") return "ADMIN";
-  return "STUDENT";
+  return "UNKNOWN";
 }
 
 export function buildScope(user: User | null, role: string | null, isAuthenticated: boolean): UserScope {
@@ -126,9 +127,9 @@ export function buildScope(user: User | null, role: string | null, isAuthenticat
 
   const streamShort = isJuniorSecondary ? "Common (All Courses)" : stream;
 
-  const isElevated = userRole === "ADMIN" || userRole === "PRINCIPAL";
+  const isElevated = isElevatedRole(userRole);
   const isStudent = userRole === "STUDENT";
-  const isEducator = userRole === "TEACHER" || userRole === "PRINCIPAL";
+  const isEducator = userRole === "TEACHER" || userRole === "PRINCIPAL" || userRole === "SCHOOL_ADMIN";
   const isParent = userRole === "PARENT";
 
   const isSenior = gradeLevel >= 11;
@@ -138,10 +139,8 @@ export function buildScope(user: User | null, role: string | null, isAuthenticat
   const canAccessParentPortal = isParent || isElevated;
 
   const canAccessBattleArena = (isStudent && isSenior) || isElevated;
-  const canAccessScholarships = (isStudent && isSenior) || isElevated;
   const canAccessScorePredictor = (isStudent && isSenior) || isElevated;
   const canAccessPastPapers = (isStudent && gradeLevel === 12) || isElevated || isEducator;
-  const canAccessDepartments = (isStudent && isSenior) || isElevated;
 
   const canAccessStudyPlan = isStudent || isElevated;
   const canAccessSpacedReview = isStudent || isElevated;
@@ -155,7 +154,13 @@ export function buildScope(user: User | null, role: string | null, isAuthenticat
     ? [9, 10, 11, 12]
     : [gradeLevel];
 
-  const homeRoute = isParent ? "/parent" : isEducator ? "/school" : "/student";
+  const homeRoute = isParent
+    ? "/parent"
+    : isEducator || isElevated
+    ? "/school"
+    : isStudent
+    ? "/student"
+    : "/";
 
   return {
     role: userRole,
@@ -188,10 +193,8 @@ export function buildScope(user: User | null, role: string | null, isAuthenticat
     canAccessSchoolAdmin,
     canAccessParentPortal,
     canAccessBattleArena,
-    canAccessScholarships,
     canAccessScorePredictor,
     canAccessPastPapers,
-    canAccessDepartments,
     canAccessStudyPlan,
     canAccessSpacedReview,
     canAccessKnowledgeMap,

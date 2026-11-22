@@ -1,5 +1,4 @@
-import api from "./api";
-import useAuthStore from "../store/authStore";
+import api, { authenticatedFetch } from "./api";
 
 export interface AskTutorPayload {
   userQuery: string;
@@ -24,15 +23,18 @@ export const streamAITutor = async (
   onChunk: (chunk: string) => void,
   onDone: (hint?: string) => void
 ): Promise<void> => {
-  const baseURL = (api.defaults.baseURL || "http://127.0.0.1:8000/api").replace(/\/$/, "");
-  const response = await fetch(`${baseURL}/ai/ask-tutor-stream/`, {
+  const response = await authenticatedFetch("/ai/ask-tutor-stream/", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(useAuthStore.getState().token ? { Authorization: `Bearer ${useAuthStore.getState().token}` } : {})
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(
+      errorBody?.message || errorBody?.error || `AI tutor request failed (${response.status}).`
+    );
+  }
 
   if (!response.body) {
     const fallback = await askAITutor(payload);
@@ -44,6 +46,7 @@ export const streamAITutor = async (
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
+  let completed = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -56,20 +59,24 @@ export const streamAITutor = async (
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed.startsWith("data: ")) {
+        let json: Record<string, unknown>;
         try {
-          const json = JSON.parse(trimmed.replace("data: ", ""));
-          if (json.chunk) {
-            onChunk(json.chunk);
-          }
-          if (json.done) {
-            onDone(json.hint);
-            return;
-          }
+          json = JSON.parse(trimmed.slice(6));
         } catch {
+          continue;
+        }
+        if (typeof json.error === "string") throw new Error(json.error);
+        if (typeof json.chunk === "string" && json.chunk) {
+          onChunk(json.chunk);
+        }
+        if (json.done) {
+          completed = true;
+          onDone(typeof json.hint === "string" ? json.hint : undefined);
+          return;
         }
       }
     }
   }
 
-  onDone();
+  if (!completed) throw new Error("The AI tutor response ended before completion.");
 };

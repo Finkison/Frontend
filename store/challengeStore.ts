@@ -23,7 +23,6 @@ export interface ChallengeStoreState {
   finishChallenge: () => void;
   resetChallenge: () => void;
 
-  // Backward-compatible battle aliases
   activeBattle?: ChallengeRoom | null;
   startBattle?: (room: ChallengeRoom, isBot?: boolean) => void;
   finishBattle?: () => void;

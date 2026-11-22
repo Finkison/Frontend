@@ -1,4 +1,5 @@
 import api from "./api";
+import type { StudentAssignmentsResponse } from "../types/student";
 
 export interface LessonSummary {
   id: string;
@@ -15,6 +16,29 @@ export interface UnitGroup {
   unit_title: string;
   subject: string;
   lessons: LessonSummary[];
+}
+
+export interface CurriculumSubject {
+  id: string;
+  name: string;
+  code: string;
+  stream: string;
+  category: string;
+  gradeLevels: string;
+  periodsPerWeek: number;
+  hoursPerWeek: number;
+  annualHours: number;
+  isCompulsory: boolean;
+  competencies: string[];
+  icon: string;
+  unitsCount: number;
+  totalQuestions: number;
+  pastYears: number[];
+}
+
+export interface CurriculumSubjectsResponse {
+  success: boolean;
+  data: CurriculumSubject[];
 }
 
 export interface LessonDetail {
@@ -35,11 +59,14 @@ export interface LessonDetail {
   exam_tips: string;
   prev_lesson_id: string | null;
   next_lesson_id: string | null;
-  related_questions: any[];
+  related_questions: unknown[];
 }
 
 export const getSubjects = (stream?: string) =>
-  api.get("/curriculum/subjects/", { params: stream ? { stream } : {} });
+  api.get<CurriculumSubjectsResponse>("/curriculum/subjects/", { params: stream ? { stream } : {} });
+
+export const getPracticeUnits = (subject: string, grade: number) =>
+  api.get("/curriculum/practice-units/", { params: { subject, grade } });
 
 export const getLessons = (params?: { subject?: string; grade?: number; unit?: number }) => {
   const query = new URLSearchParams();
@@ -96,5 +123,4 @@ export const deleteStudentNote = (noteId: string) =>
   api.delete(`/student/notes/${noteId}/`);
 
 export const getStudentAssignments = () =>
-  api.get("/student/assignments/");
-
+  api.get<StudentAssignmentsResponse>("/student/assignments/");

@@ -3,20 +3,29 @@ import type {
   PaymentStatus,
   ChapaInitPayload,
   ChapaInitResponse,
-  ChapaVerifyResponse
+  ChapaVerifyResponse,
+  StudentPaymentPlan,
+  StudentPlansResponse,
 } from '../types/payment';
 
 export type {
   PaymentStatus,
   ChapaInitPayload,
   ChapaInitResponse,
-  ChapaVerifyResponse
+  ChapaVerifyResponse,
+  StudentPaymentPlan,
+  StudentPlansResponse,
 };
 
 const paymentService = {
-  
+
   status: async (): Promise<PaymentStatus> => {
     const res = await api.get('/payments/status/');
+    return res.data;
+  },
+
+  plans: async (currency = 'ETB'): Promise<StudentPlansResponse> => {
+    const res = await api.get('/payments/plans/', { params: { currency } });
     return res.data;
   },
 
@@ -25,13 +34,13 @@ const paymentService = {
     return res.data;
   },
 
-  verifyChapa: async (tx_ref: string): Promise<ChapaVerifyResponse> => {
+  verifyTransaction: async (tx_ref: string): Promise<ChapaVerifyResponse> => {
     const res = await api.get(`/payments/chapa/verify/${tx_ref}/`);
     return res.data;
   },
 
-  subscribe: async (plan: string): Promise<ChapaInitResponse> => {
-    const res = await api.post('/payments/subscribe/', { plan });
+  subscribe: async (planId: string, currency = 'ETB'): Promise<ChapaInitResponse> => {
+    const res = await api.post('/payments/subscribe/', { plan_id: planId, currency });
     return res.data;
   },
 };

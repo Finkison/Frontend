@@ -13,4 +13,3 @@ export const forgotPassword = (payload: { identifier: string }) =>
 
 export const resetPassword = (payload: { identifier: string; otp: string; new_password: string }) =>
   api.post("/auth/reset-password/", payload);
-
