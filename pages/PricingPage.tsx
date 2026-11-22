@@ -1,453 +1,284 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import {
-  Check,
-  ArrowRight,
-  CreditCard,
-  Building2,
-  FileSpreadsheet,
-  Calculator,
-  Percent,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { ArrowRight, Check, Building2, GraduationCap, Sparkles } from "lucide-react";
 import { SectionHeader } from "../components/typography/SectionHeader";
-import { SITE_CONTENT } from "../content/siteContent";
+import { usePageMeta } from "../hooks/usePageMeta";
+import { useI18n } from "../i18n";
+import {
+  SCHOOL_PRICING_PLANS,
+  MONTHS_PER_YEAR,
+} from "../constants/pricing";
+import { MarketingPageHero } from "../components/landing/MarketingPageHero";
+import { MarketingCTA, MarketingSteps } from "../components/landing/MarketingSections";
+import paymentService from "../services/paymentService";
+import useAuthStore from "../store/authStore";
+
+const formatEtb = (amount: number): string => "ETB " + amount.toLocaleString("en-ET");
 
 export default function PricingPage(): React.ReactElement {
+  const { t } = useI18n();
+  const location = useLocation();
+  const { isAuthenticated, role } = useAuthStore();
+  usePageMeta(t("public.pages.pricingTitle"), t("public.pages.pricingDescription"));
+
+  const [studentPlanPrices, setStudentPlanPrices] = useState<Record<string, number>>({ monthly: 150, season_pass: 450 });
+  const studentPlanIsUnavailable = isAuthenticated && (role || "").toUpperCase() !== "STUDENT";
+
   useEffect(() => {
-    document.title = "Pricing — Finkison";
+    let active = true;
+    paymentService.plans("ETB")
+      .then((response) => {
+        if (!active) return;
+        setStudentPlanPrices(Object.fromEntries(response.plans.map((plan) => [plan.id, plan.price])));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
   }, []);
 
-  const [candidateSeats, setCandidateSeats] = useState<number>(150);
-  const [billingCycle, setBillingCycle] = useState<"annual" | "semester">("annual");
+  useEffect(() => {
+    const targetId = location.hash.slice(1);
+    if (!targetId) return;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+        block: "start",
+      });
+    });
+  }, [location.hash]);
 
-  // Dynamic tier matching
-  const getTierInfo = (seats: number) => {
-    if (seats <= 50) {
-      return {
-        id: "starter",
-        tierName: "Secondary starter",
-        baseRate: 350,
-        discountPct: 0,
-      };
-    } else if (seats <= 200) {
-      return {
-        id: "school",
-        tierName: "Institutional campus",
-        baseRate: 280,
-        discountPct: 20,
-      };
-    } else if (seats <= 500) {
-      return {
-        id: "expanded",
-        tierName: "Multi-campus network",
-        baseRate: 250,
-        discountPct: 29,
-      };
-    } else {
-      return {
-        id: "district",
-        tierName: "Regional and network",
-        baseRate: 220,
-        discountPct: 37,
-      };
-    }
-  };
+  const contactPlan = (message: string) =>
+    `/contact?topic=School%20setup&message=${encodeURIComponent(message)}`;
 
-  const currentTier = getTierInfo(candidateSeats);
-  const cycleMultiplier = billingCycle === "semester" ? 0.55 : 1.0;
-  const effectiveRatePerSeat = Math.round(currentTier.baseRate * cycleMultiplier);
-  const subtotalETB = candidateSeats * effectiveRatePerSeat;
-  const vatAmountETB = Math.round(subtotalETB * 0.15);
-  const totalETB = subtotalETB + vatAmountETB;
-  const baselineRate = Math.round(350 * cycleMultiplier);
-  const totalSavingsETB = (baselineRate - effectiveRatePerSeat) * candidateSeats;
-
-  const PLANS = [
-    {
-      id: "starter",
-      name: "Secondary starter",
-      seats: "Up to 50 active candidate seats",
-      pricePerSeat: "350 ETB",
-      cadence: "per candidate seat per academic year",
-      target: "For single-stream preparatory schools and pilot academic departments.",
-      features: [
-        "Access to Grades 9, 10, 11, and 12 curriculum question banks",
-        "Teacher exam generator with marking schemes and answer keys",
-        "Continuous assessment gradebook with spreadsheet exports",
-        "Instant client session recovery and local caching",
-        "Addis Ababa Tier-3 datacenter hosting with domestic privacy",
-      ],
-      ctaText: "Select starter plan",
-      ctaLink: "/contact?topic=Pricing&plan=starter",
-    },
-    {
-      id: "school",
-      name: "Institutional campus",
-      seats: "Up to 200 active candidate seats",
-      pricePerSeat: "280 ETB",
-      cadence: "per candidate seat per academic year",
-      target: "For established secondary schools with parallel homeroom sections.",
-      badge: "Campus license",
-      features: [
-        "Full access for all school teachers and department heads",
-        "Unlimited teacher exam drafting and custom question replacement",
-        "Section-comparative performance telemetry and analytics",
-        "Official continuous assessment report card generation",
-        "Live test invigilation and non-invasive proctoring supervision",
-        "Flexible seat reallocation for transferring candidates",
-      ],
-      ctaText: "Select campus plan",
-      ctaLink: "/contact?topic=Pricing&plan=school",
-    },
-    {
-      id: "district",
-      name: "Regional and network",
-      seats: "500 or more candidate seats",
-      pricePerSeat: "220 ETB",
-      cadence: "per candidate seat per academic year",
-      target: "For multi-campus school networks, diocese schools, and regional bureaus.",
-      features: [
-        "Centralized administrative console across multiple campuses",
-        "Custom table of specifications calibrated to regional exam calendars",
-        "Dedicated on-site educator training and curriculum briefings",
-        "Priority technical phone support and dedicated database clustering",
-        "Master institutional agreement and official VAT tax invoicing",
-        "Comprehensive multi-year historical cohort retention archives",
-      ],
-      ctaText: "Select regional plan",
-      ctaLink: "/contact?topic=Pricing&plan=district",
-    },
-  ];
+  const studentSubscriptionPath = (planId: string) => `/student/subscription?plan=${planId}`;
+  const studentPlanAction = (planId: string) => isAuthenticated
+    ? studentSubscriptionPath(planId)
+    : `/register?role=student&next=${encodeURIComponent(studentSubscriptionPath(planId))}`;
 
   return (
-    <div className="min-h-screen bg-white text-[#261E1A] font-sans selection:bg-[#FFF1F2] selection:text-[#881337] dark:bg-[#1C1512] dark:text-stone-100">
-      {/* 1. HERO SECTION - Left-aligned to container */}
-      <section className="section bg-[#4C0519] text-white border-b border-white/10">
-        <div className="container space-y-6">
+    <div className="public-page min-h-screen bg-white font-sans text-[#261E1A] selection:bg-[#FFF1F2] selection:text-[#881337] dark:bg-[#1C1512] dark:text-stone-100">
+      <MarketingPageHero
+        title={t("public.pages.pricingTitle")}
+        description={t("public.pages.pricingDescription")}
+        panelTitle={t("public.marketing.pricing.panelTitle")}
+        panelItems={[
+          t("public.marketing.pricing.panel1", { price: formatEtb(SCHOOL_PRICING_PLANS[0].monthlyPricePerStudentEtb) }),
+          t("public.marketing.pricing.panel2"),
+          t("public.marketing.pricing.panel3"),
+        ]}
+        actions={
+          <>
+            <a href="#school-plans" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#FBBF24] px-5 py-3 text-sm font-bold text-[#1C1512] transition-colors hover:bg-[#F59E0B] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#4C0519]">
+              {t("public.marketing.pricing.exploreSchoolPlans")}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </a>
+            <a href="#student-plans" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/30 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#4C0519]">
+              {t("public.studentPricing.navLabel")}
+            </a>
+          </>
+        }
+      />
+
+      <MarketingSteps
+        id="pricing-flow-heading"
+        title={t("public.marketing.pricing.flowTitle")}
+        description={t("public.marketing.pricing.flowDescription")}
+        tone="cream"
+        columns={3}
+        items={[
+          { title: t("public.marketing.pricing.step1Title"), description: t("public.marketing.pricing.step1Description") },
+          { title: t("public.marketing.pricing.step2Title"), description: t("public.marketing.pricing.step2Description") },
+          { title: t("public.marketing.pricing.step3Title"), description: t("public.marketing.pricing.step3Description") },
+        ]}
+      />
+
+      <section id="school-plans" className="section scroll-mt-24 border-b border-[#E7E0D6] bg-white dark:border-white/10 dark:bg-[#1C1512]">
+        <div className="container space-y-7 text-start sm:space-y-8">
           <SectionHeader
-            asH1
-            invertColors
-            title={SITE_CONTENT.pages.pricing.title}
-            subtitle={SITE_CONTENT.pages.pricing.subtitle}
-            actions={
-              <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  to="/contact"
-                  className="min-h-[44px] px-6 py-2.5 rounded-[6px] bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-sm font-semibold transition-colors inline-flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#881337] active:scale-[0.98]"
-                >
-                  <span>Contact us</span>
-                  <ArrowRight className="w-4 h-4 text-[#1C1512]" aria-hidden="true" />
-                </Link>
-                <Link
-                  to="/for-schools"
-                  className="min-h-[44px] px-5 py-2.5 rounded-[6px] border border-white/40 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white active:scale-[0.98]"
-                >
-                  <span>For schools</span>
-                </Link>
-              </div>
-            }
+            title={t("public.marketing.pricing.schoolPlansTitle")}
+            subtitle={t("public.marketing.pricing.schoolPlansDescription")}
           />
-        </div>
-      </section>
-
-      {/* 2. INTERACTIVE SEAT AND BUDGET CALCULATOR */}
-      <section className="section bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E2E8F0] dark:border-stone-800">
-        <div className="container space-y-10 text-start">
-          <SectionHeader
-            title="Seat and licensing calculator"
-            subtitle="Calculate per-candidate licensing costs and volume savings based on your school's candidate enrollment."
-          />
-
-          <div className="p-6 sm:p-10 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 shadow-xs hover:shadow-md transition-shadow space-y-8">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-6 border-b border-stone-200 dark:border-stone-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                  <Calculator className="w-5 h-5" aria-hidden="true" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">Estimate annual seat allocation</h3>
-                  <p className="text-xs text-[#57534E] dark:text-stone-400">Drag the slider or choose a standard cohort preset</p>
-                </div>
-              </div>
-
-              {/* Billing Cycle Selector */}
-              <div className="flex items-center gap-2 p-1 rounded-[8px] bg-stone-100 dark:bg-[#1C1512] border border-stone-200 dark:border-stone-800 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setBillingCycle("annual")}
-                  className={`min-h-[36px] px-4 py-1.5 rounded-[6px] font-semibold transition-all cursor-pointer ${
-                    billingCycle === "annual"
-                      ? "bg-white dark:bg-[#261E1A] text-[#881337] dark:text-[#FBBF24] shadow-xs"
-                      : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
-                  }`}
-                >
-                  Full academic year
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBillingCycle("semester")}
-                  className={`min-h-[36px] px-4 py-1.5 rounded-[6px] font-semibold transition-all cursor-pointer ${
-                    billingCycle === "semester"
-                      ? "bg-white dark:bg-[#261E1A] text-[#881337] dark:text-[#FBBF24] shadow-xs"
-                      : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
-                  }`}
-                >
-                  Semester split (55%)
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-[#57534E] dark:text-stone-300">Active candidate seats</span>
-                  <div className="text-3xl font-bold text-[#1C1512] dark:text-white">
-                    {candidateSeats}{" "}
-                    <span className="text-xs font-normal text-stone-500">enrolled candidates</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">Cohort presets:</span>
-                  {[50, 150, 300, 600].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setCandidateSeats(preset)}
-                      className={`min-h-[34px] px-3 py-1 rounded-[6px] text-xs font-semibold transition-colors cursor-pointer border ${
-                        candidateSeats === preset
-                          ? "bg-[#881337] text-white border-[#881337]"
-                          : "bg-white dark:bg-[#1C1512] text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-white/5"
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <input
-                type="range"
-                min={20}
-                max={1000}
-                step={5}
-                value={candidateSeats}
-                onChange={(e) => setCandidateSeats(Number(e.target.value))}
-                aria-label="Active candidate seats slider"
-                className="w-full h-2.5 bg-stone-200 dark:bg-stone-700 rounded-lg appearance-none cursor-pointer accent-[#881337] dark:accent-[#FBBF24]"
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4">
-                <div className="p-4 rounded-[8px] bg-[#FAF8F5] dark:bg-[#1C1512] border border-[#E2E8F0] dark:border-stone-800 space-y-1">
-                  <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider block">
-                    Recommended tier
-                  </span>
-                  <div className="text-base font-bold text-[#1C1512] dark:text-white">
-                    {currentTier.tierName}
-                  </div>
-                  <span className="text-[11px] text-[#881337] dark:text-[#FBBF24] font-medium block">
-                    {currentTier.discountPct > 0 ? `${currentTier.discountPct}% volume savings` : "Standard baseline"}
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-[8px] bg-[#FAF8F5] dark:bg-[#1C1512] border border-[#E2E8F0] dark:border-stone-800 space-y-1">
-                  <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider block">
-                    Rate per seat
-                  </span>
-                  <div className="text-2xl font-bold text-[#881337] dark:text-[#FBBF24]">
-                    {effectiveRatePerSeat} ETB
-                  </div>
-                  <span className="text-[11px] text-stone-500 dark:text-stone-400 block">
-                    per seat / {billingCycle === "semester" ? "semester" : "academic year"}
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-[8px] bg-[#FAF8F5] dark:bg-[#1C1512] border border-[#E2E8F0] dark:border-stone-800 space-y-1">
-                  <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider block">
-                    Total subtotal
-                  </span>
-                  <div className="text-2xl font-bold text-[#1C1512] dark:text-white">
-                    {subtotalETB.toLocaleString()} ETB
-                  </div>
-                  <span className="text-[11px] text-stone-500 dark:text-stone-400 block">
-                    + 15% VAT: {vatAmountETB.toLocaleString()} ETB
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-[8px] bg-[#FAF8F5] dark:bg-[#1C1512] border border-[#E2E8F0] dark:border-stone-800 space-y-1">
-                  <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider block">
-                    Total with VAT
-                  </span>
-                  <div className="text-2xl font-bold text-[#1C1512] dark:text-white">
-                    {totalETB.toLocaleString()} ETB
-                  </div>
-                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium block">
-                    {totalSavingsETB > 0 ? `Saved ${totalSavingsETB.toLocaleString()} ETB` : "Official invoice receipt"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-xs text-[#57534E] dark:text-stone-300">
-                <ShieldCheck className="w-4 h-4 text-[#881337] dark:text-[#FBBF24] shrink-0" aria-hidden="true" />
-                <span>Includes official registered VAT invoice and domestic bank wire remittance details.</span>
-              </div>
-              <Link
-                to={`/contact?topic=Pricing&seats=${candidateSeats}&plan=${currentTier.id}`}
-                className="min-h-[44px] px-6 py-2.5 rounded-[6px] bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-xs font-semibold transition-colors inline-flex items-center gap-2 shadow-xs focus:outline-none focus:ring-2 focus:ring-[#881337] active:scale-[0.98]"
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {SCHOOL_PRICING_PLANS.map((plan) => (
+              <article
+                key={plan.id}
+                className={`relative flex h-full flex-col rounded-2xl border bg-white p-6 dark:bg-[#261E1A] sm:p-7 ${
+                  plan.recommended
+                    ? "border-[#881337] shadow-md ring-1 ring-[#881337]/15 dark:border-[#FBBF24]"
+                    : "border-[#E7E0D6] shadow-xs dark:border-white/10"
+                }`}
               >
-                <span>Request official quotation for {candidateSeats} seats</span>
-                <ArrowRight className="w-3.5 h-3.5 text-[#1C1512]" aria-hidden="true" />
-              </Link>
-            </div>
+                {plan.recommended && (
+                  <span className="absolute -top-3 left-5 rounded-full bg-[#881337] px-3 py-1 text-[11px] font-bold text-white dark:bg-[#FBBF24] dark:text-[#1C1512]">
+                    {t("public.marketing.pricing.mostPopular")}
+                  </span>
+                )}
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-lg font-bold tracking-tight text-[#1C1512] dark:text-white">{t(plan.nameKey)}</h3>
+                    <p className="mt-1 min-h-12 text-sm leading-5 text-[#57534E] dark:text-stone-300">{t(plan.descriptionKey)}</p>
+                  </div>
+                  <div className="border-y border-[#E7E0D6] py-4 dark:border-white/10">
+                    <p className="text-4xl font-bold tracking-tight text-[#1C1512] dark:text-white">{formatEtb(plan.monthlyPricePerStudentEtb)}</p>
+                    <p className="mt-1 text-sm text-[#57534E] dark:text-stone-300">{t("public.marketing.pricing.perStudentMonthly")}</p>
+                    <p className="mt-2 text-sm font-medium text-[#7D6F63] dark:text-stone-400">
+                      {formatEtb(plan.monthlyPricePerStudentEtb * MONTHS_PER_YEAR)} {t("public.marketing.pricing.perStudentYear")}
+                    </p>
+                  </div>
+                  <ul className="space-y-2.5 pb-4">
+                    {plan.featureKeys.map((featureKey) => (
+                      <li key={featureKey} className="flex items-start gap-2.5 text-sm leading-5 text-[#57534E] dark:text-stone-300">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+                        <span>{t(`public.marketing.pricing.${featureKey}`)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <Link
+                  to={contactPlan(t("public.marketing.pricing.planInquiryMessage", {
+                    plan: t(plan.nameKey),
+                    monthly: formatEtb(plan.monthlyPricePerStudentEtb),
+                    annual: formatEtb(plan.monthlyPricePerStudentEtb * MONTHS_PER_YEAR),
+                  }))}
+                  className="mt-auto inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#881337] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#9F1239] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:bg-[#FBBF24] dark:text-[#1C1512] dark:hover:bg-[#F59E0B]"
+                >
+                  {t("public.marketing.pricing.choosePlan")}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </article>
+            ))}
           </div>
+
+          <article className="grid gap-8 rounded-2xl border border-[#E7E0D6] bg-[#FAF8F5] p-6 dark:border-white/10 dark:bg-[#201815] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:p-8">
+            <div className="space-y-5">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#881337] dark:bg-[#261E1A] dark:text-[#FBBF24]">
+                  <Building2 className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-xl font-bold tracking-tight text-[#1C1512] dark:text-white">{t("public.marketing.pricing.enterpriseName")}</h3>
+                  <p className="max-w-3xl text-sm leading-6 text-[#57534E] dark:text-stone-300">{t("public.marketing.pricing.enterpriseDescription")}</p>
+                  <p className="pt-1 text-lg font-semibold text-[#1C1512] dark:text-white">{t("public.marketing.pricing.contactForPricing")}</p>
+                </div>
+              </div>
+              <ul className="grid gap-3 pl-1 text-sm leading-5 text-[#57534E] dark:text-stone-300 sm:grid-cols-2">
+                {[1, 2, 3, 4].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+                    <span>{t(`public.marketing.pricing.enterpriseFeature${item}`)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <Link
+              to={contactPlan(t("public.marketing.pricing.enterpriseInquiryMessage"))}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#1C1512] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3A302A] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:bg-white dark:text-[#1C1512]"
+            >
+              {t("public.marketing.pricing.contactEnterprise")}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </article>
+
+          <p className="max-w-4xl text-sm leading-6 text-[#57534E] dark:text-stone-300">
+            {t("public.marketing.pricing.manualSchoolSetupNote")}
+          </p>
         </div>
       </section>
 
-      {/* 3. PRICING PLANS */}
-      <section className="section bg-white border-b border-[#E2E8F0] dark:bg-[#1C1512] dark:border-stone-800">
-        <div className="container space-y-12">
-          <SectionHeader
-            title="School subscription plans"
-            subtitle="Choose the plan matching your candidate count. Every plan includes full curriculum access and regular updates."
-          />
-
-          <div className="grid md:grid-cols-3 gap-8 text-start">
-            {PLANS.map((plan) => {
-              const isCampus = plan.id === "school";
+      <section id="student-plans" className="section scroll-mt-24 border-b border-[#E7E0D6] bg-[#FAF8F5] dark:border-white/10 dark:bg-[#1C1512]">
+        <div className="container space-y-7 sm:space-y-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#FFF1F2] text-[#881337] dark:bg-[#4C0519]/40 dark:text-[#FBBF24]">
+              <GraduationCap className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <SectionHeader id="student-pricing-heading" title={t("public.studentPricing.title")} subtitle={t("public.studentPricing.description")} />
+          </div>
+          <p className="mx-auto max-w-3xl rounded-xl border border-[#E7E0D6] bg-white px-4 py-3 text-center text-sm leading-6 text-[#57534E] dark:border-white/10 dark:bg-[#261E1A] dark:text-stone-300">
+            {t("public.studentPricing.studentOnlyNote")}
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {(["monthly", "season_pass"] as const).map((planId) => {
+              const isSeason = planId === "season_pass";
+              const featureCount = isSeason ? 5 : 4;
+              const planName = t(`public.studentPricing.${planId}Name`);
               return (
-                <div
-                  key={plan.id}
-                  className={`p-8 sm:p-9 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border ${
-                    isCampus
-                      ? "border-[#881337] dark:border-[#FBBF24]/60 shadow-md ring-2 ring-[#FECDD3]/40 dark:ring-[#FBBF24]/20"
-                      : "border-[#E2E8F0] dark:border-stone-800 shadow-xs"
-                  } hover:border-[#FECDD3] dark:hover:border-[#FBBF24]/40 flex flex-col justify-between space-y-8 hover:shadow-lg transition-all duration-200 relative hover:-translate-y-0.5`}
-                >
-                  {plan.badge && (
-                    <div className="absolute -top-3.5 left-8 px-3 py-0.5 rounded-[6px] text-xs font-semibold uppercase tracking-wider bg-[#881337] text-white shadow-xs">
-                      {plan.badge}
-                    </div>
+                <article key={planId} className={`relative rounded-2xl border bg-white p-6 shadow-xs dark:bg-[#261E1A] sm:p-7 ${
+                  isSeason ? "border-[#881337] ring-1 ring-[#881337]/15 dark:border-[#FBBF24]" : "border-[#E7E0D6] dark:border-white/10"
+                }`}>
+                  {isSeason && (
+                    <span className="absolute -top-3 left-6 rounded-full bg-[#881337] px-3 py-1 text-[11px] font-bold text-white dark:bg-[#FBBF24] dark:text-[#1C1512]">
+                      {t("public.studentPricing.popular")}
+                    </span>
                   )}
-
-                  <div className="space-y-5">
-                    <div className="space-y-1.5">
-                      <h3 className="text-xl font-bold text-[#1C1512] dark:text-white tracking-tight">{plan.name}</h3>
-                      <p className="text-xs text-[#57534E] dark:text-stone-300 leading-relaxed">{plan.target}</p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-xl font-bold tracking-tight text-[#1C1512] dark:text-white">{planName}</h3>
+                      <p className="mt-1 text-sm leading-6 text-[#57534E] dark:text-stone-300">{t(`public.studentPricing.${planId}Description`)}</p>
                     </div>
-
-                    <div className="pt-2 pb-5 border-b border-stone-100 dark:border-stone-800 space-y-1">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-3xl sm:text-4xl font-bold text-[#1C1512] dark:text-white tracking-tight">{plan.pricePerSeat}</span>
-                        <span className="text-xs font-medium text-[#57534E] dark:text-stone-400">/ candidate</span>
-                      </div>
-                      <div className="text-xs text-[#881337] dark:text-[#FBBF24] font-semibold">{plan.seats}</div>
-                      <div className="text-[11px] text-stone-400 dark:text-stone-400">{plan.cadence}</div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-400 block mb-2">
-                        Included tier features
-                      </span>
-                      <ul className="space-y-3 text-xs text-[#57534E] dark:text-stone-300 leading-relaxed">
-                        {plan.features.map((feat, fIdx) => (
-                          <li key={fIdx} className="flex items-start gap-2.5">
-                            <Check className="w-4 h-4 text-[#881337] dark:text-[#FBBF24] shrink-0 mt-0.5 icon-first-line" aria-hidden="true" />
-                            <span>{feat}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF1F2] text-[#881337] dark:bg-[#4C0519]/40 dark:text-[#FBBF24]">
+                      <Sparkles className="h-5 w-5" aria-hidden="true" />
+                    </span>
                   </div>
-
-                  <div className="pt-5 border-t border-stone-100 dark:border-stone-800">
+                  <div className="mt-5 border-y border-[#E7E0D6] py-4 dark:border-white/10">
+                    <p className="text-3xl font-bold tracking-tight text-[#1C1512] dark:text-white">{formatEtb(studentPlanPrices[planId] ?? (isSeason ? 450 : 150))}</p>
+                    <p className="mt-1 text-sm text-[#57534E] dark:text-stone-300">{t(`public.studentPricing.${planId}Period`)}</p>
+                  </div>
+                  <ul className="mt-5 space-y-3">
+                    {Array.from({ length: featureCount }, (_, index) => (
+                      <li key={index} className="flex items-start gap-2.5 text-sm leading-5 text-[#57534E] dark:text-stone-300">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+                        <span>{t(`public.studentPricing.${planId}Feature${index + 1}`)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {studentPlanIsUnavailable ? (
+                    <button type="button" disabled className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-stone-100 px-4 py-2.5 text-sm font-semibold text-stone-500 dark:bg-white/5 dark:text-stone-400">
+                      {t("public.studentPricing.studentAccountOnly")}
+                    </button>
+                  ) : (
                     <Link
-                      to={plan.ctaLink}
-                      className="w-full min-h-[44px] px-4 py-2.5 rounded-[6px] bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs focus:outline-none focus:ring-2 focus:ring-[#881337] active:scale-[0.98]"
+                      to={studentPlanAction(planId)}
+                      className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#881337] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#9F1239] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:bg-[#FBBF24] dark:text-[#1C1512] dark:hover:bg-[#F59E0B]"
                     >
-                      <span>{plan.ctaText}</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-[#1C1512]" aria-hidden="true" />
+                      {t(isAuthenticated ? "public.studentPricing.managePlan" : "public.studentPricing.createStudentAccount")}
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </Link>
-                  </div>
-                </div>
+                  )}
+                </article>
               );
             })}
           </div>
         </div>
       </section>
 
-      {/* 4. BILLING TERMS & INCLUSIONS */}
-      <section className="section bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E2E8F0] dark:border-stone-800">
-        <div className="container space-y-12">
-          <SectionHeader
-            title="Payment options and invoices"
-            subtitle="Finkison accommodates school fiscal calendars and regional finance procedures."
-          />
-
-          <div className="grid md:grid-cols-3 gap-8 text-start">
-            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 space-y-4">
-              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                <CreditCard className="w-6 h-6" aria-hidden="true" />
-              </div>
-              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">Domestic bank transfer and Telebirr</h3>
-              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
-                School finance offices can remit payments directly via Telebirr merchant accounts, CBE Birr, or commercial bank deposit into our domestic accounts in Addis Ababa.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 space-y-4">
-              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                <FileSpreadsheet className="w-6 h-6" aria-hidden="true" />
-              </div>
-              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">Official tax invoice receipts</h3>
-              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
-                Every institutional license is accompanied by a registered Value Added Tax receipt and formal service agreement for school accounting records.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 space-y-4">
-              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                <Building2 className="w-6 h-6" aria-hidden="true" />
-              </div>
-              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">Annual seat reallocation</h3>
-              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
-                If a student moves or changes schools during the first semester, administrators can revoke the unused credential and reassign the active seat to another student.
-              </p>
-            </div>
+      <section className="section border-t border-[#E7E0D6] bg-[#FAF8F5] dark:border-white/10 dark:bg-[#1C1512]" aria-labelledby="pricing-faq-heading">
+        <div className="container grid gap-7 lg:grid-cols-12 lg:gap-12">
+          <div className="lg:col-span-4">
+            <SectionHeader id="pricing-faq-heading" align="start" title={t("public.marketing.pricing.faqTitle")} subtitle={t("public.marketing.pricing.flowDescription")} />
+          </div>
+          <div className="space-y-2.5 lg:col-span-8">
+            {[
+              [t("public.marketing.pricing.faq1Question"), t("public.marketing.pricing.faq1Answer")],
+              [t("public.marketing.pricing.faq2Question"), t("public.marketing.pricing.faq2Answer")],
+              [t("public.marketing.pricing.faq3Question"), t("public.marketing.pricing.faq3Answer")],
+            ].map(([question, answer]) => (
+              <details key={question} className="group rounded-xl border border-[#E7E0D6] bg-white px-4 py-3.5 dark:border-white/10 dark:bg-[#261E1A]">
+                <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-4 text-sm font-semibold text-[#1C1512] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:text-white">
+                  {question}<span className="text-lg leading-none text-[#881337] group-open:rotate-45 dark:text-[#FBBF24]" aria-hidden="true">+</span>
+                </summary>
+                <p className="pt-2 text-sm leading-6 text-[#57534E] dark:text-stone-300">{answer}</p>
+              </details>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* 5. FINAL CALL TO ACTION (Academic Shield #4C0519) - Left-aligned to container */}
-      <section className="section bg-[#4C0519] text-white">
-        <div className="container space-y-8 text-start">
-          <SectionHeader
-            invertColors
-            title="Request an institutional quote for your school"
-            subtitle="Our team provides customized seat allocations and flexible subscription terms for your academic year."
-            actions={
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                <Link
-                  to="/contact?topic=Pricing"
-                  className="min-h-[48px] px-8 py-3.5 rounded-[6px] bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-sm font-semibold transition-colors inline-flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#881337] active:scale-[0.98]"
-                >
-                  <span>Contact us</span>
-                  <ArrowRight className="w-4 h-4 text-[#1C1512]" aria-hidden="true" />
-                </Link>
-                <Link
-                  to="/for-schools"
-                  className="min-h-[48px] px-7 py-3.5 rounded-[6px] border border-white/40 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white active:scale-[0.98]"
-                >
-                  <span>For schools</span>
-                </Link>
-              </div>
-            }
-          />
-        </div>
-      </section>
+      <MarketingCTA
+        title={t("public.marketing.pricing.ctaTitle")}
+        description={t("public.marketing.pricing.ctaDescription")}
+        primaryLabel={t("public.marketing.pricing.startSchoolSetup")}
+        primaryTo="/contact?topic=School%20setup"
+        secondaryLabel={t("public.studentPricing.navLabel")}
+        secondaryTo="/pricing#student-plans"
+      />
     </div>
   );
 }

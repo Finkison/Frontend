@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 export interface StatItem {
   id: string;
@@ -10,101 +10,95 @@ export interface StatItem {
 }
 
 export interface StatsCounterProps {
-  stats?: StatItem[];
+  /** Supply verified figures from the product or organization. */
+  stats: StatItem[];
 }
+
 export type EnterpriseStatsCounterProps = StatsCounterProps;
 
-const DEFAULT_STATS: StatItem[] = [
-  {
-    id: "grades",
-    targetNumber: 4,
-    suffix: " levels",
-    label: "Secondary grade coverage",
-    caption: "Full syllabus mastery across Grades 9, 10, 11, and 12.",
-  },
-  {
-    id: "streams",
-    targetNumber: 2,
-    suffix: " tracks",
-    label: "Preparatory streams",
-    caption: "Dedicated Natural Science and Social Science national examination tracks.",
-  },
-  {
-    id: "modules",
-    targetNumber: 12,
-    suffix: " subjects",
-    label: "Core curriculum subjects",
-    caption: "Comprehensive textbook units with verified item banks and worked solutions.",
-  },
-  {
-    id: "past-papers",
-    targetNumber: 8,
-    suffix: "+ years",
-    label: "Past entrance papers",
-    caption: "Verified national papers across multiple examination years with official marking rubrics.",
-  },
-];
-
-export default function StatsCounter({
-  stats = DEFAULT_STATS,
-}: StatsCounterProps): React.ReactElement {
-  const [hasAnimated, setHasAnimated] = useState(false);
+export default function StatsCounter({ stats }: StatsCounterProps): React.ReactElement | null {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      setIsVisible(true);
+      return;
+    }
+
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !hasAnimated) {
-          setHasAnimated(true);
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
         }
       },
       { threshold: 0.25 }
     );
-
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
+    observer.observe(container);
 
     return () => observer.disconnect();
-  }, [hasAnimated]);
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setProgress(1);
+      return;
+    }
+
+    let animationFrame = 0;
+    const startedAt = window.performance.now();
+    const duration = 900;
+
+    const animate = (now: number) => {
+      const linearProgress = Math.min((now - startedAt) / duration, 1);
+      setProgress(1 - Math.pow(1 - linearProgress, 3));
+      if (linearProgress < 1) animationFrame = window.requestAnimationFrame(animate);
+    };
+
+    animationFrame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [isVisible]);
+
+  if (stats.length === 0) return null;
 
   return (
     <div
       ref={containerRef}
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8"
+      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6"
       role="region"
-      aria-label="Platform telemetry and impact statistics"
+      aria-label="Platform information"
     >
-      {stats.map((stat) => (
-        <div
-          key={stat.id}
-          className="p-6 rounded-[12px] bg-slate-50 border border-slate-200/80 hover:border-slate-300 transition-colors text-start"
-        >
-          {/* Animated or Final Value (Final value in DOM for screen readers and search bots) */}
-          <div className="flex items-baseline gap-1 text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight font-mono">
-            <span>{stat.prefix}</span>
-            <span aria-hidden="true">
-              {hasAnimated
-                ? stat.targetNumber.toLocaleString()
-                : stat.targetNumber.toLocaleString()}
-            </span>
-            <span className="sr-only">
-              {stat.prefix || ""}
-              {stat.targetNumber}
-              {stat.suffix || ""}
-            </span>
-            <span className="text-[#881337] dark:text-[#FBBF24]">{stat.suffix}</span>
-          </div>
-
-          <h3 className="mt-2 text-base font-bold text-slate-900 leading-snug">
-            {stat.label}
-          </h3>
-
-          <p className="mt-1 text-xs text-slate-600 leading-relaxed">
-            {stat.caption}
-          </p>
-        </div>
-      ))}
+      {stats.map((stat) => {
+        const currentValue = Math.round(stat.targetNumber * progress);
+        return (
+          <article
+            key={stat.id}
+            className="rounded-xl border border-stone-200/80 bg-stone-50 p-5 text-start transition-colors hover:border-stone-300 dark:border-white/10 dark:bg-[#261E1A] dark:hover:border-white/20 sm:p-6"
+          >
+            <div className="flex items-baseline gap-1 font-mono text-3xl font-extrabold tracking-tight text-stone-900 dark:text-white sm:text-4xl">
+              <span aria-hidden="true">
+                {stat.prefix}{currentValue.toLocaleString()}{stat.suffix}
+              </span>
+              <span className="sr-only">
+                {stat.prefix || ""}{stat.targetNumber.toLocaleString()}{stat.suffix || ""}
+              </span>
+            </div>
+            <h3 className="mt-2 text-base font-bold leading-snug text-stone-900 dark:text-white">
+              {stat.label}
+            </h3>
+            <p className="mt-1 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+              {stat.caption}
+            </p>
+          </article>
+        );
+      })}
     </div>
   );
 }

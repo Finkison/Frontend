@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Calculator,
@@ -9,35 +9,25 @@ import {
   Globe,
   Landmark,
   TrendingUp,
-  CheckCircle2,
   ArrowRight,
+  ChevronDown,
   Award,
   Target,
   FileSpreadsheet,
-  Building2,
-  GraduationCap,
   ShieldCheck,
 } from "lucide-react";
 import InteractiveScienceShowcase from "../components/science/InteractiveScienceShowcase";
 import { SectionHeader } from "../components/typography/SectionHeader";
-import { SITE_CONTENT } from "../content/siteContent";
+import { useI18n } from "../i18n";
 
 interface GradeProgram {
   grade: number;
-  title: string;
-  subtitle: string;
-  academicStage: string;
-  streamType: string;
-  challenge: string;
+  description: string;
   howWeSupport: {
     title: string;
     description: string;
     icon: React.ReactNode;
   }[];
-  whatTheyGet: {
-    studentGets: string[];
-    schoolGets: string[];
-  };
   subjects: {
     name: string;
     stream: string;
@@ -48,50 +38,32 @@ interface GradeProgram {
 }
 
 const GRADE_PROGRAMS: GradeProgram[] = [
-  // Grade 9
+
   {
     grade: 9,
-    title: "Grade 9 academic program",
-    subtitle: "Establishing foundational mastery in secondary mathematics, experimental sciences, and academic English.",
-    academicStage: "Lower secondary general transition",
-    streamType: "Common core (all students take Natural and Social Sciences)",
-    challenge: "Students transition from general primary studies to rigorous high school coursework requiring quantitative problem-solving, laboratory science concepts, and abstract algebraic logic.",
+    description: "Build foundations in mathematics, science, and English.",
     howWeSupport: [
       {
-        title: "Visual conceptual grounding",
-        description: "Interactive simulations for 1D and 2D motion, cell biology, atomic structure, and linear equations make abstract concepts tangible before formula memorization.",
+        title: "Visual learning",
+        description: "Explore motion, cells, atoms, and equations.",
         icon: <Atom className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Diagnostic baseline assessment",
-        description: "Adaptive diagnostics identify primary school knowledge gaps early in the academic year to prevent downstream failure.",
+        title: "Check prior knowledge",
+        description: "Identify topics to review.",
         icon: <Target className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Curriculum vocabulary glossaries",
-        description: "Key science and mathematical terminology reinforced with standardized contextual glossaries to ensure high conceptual comprehension.",
+        title: "Subject vocabulary",
+        description: "Review key science and maths terms.",
         icon: <BookOpen className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Teacher formative question banks",
-        description: "Pre-calibrated unit quiz sets aligned directly to national Grade 9 textbook chapters.",
+        title: "Practise questions",
+        description: "Practise Grade 9 textbook questions.",
         icon: <FileSpreadsheet className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
     ],
-    whatTheyGet: {
-      studentGets: [
-        "Interactive visual science simulations for Physics, Biology, Chemistry, and Mathematics",
-        "Step-by-step worked solutions for every end-of-chapter textbook problem",
-        "Automated personal review flashcards for definitions, SI units, and chemical symbols",
-        "Foundational score confidence tracking to prepare for senior high school streams",
-      ],
-      schoolGets: [
-        "Standardized Grade 9 diagnostic baseline reports across all homeroom sections",
-        "Ready-to-print unit test papers with full answer keys and rubrics",
-        "Early warning alerts for students needing remedial algebra and science support",
-        "Curriculum tracking dashboard showing syllabus completion against regional calendar",
-      ],
-    },
     subjects: [
       { name: "Mathematics", stream: "Common", code: "ETH-MAT-G9", highlight: "Algebraic expressions, linear equations, geometry, vectors, and basic trigonometry.", icon: <Calculator className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /> },
       { name: "Physics", stream: "Common", code: "ETH-PHY-G9", highlight: "Kinematics in 1D, forces, Newton's laws, work, energy, power, and simple machines.", icon: <Atom className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /> },
@@ -101,50 +73,31 @@ const GRADE_PROGRAMS: GradeProgram[] = [
     ],
   },
 
-  // Grade 10
   {
     grade: 10,
-    title: "Grade 10 academic program",
-    subtitle: "Consolidating core secondary competencies and preparing students for senior stream selection.",
-    academicStage: "Mid secondary competency consolidation",
-    streamType: "Common core preparatory milestone",
-    challenge: "Grade 10 culminates in pivotal streaming decisions. Candidates must balance foundational knowledge across all subjects while identifying natural versus social science strengths.",
+    description: "Strengthen core subjects and prepare for Grade 11 streams.",
     howWeSupport: [
       {
-        title: "Streaming diagnostic aptitude",
-        description: "Objective psychometric assessments analyze student mastery across STEM and humanities to guide informed stream placement.",
+        title: "Review subject strengths",
+        description: "Review progress across science and humanities.",
         icon: <Target className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Comprehensive unit revision sets",
-        description: "Multi-chapter practice sets synthesized from Grades 9 and 10 curricula to solidify core knowledge.",
+        title: "Review across units",
+        description: "Practise key ideas from Grades 9 and 10.",
         icon: <BookOpen className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Advanced STEM laboratory modules",
-        description: "Virtual science labs covering chemical reactions, electrical circuits, and genetic inheritance.",
+        title: "Interactive science activities",
+        description: "Explore chemistry, circuits, and genetics.",
         icon: <FlaskConical className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Progressive difficulty calibration",
-        description: "Questions tiered from knowledge recall to analytical evaluation to build higher-order thinking skills.",
+        title: "Build problem-solving skills",
+        description: "Build from recall to problem-solving.",
         icon: <TrendingUp className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
     ],
-    whatTheyGet: {
-      studentGets: [
-        "Aptitude profile highlighting individual subject strengths for Grade 11 streaming",
-        "Over 1,200 curated practice questions with detailed explanations",
-        "Comprehensive practice modules accessible across school computer laboratories",
-        "Targeted drills for high-frequency exam concept errors",
-      ],
-      schoolGets: [
-        "Cohort streaming analytics to assist deans in section allocations",
-        "Standardized mid-year and final examination test blueprints",
-        "Teacher gradebook tools with automated statistical distributions",
-        "Parent-ready academic progress summaries",
-      ],
-    },
     subjects: [
       { name: "Mathematics", stream: "Common", code: "ETH-MAT-G10", highlight: "Quadratic equations, coordinate geometry, matrices, determinants, and probability.", icon: <Calculator className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /> },
       { name: "Physics", stream: "Common", code: "ETH-PHY-G10", highlight: "Electrostatics, current electricity, electromagnetism, and introductory electronics.", icon: <Atom className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /> },
@@ -154,50 +107,31 @@ const GRADE_PROGRAMS: GradeProgram[] = [
     ],
   },
 
-  // Grade 11
   {
     grade: 11,
-    title: "Grade 11 academic program",
-    subtitle: "Specialized preparatory stream curricula calibrated to advanced university entrance requirements.",
-    academicStage: "Senior secondary stream specialization",
-    streamType: "Natural Science and Social Science tracks",
-    challenge: "Students encounter university-level depth in their chosen stream. Natural science candidates face calculus-based physics and organic chemistry, while social science candidates analyze complex economics and world history.",
+    description: "Study specialized subjects and begin preparing for entrance exams.",
     howWeSupport: [
       {
-        title: "Stream-specific deep dives",
-        description: "Rigorous instructional modules engineered around specialized Grade 11 textbooks and national curriculum benchmarks.",
+        title: "Study stream subjects",
+        description: "Explore topics in your chosen Grade 11 stream.",
         icon: <BookOpen className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Prerequisite concept bridging",
-        description: "Identifies and rectifies Grade 9 and 10 gaps before students attempt advanced calculus and thermodynamics.",
+        title: "Review key foundations",
+        description: "Review foundations for advanced study.",
         icon: <Target className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "EUEE blueprint alignment",
-        description: "Early exposure to national entrance exam question formats, timing constraints, and distractor patterns.",
+        title: "Practise exam questions",
+        description: "Practise exam formats and timing.",
         icon: <ShieldCheck className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Continuous assessment gradebooks",
-        description: "Automated scoring and gradebook management for school-level term examinations and quizzes.",
+        title: "Track assessment results",
+        description: "Organize class results by subject.",
         icon: <FileSpreadsheet className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
     ],
-    whatTheyGet: {
-      studentGets: [
-        "Full syllabus coverage across all Grade 11 stream subjects",
-        "Step-by-step calculus derivations and chemical mechanism animations",
-        "Personalized spaced review schedules based on individual retention curves",
-        "Instant score conversion estimates projecting future 600-point national standing",
-      ],
-      schoolGets: [
-        "Comparative section analytics across natural and social science classrooms",
-        "Teacher assignment matrix identifying curriculum pacing and revision gaps",
-        "Standardized unit test builder generating fresh question sets with anti-cheat scrambling",
-        "Dedicated administrator metrics for regional educational bureau audits",
-      ],
-    },
     subjects: [
       { name: "Mathematics (Natural)", stream: "Natural Science", code: "ETH-MAT-G11N", highlight: "Relations, functions, complex numbers, vectors in 3D, and trigonometric identities.", icon: <Calculator className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /> },
       { name: "Physics", stream: "Natural Science", code: "ETH-PHY-G11", highlight: "Kinematics in 2D, circular motion, work, energy, wave motion, and thermodynamics.", icon: <Atom className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /> },
@@ -211,50 +145,31 @@ const GRADE_PROGRAMS: GradeProgram[] = [
     ],
   },
 
-  // Grade 12
   {
     grade: 12,
-    title: "Grade 12 academic program",
-    subtitle: "Comprehensive national examination preparation engineered for university admission cutoff success.",
-    academicStage: "Senior preparatory and national exam candidate",
-    streamType: "Full stream specialization and national standardized testing",
-    challenge: "The Ethiopian University Entrance Examination determines university placement and field of study. Students must synthesize four years of high school curriculum under intense time constraints.",
+    description: "Review secondary subjects and practise for entrance exams.",
     howWeSupport: [
       {
-        title: "Official past paper archives",
-        description: "Official EUEE examinations from 2008 to 2016 E.C. complete with verified answer keys, detailed rubrics, and worked solutions.",
+        title: "Past exam questions",
+        description: "Practise entrance questions with worked solutions.",
         icon: <Award className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Bayesian 600-point score calibration",
-        description: "Predictive model converts diagnostic performance into estimated national entrance exam scores with +/- 14 point confidence bounds.",
+        title: "Track practice progress",
+        description: "Use results to choose what to review.",
         icon: <TrendingUp className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Timed national simulation engine",
-        description: "Real-time exam simulator replicating official time limits, question pacing, section transitions, and non-invasive proctoring telemetry.",
+        title: "Timed exam practice",
+        description: "Practise to a time limit and review answers.",
         icon: <ShieldCheck className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
       {
-        title: "Targeted high-yield drills",
-        description: "Algorithmic review queues that prioritize topics carrying the highest percentage weighting on the official national table of specifications.",
+        title: "Review by topic",
+        description: "Revisit topics that need practice.",
         icon: <Target className="w-5 h-5 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />,
       },
     ],
-    whatTheyGet: {
-      studentGets: [
-        "Unrestricted access to all official EUEE past papers from 2008 to 2016 E.C.",
-        "Calibrated 600-point entrance exam score forecasts updated after every practice set",
-        "Targeted diagnostic flashcards for high-frequency EUEE formula questions",
-        "Step-by-step worked explanations for every question aligned with national textbooks",
-      ],
-      schoolGets: [
-        "Institutional university entrance placement forecast 60 days before national exams",
-        "Identification of underperforming sections and subjects for targeted remediation",
-        "Automated mock examination generation with option scrambling and anti-cheat protection",
-        "Official national curriculum compliance certificate for all classroom subjects",
-      ],
-    },
     subjects: [
       { name: "Mathematics (Natural)", stream: "Natural Science", code: "ETH-MAT-G12N", highlight: "Limits, continuity, differential calculus, integral calculus, and 3D analytic geometry.", icon: <Calculator className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /> },
       { name: "Physics", stream: "Natural Science", code: "ETH-PHY-G12", highlight: "Thermodynamics, heat engines, wave optics, modern physics, nuclear physics, and electronics.", icon: <Atom className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" /> },
@@ -269,10 +184,21 @@ const GRADE_PROGRAMS: GradeProgram[] = [
   },
 ];
 
+const LEARNING_SUPPORT_FEATURES = [
+  { translationKey: "public.academics.supportLessons", icon: <BookOpen className="h-4 w-4" aria-hidden="true" /> },
+  { translationKey: "public.academics.supportPractice", icon: <FileSpreadsheet className="h-4 w-4" aria-hidden="true" /> },
+  { translationKey: "public.academics.supportAssessment", icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" /> },
+  { translationKey: "public.academics.supportProgress", icon: <TrendingUp className="h-4 w-4" aria-hidden="true" /> },
+];
+
+import { usePageMeta } from "../hooks/usePageMeta";
+
 export default function AcademicsPage(): React.ReactElement {
-  useEffect(() => {
-    document.title = "Academics overview — Finkison";
-  }, []);
+  const { t } = useI18n();
+  usePageMeta(
+    t("public.academics.pageTitle"),
+    t("public.academics.pageDescription")
+  );
 
   const [selectedGrade, setSelectedGrade] = useState<number>(12);
   const [streamFilter, setStreamFilter] = useState<"All" | "Natural Science" | "Social Science">("All");
@@ -285,38 +211,30 @@ export default function AcademicsPage(): React.ReactElement {
   });
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#261E1A] font-sans selection:bg-[#FECDD3] selection:text-[#4C0519] dark:bg-[#1C1512] dark:text-slate-100">
-      {/* 1. HERO SECTION - Left-aligned to container */}
+    <div className="public-page min-h-screen bg-[#FAF8F5] text-[#261E1A] font-sans selection:bg-[#FECDD3] selection:text-[#4C0519] dark:bg-[#1C1512] dark:text-stone-100">
+
       <section className="section bg-[#4C0519] text-white border-b border-white/10">
         <div className="container space-y-6">
           <SectionHeader
             asH1
             invertColors
-            title={SITE_CONTENT.pages.academics.title}
-            subtitle={SITE_CONTENT.pages.academics.subtitle}
+            title={t("public.academics.heading")}
+            subtitle={t("public.academics.pageSubtitle")}
             actions={
               <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  to="/contact"
-                  className="min-h-[44px] px-6 py-2.5 rounded-[6px] bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-sm font-semibold transition-colors inline-flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FBBF24]"
-                >
-                  <span>Contact us</span>
-                  <ArrowRight className="w-4 h-4 text-[#1C1512]" aria-hidden="true" />
-                </Link>
                 <Link
                   to="/ai-features"
                   className="min-h-[44px] px-5 py-2.5 rounded-[6px] border border-white/40 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white"
                 >
-                  <span>Explore AI features</span>
+                  <span>{t("public.academics.exploreTools")}</span>
                 </Link>
               </div>
             }
           />
 
-          {/* Grade Level Selector */}
           <div className="pt-6 border-t border-white/15">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <span className="text-xs font-semibold text-rose-200">Grades 9–12 comparative academic progression:</span>
+              <span className="text-xs font-semibold text-rose-200">{t("public.academics.chooseGrade")}</span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[9, 10, 11, 12].map((g) => {
                   const isSelected = selectedGrade === g;
@@ -334,7 +252,7 @@ export default function AcademicsPage(): React.ReactElement {
                           : "bg-white/10 text-white hover:bg-white/20 border border-white/20"
                       }`}
                     >
-                      Grade {g}
+                      {t("public.academics.grade", { grade: g })}
                     </button>
                   );
                 })}
@@ -344,132 +262,73 @@ export default function AcademicsPage(): React.ReactElement {
         </div>
       </section>
 
-      {/* 2. GRADE PROGRAM CONTENT */}
-      <section className="section bg-white border-b border-[#E8E2D9] dark:bg-[#1C1512] dark:border-white/10">
-        <div className="container space-y-16">
-          
-          {/* Header Overview Card */}
-          <div className="p-6 sm:p-10 rounded-[12px] bg-[#FAF8F5] border border-[#E8E2D9] dark:bg-[#261E1A]/50 dark:border-white/10 shadow-xs space-y-6 text-start">
+      <section className="border-b border-[#E8E2D9] bg-white py-5 dark:border-white/10 dark:bg-[#1C1512]">
+        <div className="container">
+          <details className="group">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-xl border border-[#E8E2D9] px-4 py-3 text-sm font-semibold text-[#261E1A] transition-colors hover:bg-[#FAF8F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:border-white/10 dark:text-white dark:hover:bg-white/5">
+              <span>{t("public.academics.scienceTitle")}</span>
+              <span className="text-xs font-medium text-[#574C43] group-open:hidden dark:text-stone-300">{t("public.academics.viewActivities")}</span>
+              <span className="hidden text-xs font-medium text-[#574C43] group-open:inline dark:text-stone-300">{t("public.academics.hideActivities")}</span>
+            </summary>
+            <p className="py-3 text-sm text-[#574C43] dark:text-stone-300">{t("public.academics.scienceDescription")}</p>
+            <div className="border border-[#E8E2D9] dark:border-white/10 rounded-[12px] bg-[#FAF8F5] dark:bg-[#261E1A]/40 p-4 sm:p-6">
+              <InteractiveScienceShowcase />
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section className="section bg-[#FAF8F5] border-b border-[#E8E2D9] dark:bg-[#1C1512] dark:border-white/10">
+        <div className="container space-y-8 sm:space-y-10">
+
+          <div className="p-6 sm:p-10 rounded-[12px] bg-white border border-[#E8E2D9] dark:bg-[#261E1A]/50 dark:border-white/10 shadow-xs space-y-6 text-start">
             <div className="space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-6">
                 <div className="space-y-2 max-w-3xl">
                   <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#1C1512] dark:text-white tracking-tight leading-tight">
-                    {currentProgram.title}
+                    {t("public.academics.grade", { grade: selectedGrade })}
                   </h2>
-                  <p className="text-base sm:text-lg text-[#574C43] dark:text-slate-300 leading-relaxed">
-                    {currentProgram.subtitle}
+                  <p className="text-base sm:text-lg text-[#574C43] dark:text-stone-300 leading-relaxed">
+                    {currentProgram.description}
+                  </p>
+                  <p className="max-w-2xl text-xs leading-relaxed text-[#766A61] dark:text-stone-400">
+                    {t("public.academics.catalogNote")}
                   </p>
                 </div>
-                <div className="text-xs text-[#574C43] dark:text-slate-300 space-y-1.5 bg-white dark:bg-[#261E1A] px-4 py-3 rounded-[8px] border border-[#E8E2D9] dark:border-white/10 shadow-xs shrink-0">
-                  <div><span className="font-semibold text-[#1C1512] dark:text-white">Stage:</span> {currentProgram.academicStage}</div>
-                  <div><span className="font-semibold text-[#1C1512] dark:text-white">Structure:</span> {currentProgram.streamType}</div>
-                </div>
               </div>
             </div>
 
-            <div className="pt-5 border-t border-[#E8E2D9] dark:border-white/10">
-              <div className="rounded-[8px] bg-white dark:bg-[#261E1A] p-4 sm:p-5 border border-[#E8E2D9] dark:border-white/10">
-                <p className="text-sm sm:text-base text-[#574C43] dark:text-slate-300 leading-relaxed">
-                  <strong className="text-[#1C1512] dark:text-white font-semibold">The pedagogical reality: </strong>
-                  {currentProgram.challenge}
-                </p>
-              </div>
-            </div>
           </div>
 
-          {/* Interventions Grid */}
-          <div className="space-y-8 text-start">
-            <SectionHeader
-              title={`How Finkison supports Grade ${selectedGrade}`}
-              subtitle="Instructional tools engineered for classroom teachers, academic heads, and candidates."
-              className="mb-6"
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {currentProgram.howWeSupport.map((support) => (
+          <div className="text-start">
+            <details className="group rounded-xl border border-[#E8E2D9] bg-white dark:border-white/10 dark:bg-[#261E1A]/30">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-sm font-semibold text-[#261E1A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] dark:text-white">
+                <span>{t("public.academics.supportTitle", { grade: selectedGrade })}</span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-[#574C43] transition-transform group-open:rotate-180 dark:text-stone-300" aria-hidden="true" />
+              </summary>
+              <div className="grid grid-cols-1 gap-3 border-t border-[#E8E2D9] p-4 dark:border-white/10 sm:grid-cols-2">
+              {LEARNING_SUPPORT_FEATURES.map((support) => (
                 <div
-                  key={support.title}
-                  className="p-6 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E8E2D9] dark:border-white/10 hover:border-[#FECDD3] dark:hover:border-[#881337]/40 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-4 text-start hover:-translate-y-0.5"
+                  key={support.translationKey}
+                  className="flex min-h-14 items-center gap-3 rounded-lg border border-[#E8E2D9] bg-[#FAF8F5] p-3 dark:border-white/10 dark:bg-[#1C1512]"
                 >
-                  <div className="space-y-3">
-                    <div className="w-10 h-10 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                      {support.icon}
-                    </div>
-                    <h4 className="text-base font-bold text-[#1C1512] dark:text-white leading-snug">{support.title}</h4>
-                    <p className="text-xs sm:text-sm text-[#574C43] dark:text-slate-300 leading-relaxed">
-                      {support.description}
-                    </p>
-                  </div>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FFF1F2] text-[#881337] dark:bg-[#881337]/20 dark:text-[#FBBF24]">{support.icon}</span>
+                  <h4 className="text-sm font-semibold text-[#1C1512] dark:text-white">{t(support.translationKey)}</h4>
                 </div>
               ))}
-            </div>
+              </div>
+            </details>
           </div>
 
-          {/* Deliverables: Students vs Schools */}
-          <div className="space-y-8 text-start pt-6 border-t border-[#E8E2D9] dark:border-white/10">
-            <SectionHeader
-              title="What students and schools receive"
-              subtitle="Tangible deliverables and diagnostic intelligence for each cohort."
-              className="mb-6"
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Student Deliverables */}
-              <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E8E2D9] dark:border-white/10 hover:border-[#FECDD3] dark:hover:border-[#881337]/40 shadow-xs hover:shadow-md transition-all space-y-6 text-start">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2.5 text-lg font-bold text-[#1C1512] dark:text-white">
-                    <div className="w-8 h-8 rounded-[6px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center">
-                      <GraduationCap className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />
-                    </div>
-                    <span>What Grade {selectedGrade} students receive</span>
-                  </div>
-                  <p className="text-xs text-[#574C43] dark:text-slate-300">Direct diagnostic learning assets and practice resources.</p>
-                </div>
-                <ul className="space-y-3.5 text-xs sm:text-sm text-[#574C43] dark:text-slate-300">
-                  {currentProgram.whatTheyGet.studentGets.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-3 leading-relaxed">
-                      <CheckCircle2 className="w-4 h-4 text-[#881337] dark:text-[#FBBF24] shrink-0 mt-0.5 icon-first-line" aria-hidden="true" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* School Deliverables */}
-              <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E8E2D9] dark:border-white/10 hover:border-[#FECDD3] dark:hover:border-[#881337]/40 shadow-xs hover:shadow-md transition-all space-y-6 text-start">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2.5 text-lg font-bold text-[#1C1512] dark:text-white">
-                    <div className="w-8 h-8 rounded-[6px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center">
-                      <Building2 className="w-4 h-4 text-[#881337] dark:text-[#FBBF24]" aria-hidden="true" />
-                    </div>
-                    <span>What School Leadership and teachers receive</span>
-                  </div>
-                  <p className="text-xs text-[#574C43] dark:text-slate-300">Administrative governance, pacing reports, and assessment rubrics.</p>
-                </div>
-                <ul className="space-y-3.5 text-xs sm:text-sm text-[#574C43] dark:text-slate-300">
-                  {currentProgram.whatTheyGet.schoolGets.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-3 leading-relaxed">
-                      <CheckCircle2 className="w-4 h-4 text-[#881337] dark:text-[#FBBF24] shrink-0 mt-0.5 icon-first-line" aria-hidden="true" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Subjects Framework */}
           <div className="space-y-8 pt-6 border-t border-[#E8E2D9] dark:border-white/10 text-start">
             <div className="flex flex-wrap items-center justify-between gap-6">
               <SectionHeader
-                title={`Grade ${selectedGrade} curriculum competencies`}
-                subtitle="Mapped directly to Ethiopian national secondary curriculum specifications."
+                title={t("public.academics.subjectsTitle", { grade: selectedGrade })}
                 className="mb-0 max-w-2xl"
               />
 
               {selectedGrade >= 11 && (
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-[#574C43] dark:text-slate-300 font-semibold">Filter:</span>
+                <div className="flex flex-wrap items-center gap-2 text-xs" role="group" aria-label={t("public.academics.filterLabel")}>
                   {(["All", "Natural Science", "Social Science"] as const).map((s) => (
                     <button
                       key={s}
@@ -478,10 +337,10 @@ export default function AcademicsPage(): React.ReactElement {
                       className={`px-3.5 py-1.5 rounded-[6px] font-semibold transition-colors cursor-pointer ${
                         streamFilter === s
                           ? "bg-[#881337] text-white shadow-xs"
-                          : "bg-white dark:bg-[#261E1A] text-[#574C43] dark:text-slate-300 border border-[#E8E2D9] dark:border-white/10 hover:bg-[#FAF8F5] dark:hover:bg-[#261E1A]/80"
+                          : "bg-white dark:bg-[#261E1A] text-[#574C43] dark:text-stone-300 border border-[#E8E2D9] dark:border-white/10 hover:bg-[#FAF8F5] dark:hover:bg-[#261E1A]/80"
                       }`}
                     >
-                      {s}
+                      {t(s === "All" ? "public.academics.allStreams" : s === "Natural Science" ? "public.academics.naturalScience" : "public.academics.socialScience")}
                     </button>
                   ))}
                 </div>
@@ -500,19 +359,17 @@ export default function AcademicsPage(): React.ReactElement {
                         <div className="p-2 rounded-[6px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 text-[#881337] dark:text-[#FBBF24]">
                           {sub.icon}
                         </div>
-                        <h4 className="text-sm font-bold text-[#1C1512] dark:text-white">{sub.name}</h4>
+                        <h4 className="text-sm font-bold text-[#1C1512] dark:text-white">
+                          {sub.name}
+                        </h4>
                       </div>
-                      <span className="text-[10px] font-mono font-medium text-[#574C43] dark:text-slate-300 px-2 py-0.5 rounded-[6px] bg-[#F4EFEA] dark:bg-[#261E1A] border border-[#E8E2D9] dark:border-white/10">
-                        {sub.stream}
+                      <span className="text-[10px] font-mono font-medium text-[#574C43] dark:text-stone-300 px-2 py-0.5 rounded-[6px] bg-[#F4EFEA] dark:bg-[#261E1A] border border-[#E8E2D9] dark:border-white/10">
+                        {t(sub.stream === "Common" ? "public.academics.common" : sub.stream === "Natural Science" ? "public.academics.naturalScience" : "public.academics.socialScience")}
                       </span>
                     </div>
-                    <p className="text-xs sm:text-sm text-[#574C43] dark:text-slate-300 leading-relaxed">
+                    <p className="text-xs leading-relaxed text-[#574C43] dark:text-stone-300 sm:text-sm">
                       {sub.highlight}
                     </p>
-                  </div>
-                  <div className="text-[10px] text-[#574C43] dark:text-slate-400 font-mono pt-3 border-t border-[#E8E2D9] dark:border-white/10 flex items-center justify-between">
-                    <span>{sub.code}</span>
-                    <span className="text-[#881337] dark:text-[#FBBF24] font-semibold">National blueprint</span>
                   </div>
                 </div>
               ))}
@@ -521,41 +378,19 @@ export default function AcademicsPage(): React.ReactElement {
         </div>
       </section>
 
-      {/* 3. INTERACTIVE SCIENCE VISUALS */}
-      <section className="section bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E8E2D9] dark:border-white/10">
-        <div className="container space-y-12 text-start">
-          <SectionHeader
-            title="Interactive science simulations"
-            subtitle="Secondary students manipulate physical parameters in real-time simulations to master mechanics and molecular concepts."
-          />
-
-          <div className="border border-[#E8E2D9] dark:border-white/10 rounded-[12px] bg-white dark:bg-[#261E1A]/40 shadow-xs hover:shadow-md transition-shadow p-6 sm:p-8">
-            <InteractiveScienceShowcase />
-          </div>
-        </div>
-      </section>
-
-      {/* 4. FINAL INSTITUTIONAL CTA (Crimson #4C0519) - Left-aligned to container */}
       <section className="section bg-[#4C0519] text-white">
         <div className="container space-y-8 text-start">
           <SectionHeader
             invertColors
-            title="Elevate academic outcomes across Grades 9 through 12"
-            subtitle="Join secondary and preparatory schools preparing candidates for verifiable national entrance examination success."
+            title={t("public.academics.helpTitle")}
             actions={
               <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                 <Link
                   to="/contact"
                   className="min-h-[48px] px-8 py-3.5 rounded-[6px] bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-sm font-semibold transition-colors inline-flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FBBF24]"
                 >
-                  <span>Contact us</span>
+                  <span>{t("public.academics.contact")}</span>
                   <ArrowRight className="w-4 h-4 text-[#1C1512]" aria-hidden="true" />
-                </Link>
-                <Link
-                  to="/team"
-                  className="min-h-[48px] px-7 py-3.5 rounded-[6px] border border-white/40 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white"
-                >
-                  <span>Meet our team</span>
                 </Link>
               </div>
             }

@@ -1,254 +1,128 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-import {
-  BookOpen,
-  TrendingUp,
-  Cpu,
-  Building2,
-  Target,
-  ArrowRight,
-  School,
-  UserCheck,
-  GraduationCap,
-  Globe2,
-} from "lucide-react";
+import { ArrowRight, GraduationCap, School, Target, UserCheck, Users } from "lucide-react";
+import { MarketingCTA, MarketingSteps } from "../components/landing/MarketingSections";
+import { MarketingPageHero } from "../components/landing/MarketingPageHero";
 import { SectionHeader } from "../components/typography/SectionHeader";
-import { SITE_CONTENT } from "../content/siteContent";
+import { usePageMeta } from "../hooks/usePageMeta";
+import { useI18n } from "../i18n";
+
+const AUDIENCES = [
+  {
+    icon: GraduationCap,
+    titleKey: "public.footer.students",
+    descriptionKey: "public.navigation.studentsDescription",
+    to: "/for-students",
+    linkKey: "public.home.studentsLink",
+  },
+  {
+    icon: Users,
+    titleKey: "public.footer.teachers",
+    descriptionKey: "public.navigation.teachersDescription",
+    to: "/for-teachers",
+    linkKey: "public.home.teachersLink",
+  },
+  {
+    icon: School,
+    titleKey: "public.footer.schools",
+    descriptionKey: "public.navigation.schoolsDescription",
+    to: "/for-schools",
+    linkKey: "public.home.schoolsLink",
+  },
+  {
+    icon: UserCheck,
+    titleKey: "public.footer.families",
+    descriptionKey: "public.navigation.familiesDescription",
+    to: "/for-families",
+    linkKey: "public.home.familiesLink",
+  },
+];
 
 export default function AboutPage(): React.ReactElement {
-  useEffect(() => {
-    document.title = "About Finkison — Finkison";
-
-    if (window.location.hash) {
-      const id = window.location.hash.replace("#", "");
-      const elem = document.getElementById(id);
-      if (elem) {
-        elem.scrollIntoView({ behavior: "smooth" });
-      }
-    }
-  }, []);
+  const { t } = useI18n();
+  usePageMeta(t("public.pages.aboutTitle"), t("public.pages.aboutDescription"));
 
   return (
-    <div className="min-h-screen bg-white text-[#261E1A] font-sans selection:bg-[#FFF1F2] selection:text-[#881337] dark:bg-[#1C1512] dark:text-stone-100">
-      {/* 1. HERO SECTION - Left-aligned to container */}
-      <section className="section bg-white dark:bg-[#1C1512] border-b border-[#E2E8F0] dark:border-stone-800">
-        <div className="container space-y-8">
-          <SectionHeader
-            asH1
-            title={SITE_CONTENT.pages.about.title}
-            subtitle={SITE_CONTENT.pages.about.subtitle}
-            actions={
-              <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  to="/contact"
-                  className="min-h-[44px] px-6 py-2.5 rounded-[6px] bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-sm font-semibold transition-colors inline-flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#881337] active:scale-[0.98]"
-                >
-                  <span>Contact us</span>
-                  <ArrowRight className="w-4 h-4 text-[#1C1512]" aria-hidden="true" />
-                </Link>
-                <Link
-                  to="/team"
-                  className="min-h-[44px] px-5 py-2.5 rounded-[6px] border border-[#E2E8F0] dark:border-white/20 hover:bg-stone-50 dark:hover:bg-white/10 text-[#1C1512] dark:text-white text-sm font-semibold transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#881337] active:scale-[0.98]"
-                >
-                  <span>Meet our team</span>
-                </Link>
-              </div>
-            }
-          />
-        </div>
-      </section>
+    <div className="public-page min-h-screen bg-white font-sans text-[#261E1A] selection:bg-[#FFF1F2] selection:text-[#881337] dark:bg-[#1C1512] dark:text-stone-100">
+      <MarketingPageHero
+        title={t("public.pages.aboutTitle")}
+        description={t("public.pages.aboutDescription")}
+        panelTitle={t("public.marketing.about.panelTitle")}
+        panelItems={[
+          t("public.marketing.about.panelStudent"),
+          t("public.marketing.about.panelTeacher"),
+          t("public.marketing.about.panelSchool"),
+        ]}
+        actions={
+          <>
+            <Link to="/academics" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#FBBF24] px-5 py-3 text-sm font-bold text-[#1C1512] transition-colors hover:bg-[#F59E0B] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#4C0519]">
+              {t("public.home.browseCurriculum")}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+            <Link to="/contact" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/30 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#4C0519]">
+              {t("public.navigation.contact")}
+            </Link>
+          </>
+        }
+      />
 
-      {/* 2. MISSION AND FOUNDING PRINCIPLES */}
-      <section className="section bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E2E8F0] dark:border-stone-800">
-        <div className="container space-y-12">
-          <SectionHeader
-            title="Curriculum fidelity and educational equity"
-            subtitle="Our core principles guide platform development, assessment calibration, and secondary school enablement across Ethiopia."
-          />
-
-          <div className="grid md:grid-cols-3 gap-8 text-start">
-            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4">
-              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                <BookOpen className="w-6 h-6 text-[#881337]" aria-hidden="true" />
-              </div>
-              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
-                National curriculum alignment
-              </h3>
-              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
-                Every lesson outline, worked solution, and mock exam is mapped directly to approved Ethiopian national secondary textbooks across all units in Grades 9 through 12.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4">
-              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                <TrendingUp className="w-6 h-6 text-[#881337]" aria-hidden="true" />
-              </div>
-              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
-                Empirical psychometric calibration
-              </h3>
-              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
-                We replace arbitrary percentages with calibrated entrance score forecasts modeled on historical university cutoffs, giving students clear confidence ranges before exam day.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4">
-              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                <Globe2 className="w-6 h-6 text-[#881337]" aria-hidden="true" />
-              </div>
-              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
-                National educational equity
-              </h3>
-              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
-                Standardized across all regional states in clear, textbook-aligned English to give every student an equal path to university admission regardless of geographic location.
-              </p>
-            </div>
+      <section className="section border-b border-[#E7E0D6] bg-[#FAF8F5] dark:border-white/10 dark:bg-[#1C1512]" aria-labelledby="about-purpose-heading">
+        <div className="container space-y-7 sm:space-y-8">
+          <SectionHeader id="about-purpose-heading" align="start" title={t("public.marketing.about.approachTitle")} subtitle={t("public.marketing.about.approachBody")} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <article className="rounded-2xl border border-[#E7E0D6] bg-white p-6 sm:p-7 dark:border-white/10 dark:bg-[#261E1A]">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#881337] dark:text-[#FBBF24]">{t("public.marketing.common.vision")}</p>
+              <h2 className="mt-3 text-xl font-bold tracking-tight text-[#1C1512] dark:text-white">{t("public.marketing.about.visionTitle")}</h2>
+              <p className="mt-2 text-sm leading-6 text-[#57534E] dark:text-stone-300">{t("public.marketing.about.visionBody")}</p>
+            </article>
+            <article className="rounded-2xl border border-[#E7E0D6] bg-[#4C0519] p-6 text-white sm:p-7">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#FDE68A]">{t("public.marketing.common.mission")}</p>
+              <h2 className="mt-3 text-xl font-bold tracking-tight text-white">{t("public.marketing.about.missionTitle")}</h2>
+              <p className="mt-2 text-sm leading-6 text-stone-200">{t("public.marketing.about.missionBody")}</p>
+            </article>
           </div>
         </div>
       </section>
 
-      {/* 3. INSTITUTIONAL INFRASTRUCTURE FOR SCHOOLS */}
-      <section className="section bg-white dark:bg-[#1C1512] border-b border-[#E2E8F0] dark:border-stone-800" id="schools">
-        <div className="container space-y-12">
-          <SectionHeader
-            title="Academic infrastructure for secondary schools"
-            subtitle="Finkison provides unified academic governance, cohort performance analytics, and automated exam generation for preparatory and secondary schools."
-          />
+      <MarketingSteps
+        id="design-principles-heading"
+        title={t("public.marketing.about.principlesTitle")}
+        tone="white"
+        items={[
+          { icon: GraduationCap, title: t("public.marketing.about.principle1Title"), description: t("public.marketing.about.principle1Body") },
+          { icon: ArrowRight, title: t("public.marketing.about.principle2Title"), description: t("public.marketing.about.principle2Body") },
+          { icon: Target, title: t("public.marketing.about.principle3Title"), description: t("public.marketing.about.principle3Body") },
+          { icon: UserCheck, title: t("public.marketing.about.principle4Title"), description: t("public.marketing.about.principle4Body") },
+        ]}
+      />
 
-          <div className="grid md:grid-cols-3 gap-8 text-start">
-            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 hover:border-[#FECDD3] dark:hover:border-[#881337]/40 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4">
-              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                <School className="w-6 h-6 text-[#881337]" aria-hidden="true" />
-              </div>
-              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
-                Institutional governance
-              </h3>
-              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
-                Principals and academic deans monitor cohort velocity, projected admission cutoffs, and export statutory continuous assessment reports with full audit integrity.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 hover:border-[#FECDD3] dark:hover:border-[#881337]/40 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4" id="teachers">
-              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                <UserCheck className="w-6 h-6 text-[#881337]" aria-hidden="true" />
-              </div>
-              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
-                Classroom assessment integrity
-              </h3>
-              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
-                Subject educators draft standardized tests across units, verify answer keys before publishing, and manage continuous assessment records with zero manual calculation overhead.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-[12px] bg-white dark:bg-[#261E1A]/40 border border-[#E2E8F0] dark:border-stone-800 hover:border-[#FECDD3] dark:hover:border-[#881337]/40 shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 duration-200 space-y-4">
-              <div className="w-12 h-12 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                <GraduationCap className="w-6 h-6 text-[#881337]" aria-hidden="true" />
-              </div>
-              <h3 className="text-lg font-bold text-[#1C1512] dark:text-white">
-                Candidate academic mastery
-              </h3>
-              <p className="text-sm sm:text-base text-[#57534E] dark:text-stone-300 leading-relaxed">
-                Candidates access structured textbook summaries, interactive science simulations, timed entrance trials, and verified past papers with worked solutions.
-              </p>
-            </div>
+      <section className="section bg-[#FAF8F5] dark:bg-[#1C1512]" aria-labelledby="about-audiences-heading">
+        <div className="container space-y-7 sm:space-y-8">
+          <SectionHeader id="about-audiences-heading" align="start" title={t("public.marketing.about.panelTitle")} subtitle={t("public.marketing.about.approachBody")} />
+          <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-4">
+            {AUDIENCES.map(({ icon: Icon, titleKey, descriptionKey, to, linkKey }) => (
+              <article key={titleKey} className="flex h-full flex-col rounded-2xl border border-[#E7E0D6] bg-white p-5 dark:border-white/10 dark:bg-[#261E1A]">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#FECDD3] bg-[#FFF1F2] text-[#881337] dark:border-[#881337]/40 dark:bg-[#881337]/20 dark:text-[#FBBF24]">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <h3 className="mt-4 text-base font-bold text-[#1C1512] dark:text-white">{t(titleKey)}</h3>
+                <p className="mt-1.5 flex-1 text-sm leading-6 text-[#57534E] dark:text-stone-300">{t(descriptionKey)}</p>
+                <Link to={to} className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337] dark:text-[#FBBF24]">
+                  {t(linkKey)}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </article>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* 4. TEAM AND LEADERSHIP DIVISIONS */}
-      <section className="section bg-[#FAF8F5] dark:bg-[#1C1512] border-b border-[#E2E8F0] dark:border-stone-800" id="team">
-        <div className="container space-y-12">
-          <SectionHeader
-            title="Guided by Ethiopian curriculum specialists and measurement scientists"
-            subtitle="Every assessment item, score prediction model, and school deployment workflow is verified across four academic divisions."
-          />
-
-          <div className="p-8 sm:p-10 rounded-[16px] bg-white dark:bg-[#261E1A]/60 border border-[#E2E8F0] dark:border-stone-800 shadow-xs space-y-8 text-start">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="space-y-2.5">
-                <div className="w-10 h-10 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                  <BookOpen className="w-5 h-5" aria-hidden="true" />
-                </div>
-                <h3 className="text-base font-bold text-[#1C1512] dark:text-white">Curriculum alignment</h3>
-                <p className="text-xs sm:text-sm text-[#57534E] dark:text-stone-300 leading-relaxed">
-                  Subject matter specialists mapping all items to approved national textbooks.
-                </p>
-              </div>
-
-              <div className="space-y-2.5">
-                <div className="w-10 h-10 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                  <Target className="w-5 h-5" aria-hidden="true" />
-                </div>
-                <h3 className="text-base font-bold text-[#1C1512] dark:text-white">Psychometrics</h3>
-                <p className="text-xs sm:text-sm text-[#57534E] dark:text-stone-300 leading-relaxed">
-                  Statistical scientists modeling item difficulty and university entrance score distributions.
-                </p>
-              </div>
-
-              <div className="space-y-2.5">
-                <div className="w-10 h-10 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                  <Cpu className="w-5 h-5" aria-hidden="true" />
-                </div>
-                <h3 className="text-base font-bold text-[#1C1512] dark:text-white">Domestic engineering</h3>
-                <p className="text-xs sm:text-sm text-[#57534E] dark:text-stone-300 leading-relaxed">
-                  Tier-3 Addis Ababa cloud hosting, AES-256 candidate security, and low-latency testing.
-                </p>
-              </div>
-
-              <div className="space-y-2.5">
-                <div className="w-10 h-10 rounded-[8px] bg-[#FFF1F2] dark:bg-[#881337]/20 border border-[#FECDD3] dark:border-[#881337]/40 flex items-center justify-center text-[#881337] dark:text-[#FBBF24]">
-                  <Building2 className="w-5 h-5" aria-hidden="true" />
-                </div>
-                <h3 className="text-base font-bold text-[#1C1512] dark:text-white">School enablement</h3>
-                <p className="text-xs sm:text-sm text-[#57534E] dark:text-stone-300 leading-relaxed">
-                  On-site workshops for administrators and direct educator onboarding.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-6 border-t border-stone-100 dark:border-stone-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <span className="text-xs sm:text-sm text-stone-600 dark:text-stone-300">
-                Learn more about our educational research methodologies, faculty, and technical team.
-              </span>
-              <Link
-                to="/team"
-                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#881337] dark:text-[#FBBF24] hover:underline"
-              >
-                <span>Meet our leadership team</span>
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 5. FINAL CALL TO ACTION (Academic Shield #4C0519) - Left-aligned to container */}
-      <section className="section bg-[#4C0519] text-white">
-        <div className="container space-y-8 text-start">
-          <SectionHeader
-            invertColors
-            title="Equip your secondary school with Finkison"
-            subtitle="Connect with our academic team to discuss school onboarding, educator workshops, or student license allocations."
-            className="text-white"
-            actions={
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                <Link
-                  to="/contact"
-                  className="min-h-[48px] px-8 py-3.5 rounded-[6px] bg-[#FBBF24] hover:bg-[#F59E0B] text-[#1C1512] text-sm font-semibold transition-colors inline-flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#881337] active:scale-[0.98]"
-                >
-                  <span>Contact us</span>
-                  <ArrowRight className="w-4 h-4 text-[#1C1512]" aria-hidden="true" />
-                </Link>
-                <Link
-                  to="/academics"
-                  className="min-h-[48px] px-7 py-3.5 rounded-[6px] border border-white/40 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white active:scale-[0.98]"
-                >
-                  <span>Explore academics</span>
-                </Link>
-              </div>
-            }
-          />
-        </div>
-      </section>
+      <MarketingCTA
+        title={t("public.marketing.about.panelTitle")}
+        description={t("public.marketing.about.approachBody")}
+        primaryLabel={t("public.marketing.common.learnMore")}
+        primaryTo="/ai-features"
+        secondaryLabel={t("public.marketing.common.talkToUs")}
+        secondaryTo="/contact"
+      />
     </div>
   );
 }
